@@ -1,13 +1,16 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/app/layout/AppLayout'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
-import { DesignSystemPage } from '@/pages/DesignSystemPage'
 import { MeusImoveisPage } from '@/pages/MeusImoveisPage'
 import { MeusClientesPage } from '@/pages/MeusClientesPage'
 import { CadastroImovelPage } from '@/pages/CadastroImovelPage'
 import { CadastroLeadPage } from '@/pages/CadastroLeadPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { OnboardingPage } from '@/pages/OnboardingPage'
+import { TodosImoveisPage } from '@/pages/TodosImoveisPage'
+import { TodosLeadsPage } from '@/pages/TodosLeadsPage'
+import { NotificacoesPage } from '@/pages/NotificacoesPage'
+import { ConfiguracoesScorePage } from '@/pages/ConfiguracoesScorePage'
 
 export const router = createBrowserRouter(
   [
@@ -21,16 +24,12 @@ export const router = createBrowserRouter(
         { path: 'meus-clientes', element: <MeusClientesPage /> },
         { path: 'imoveis/novo', element: <CadastroImovelPage /> },
         { path: 'leads/novo', element: <CadastroLeadPage /> },
-        { path: 'todos-imoveis', element: <PlaceholderPage titulo="Todos os Imóveis" /> },
-        { path: 'todos-leads', element: <PlaceholderPage titulo="Todos os Leads" /> },
+        { path: 'todos-imoveis', element: <TodosImoveisPage /> },
+        { path: 'todos-leads', element: <TodosLeadsPage /> },
         { path: 'todos-corretores', element: <PlaceholderPage titulo="Todos os Corretores" /> },
         { path: 'imoveis-perdidos', element: <PlaceholderPage titulo="Imóveis Perdidos" /> },
-        { path: 'notificacoes', element: <PlaceholderPage titulo="Notificações" /> },
-        {
-          path: 'configuracoes/score',
-          element: <PlaceholderPage titulo="Configurações > Score" />,
-        },
-        { path: 'design-system', element: <DesignSystemPage /> },
+        { path: 'notificacoes', element: <NotificacoesPage /> },
+        { path: 'configuracoes/score', element: <ConfiguracoesScorePage /> },
       ],
     },
     { path: '/login', element: <PlaceholderPage titulo="Login" /> },

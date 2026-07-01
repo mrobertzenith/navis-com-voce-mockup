@@ -4,16 +4,23 @@ import { Link } from 'react-router-dom'
 import { KanbanBoard, type ColunaDef } from '@/components/kanban/KanbanBoard'
 import { CardImovel } from '@/components/imovel/CardImovel'
 import { ModalGateImovel } from '@/components/imovel/ModalGateImovel'
+import { DrillDownMatch } from '@/components/match/DrillDownMatch'
+import type { MatchItem } from '@/components/match/ListaMatches'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
-import { ETAPA_IMOVEL_LABEL, ETAPA_IMOVEL_ORDEM } from '@/domain/constants'
+import { ETAPA_IMOVEL_LABEL, ETAPA_IMOVEL_ORDEM, TIPO_IMOVEL_LABEL } from '@/domain/constants'
 import { avaliarTransicaoImovel } from '@/domain/gatesImovel'
+import { calcularMatch } from '@/domain/matching'
 import type { EtapaImovel, Imovel } from '@/domain/types'
 import { useAtualizarImovel, useImoveis } from '@/hooks/useImoveis'
+import { useLeads } from '@/hooks/useLeads'
 import { useMatches } from '@/hooks/useMatches'
-import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
-import { formatDiasDesde } from '@/lib/format'
+import { CORRETORES, CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
+import { formatDiasDesde, formatPreco } from '@/lib/format'
+import { useDismissStore } from '@/stores/dismissStore'
+import { useScoreStore } from '@/stores/scoreStore'
+import { useUIStore } from '@/stores/uiStore'
 
 const COLUNAS: ColunaDef[] = ETAPA_IMOVEL_ORDEM.map((etapa) => ({
   id: etapa,
@@ -29,11 +36,18 @@ interface PendingMove {
 
 export function MeusImoveisPage() {
   const { data: imoveis = [], isLoading } = useImoveis()
+  const { data: leads = [] } = useLeads()
   const atualizarImovel = useAtualizarImovel()
   const { contadorPorImovel } = useMatches()
+  const pesos = useScoreStore((s) => s.pesos)
+  const descartados = useDismissStore((s) => s.descartados)
+  const descartar = useDismissStore((s) => s.descartar)
+  const abrirModalLead = useUIStore((s) => s.abrirModalLead)
+  const abrirModalImovel = useUIStore((s) => s.abrirModalImovel)
   const { toast } = useToast()
   const [busca, setBusca] = useState('')
   const [pending, setPending] = useState<PendingMove | null>(null)
+  const [drillDownImovelId, setDrillDownImovelId] = useState<string | null>(null)
 
   const meusImoveis = useMemo(
     () => imoveis.filter((i) => i.corretorResponsavelId === CORRETOR_LOGADO_ID),
@@ -77,6 +91,31 @@ export function MeusImoveisPage() {
       requerConfirmacao: resultado.requerConfirmacao,
     })
   }
+
+  const matchesDrillDown: MatchItem[] = useMemo(() => {
+    if (!drillDownImovelId) return []
+    const imovel = imoveis.find((i) => i.id === drillDownImovelId)
+    if (!imovel) return []
+
+    return leads
+      .map((lead): MatchItem | null => {
+        if (descartados[`${CORRETOR_LOGADO_ID}::${lead.id}::${imovel.id}`]) return null
+        const match = calcularMatch(imovel, lead, pesos)
+        if (!match) return null
+        const ehProprio = lead.corretorResponsavelId === CORRETOR_LOGADO_ID
+        return {
+          id: lead.id,
+          score: match.score,
+          isAviso: match.isAviso,
+          resumo: `${lead.perfilBusca.tipos.map((t) => TIPO_IMOVEL_LABEL[t]).join('/')} · ${lead.perfilBusca.bairros.join(', ')} · até ${formatPreco(lead.perfilBusca.valorAte)}`,
+          corretorNome: nomeCorretor(lead.corretorResponsavelId),
+          corretorWhatsapp: CORRETORES.find((c) => c.id === lead.corretorResponsavelId)?.telefoneWhatsapp,
+          ehProprio,
+        }
+      })
+      .filter((m): m is MatchItem => m != null)
+      .sort((a, b) => b.score - a.score)
+  }, [drillDownImovelId, imoveis, leads, pesos, descartados])
 
   function isColunaValidaParaDrag(itemId: string, origemId: string, destinoId: string): boolean {
     const imovel = meusImoveis.find((i) => i.id === itemId)
@@ -141,6 +180,8 @@ export function MeusImoveisPage() {
             imovel={imovel}
             diasParado={formatDiasDesde(imovel.atualizadoEm)}
             contadorMatches={contadorPorImovel[imovel.id]}
+            onClick={() => abrirModalImovel(imovel.id)}
+            onClickContador={() => setDrillDownImovelId(imovel.id)}
             onMover={onMover}
           />
         )}
@@ -155,6 +196,20 @@ export function MeusImoveisPage() {
         requerConfirmacao={pending?.requerConfirmacao ?? false}
         onCancelar={() => setPending(null)}
         onConfirmar={confirmarMovimentacao}
+      />
+
+      <DrillDownMatch
+        aberto={drillDownImovelId != null}
+        titulo="Clientes com perfil deste imóvel"
+        matches={matchesDrillDown}
+        onFechar={() => setDrillDownImovelId(null)}
+        onAbrir={(leadId) => {
+          abrirModalLead(leadId)
+          setDrillDownImovelId(null)
+        }}
+        onDismiss={(leadId) => {
+          if (drillDownImovelId) descartar(CORRETOR_LOGADO_ID, leadId, drillDownImovelId)
+        }}
       />
     </div>
   )

@@ -4,16 +4,22 @@ import { Link } from 'react-router-dom'
 import { KanbanBoard, type ColunaDef } from '@/components/kanban/KanbanBoard'
 import { CardLead } from '@/components/lead/CardLead'
 import { ModalGateLead } from '@/components/lead/ModalGateLead'
+import { DrillDownMatch } from '@/components/match/DrillDownMatch'
+import type { MatchItem } from '@/components/match/ListaMatches'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
-import { ETAPA_LEAD_LABEL, ETAPA_LEAD_ORDEM } from '@/domain/constants'
+import { ETAPA_LEAD_LABEL, ETAPA_LEAD_ORDEM, TIPO_IMOVEL_LABEL } from '@/domain/constants'
 import { avaliarTransicaoLead } from '@/domain/gatesLead'
+import { calcularMatch } from '@/domain/matching'
 import type { EtapaLead, Lead } from '@/domain/types'
 import { useAtualizarLead, useLeads } from '@/hooks/useLeads'
 import { useImoveis } from '@/hooks/useImoveis'
 import { useMatches } from '@/hooks/useMatches'
-import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
+import { CORRETORES, CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
+import { formatPreco } from '@/lib/format'
+import { useDismissStore } from '@/stores/dismissStore'
+import { useScoreStore } from '@/stores/scoreStore'
 import { useUIStore } from '@/stores/uiStore'
 
 const COLUNAS: ColunaDef[] = ETAPA_LEAD_ORDEM.map((etapa) => ({
@@ -33,10 +39,15 @@ export function MeusClientesPage() {
   const { data: imoveis = [] } = useImoveis()
   const atualizarLead = useAtualizarLead()
   const { contadorPorLead } = useMatches()
+  const pesos = useScoreStore((s) => s.pesos)
+  const descartados = useDismissStore((s) => s.descartados)
+  const descartar = useDismissStore((s) => s.descartar)
   const { toast } = useToast()
   const abrirModalImovel = useUIStore((s) => s.abrirModalImovel)
+  const abrirModalLead = useUIStore((s) => s.abrirModalLead)
   const [busca, setBusca] = useState('')
   const [pending, setPending] = useState<PendingMove | null>(null)
+  const [drillDownLeadId, setDrillDownLeadId] = useState<string | null>(null)
 
   const meusLeads = useMemo(
     () => leads.filter((l) => l.corretorResponsavelId === CORRETOR_LOGADO_ID),
@@ -70,6 +81,32 @@ export function MeusClientesPage() {
       }
     })
   }
+
+  const matchesDrillDown: MatchItem[] = useMemo(() => {
+    if (!drillDownLeadId) return []
+    const lead = leads.find((l) => l.id === drillDownLeadId)
+    if (!lead) return []
+
+    return imoveis
+      .filter((i) => i.etapa !== 'f')
+      .map((imovel): MatchItem | null => {
+        if (descartados[`${CORRETOR_LOGADO_ID}::${lead.id}::${imovel.id}`]) return null
+        const match = calcularMatch(imovel, lead, pesos)
+        if (!match) return null
+        const ehProprio = imovel.corretorResponsavelId === CORRETOR_LOGADO_ID
+        return {
+          id: imovel.id,
+          score: match.score,
+          isAviso: match.isAviso,
+          resumo: `${TIPO_IMOVEL_LABEL[imovel.tipo]} · ${imovel.bairro} · ${formatPreco(imovel.valorAnuncio ?? imovel.valorEstimado)}`,
+          corretorNome: nomeCorretor(imovel.corretorResponsavelId),
+          corretorWhatsapp: CORRETORES.find((c) => c.id === imovel.corretorResponsavelId)?.telefoneWhatsapp,
+          ehProprio,
+        }
+      })
+      .filter((m): m is MatchItem => m != null)
+      .sort((a, b) => b.score - a.score)
+  }, [drillDownLeadId, imoveis, leads, pesos, descartados])
 
   function iniciarMovimentacao(itemId: string, _origemId: string, destinoId: string) {
     const lead = meusLeads.find((l) => l.id === itemId)
@@ -154,6 +191,8 @@ export function MeusClientesPage() {
             contadorMatches={contadorPorLead[lead.id]}
             negociacoesAtivas={resolverNegociacoes(lead)}
             onAbrirImovelNegociacao={(imovelId) => abrirModalImovel(imovelId)}
+            onClick={() => abrirModalLead(lead.id)}
+            onClickContador={() => setDrillDownLeadId(lead.id)}
             onMover={onMover}
           />
         )}
@@ -168,6 +207,20 @@ export function MeusClientesPage() {
         requerConfirmacao={pending?.requerConfirmacao ?? false}
         onCancelar={() => setPending(null)}
         onConfirmar={confirmarMovimentacao}
+      />
+
+      <DrillDownMatch
+        aberto={drillDownLeadId != null}
+        titulo="Possíveis negócios disponíveis"
+        matches={matchesDrillDown}
+        onFechar={() => setDrillDownLeadId(null)}
+        onAbrir={(imovelId) => {
+          abrirModalImovel(imovelId)
+          setDrillDownLeadId(null)
+        }}
+        onDismiss={(imovelId) => {
+          if (drillDownLeadId) descartar(CORRETOR_LOGADO_ID, drillDownLeadId, imovelId)
+        }}
       />
     </div>
   )

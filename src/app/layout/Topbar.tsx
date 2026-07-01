@@ -2,11 +2,11 @@ import { Link } from 'react-router-dom'
 import { Bell, RotateCcw, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useDemoStore } from '@/stores/demoStore'
-import { NOTIFICACOES_SEED } from '@/mocks/data/notificacoes'
+import { useNotificacoesStore } from '@/stores/notificacoesStore'
 
 export function Topbar() {
   const resetarDemo = useDemoStore((s) => s.resetarDemo)
-  const naoLidas = NOTIFICACOES_SEED.filter((n) => !n.lida).length
+  const naoLidas = useNotificacoesStore((s) => s.notificacoes.filter((n) => !n.lida).length)
 
   return (
     <header className="flex h-16 items-center justify-between gap-2 border-b border-border bg-surface px-3 sm:px-6">

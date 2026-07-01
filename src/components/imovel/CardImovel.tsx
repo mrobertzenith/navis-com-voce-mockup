@@ -11,6 +11,7 @@ interface CardImovelProps {
   contadorMatches?: number
   diasParado?: number
   onClick?: () => void
+  onClickContador?: () => void
   onMover?: () => void
   className?: string
 }
@@ -19,7 +20,15 @@ function areaPrincipal(imovel: Imovel): number | undefined {
   return imovel.areaPrivativaM2 ?? imovel.areaConstruidaM2 ?? imovel.areaTerrenoM2
 }
 
-export function CardImovel({ imovel, contadorMatches, diasParado, onClick, onMover, className }: CardImovelProps) {
+export function CardImovel({
+  imovel,
+  contadorMatches,
+  diasParado,
+  onClick,
+  onClickContador,
+  onMover,
+  className,
+}: CardImovelProps) {
   const valor = imovel.valorAnuncio ?? imovel.valorEstimado
   const area = areaPrincipal(imovel)
   const mostrarTarjaNegociacao = imovel.etapa === 'e'
@@ -29,9 +38,21 @@ export function CardImovel({ imovel, contadorMatches, diasParado, onClick, onMov
   return (
     <div
       onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onClick()
+              }
+            }
+          : undefined
+      }
       className={cn(
         'relative overflow-hidden rounded-card border border-border bg-surface p-3 shadow-card transition-shadow',
-        onClick && 'cursor-pointer hover:shadow-md',
+        onClick && 'cursor-pointer hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
         className,
       )}
     >
@@ -75,10 +96,21 @@ export function CardImovel({ imovel, contadorMatches, diasParado, onClick, onMov
       </div>
 
       {imovel.etapa === 'd' && contadorMatches != null && (
-        <div className="mt-2 inline-flex items-center gap-1.5 rounded-chip bg-primary/10 px-2 py-1 text-xs font-medium font-body text-primary">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onClickContador?.()
+          }}
+          disabled={!onClickContador}
+          className={cn(
+            'mt-2 inline-flex items-center gap-1.5 rounded-chip bg-primary/10 px-2 py-1 text-xs font-medium font-body text-primary',
+            onClickContador && 'hover:bg-primary/20',
+          )}
+        >
           <Users className="h-3.5 w-3.5" strokeWidth={1.5} />
           {contadorMatches} {contadorMatches === 1 ? 'cliente' : 'clientes'} com perfil deste imóvel
-        </div>
+        </button>
       )}
 
       {onMover && (

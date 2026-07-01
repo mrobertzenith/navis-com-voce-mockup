@@ -23,6 +23,7 @@ interface CardLeadProps {
   negociacoesAtivas?: NegociacaoResumo[]
   onAbrirImovelNegociacao?: (imovelId: string) => void
   onClick?: () => void
+  onClickContador?: () => void
   onMover?: () => void
   className?: string
 }
@@ -33,6 +34,7 @@ export function CardLead({
   negociacoesAtivas,
   onAbrirImovelNegociacao,
   onClick,
+  onClickContador,
   onMover,
   className,
 }: CardLeadProps) {
@@ -49,9 +51,21 @@ export function CardLead({
   return (
     <div
       onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onClick()
+              }
+            }
+          : undefined
+      }
       className={cn(
         'relative rounded-card border border-border bg-surface p-3 shadow-card transition-shadow',
-        onClick && 'cursor-pointer hover:shadow-md',
+        onClick && 'cursor-pointer hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
         (isStandby || isPerdido) && 'grayscale opacity-75',
         className,
       )}
@@ -80,10 +94,21 @@ export function CardLead({
       </p>
 
       {contadorMatches != null && contadorMatches > 0 && (
-        <div className="mt-2 inline-flex items-center gap-1.5 rounded-chip bg-primary/10 px-2 py-1 text-xs font-medium font-body text-primary">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onClickContador?.()
+          }}
+          disabled={!onClickContador}
+          className={cn(
+            'mt-2 inline-flex items-center gap-1.5 rounded-chip bg-primary/10 px-2 py-1 text-xs font-medium font-body text-primary',
+            onClickContador && 'hover:bg-primary/20',
+          )}
+        >
           <Users className="h-3.5 w-3.5" strokeWidth={1.5} />
           {contadorMatches} possíveis negócios disponíveis
-        </div>
+        </button>
       )}
 
       {lead.etapa === 4 && negociacoesAtivas != null && negociacoesAtivas.length > 0 && (

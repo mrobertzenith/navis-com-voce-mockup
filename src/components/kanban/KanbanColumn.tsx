@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useDroppable } from '@dnd-kit/core'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { cn } from '@/lib/cn'
 
 interface KanbanColumnProps {
@@ -29,7 +30,9 @@ export function KanbanColumn({ id, label, count, children, estadoDrag }: KanbanC
           {count}
         </span>
       </div>
-      <div className="flex flex-col gap-2 overflow-y-auto">{children}</div>
+      <div className="flex flex-col gap-2 overflow-y-auto">
+        {count === 0 ? <EmptyState title="Nenhum item nesta etapa" /> : children}
+      </div>
     </div>
   )
 }

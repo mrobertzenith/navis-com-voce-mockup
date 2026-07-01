@@ -1,11 +1,13 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Building2, Users, Bell, Settings } from 'lucide-react'
+import { LayoutDashboard, Building2, Users, Bell, Settings, ListChecks, UsersRound } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/meus-imoveis', label: 'Meus Imóveis', icon: Building2 },
   { to: '/meus-clientes', label: 'Meus Clientes', icon: Users },
+  { to: '/todos-imoveis', label: 'Todos os Imóveis', icon: ListChecks },
+  { to: '/todos-leads', label: 'Todos os Leads', icon: UsersRound },
   { to: '/notificacoes', label: 'Notificações', icon: Bell },
   { to: '/configuracoes/score', label: 'Configurações', icon: Settings },
 ]
