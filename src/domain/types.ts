@@ -166,10 +166,16 @@ export interface Lead {
 
   dataCadastro: string
   ttlAtual?: string
+  dataVisita?: string
   motivoStandby?: string
   meMantenhaInformado?: boolean
   motivoPerdido?: string
   dataEntradaStandby?: string
+  pagamentosConcluidos?: boolean
+  chavesEntregues?: boolean
+
+  /** negociações ativas na etapa (4) — modelo simplificado até o motor de matching (Fase 4) */
+  negociacoesAtivas?: { imovelId: string; dataInicio: string }[]
 }
 
 export interface Vinculo {

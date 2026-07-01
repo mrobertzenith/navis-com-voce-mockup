@@ -1,9 +1,12 @@
+import { Link } from 'react-router-dom'
 import { Bell, RotateCcw, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useDemoStore } from '@/stores/demoStore'
+import { NOTIFICACOES_SEED } from '@/mocks/data/notificacoes'
 
 export function Topbar() {
   const resetarDemo = useDemoStore((s) => s.resetarDemo)
+  const naoLidas = NOTIFICACOES_SEED.filter((n) => !n.lida).length
 
   return (
     <header className="flex h-16 items-center justify-between gap-2 border-b border-border bg-surface px-3 sm:px-6">
@@ -14,8 +17,15 @@ export function Topbar() {
         <span className="hidden font-body text-xs text-text-soft sm:inline">by Navis</span>
       </div>
       <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-        <Button variant="ghost" size="icon" aria-label="Notificações">
-          <Bell strokeWidth={1.5} />
+        <Button variant="ghost" size="icon" aria-label="Notificações" asChild className="relative">
+          <Link to="/notificacoes">
+            <Bell strokeWidth={1.5} />
+            {naoLidas > 0 && (
+              <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 font-mono text-[10px] font-semibold text-white">
+                {naoLidas}
+              </span>
+            )}
+          </Link>
         </Button>
         <Button
           variant="ghost"

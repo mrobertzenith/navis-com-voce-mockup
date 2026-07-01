@@ -1,5 +1,9 @@
 import { Users } from 'lucide-react'
 import { ChipTipoImovel } from '@/components/imovel/ChipTipoImovel'
+import {
+  NegociacaoAtivaExpansivel,
+  type NegociacaoResumo,
+} from '@/components/lead/NegociacaoAtivaExpansivel'
 import { TarjaArquivado, TarjaStandby } from '@/components/shared/Tarja'
 import { Button } from '@/components/ui/button'
 import type { Lead } from '@/domain/types'
@@ -16,12 +20,22 @@ export type LeadCardData = Omit<Lead, 'nome'>
 interface CardLeadProps {
   lead: LeadCardData
   contadorMatches?: number
+  negociacoesAtivas?: NegociacaoResumo[]
+  onAbrirImovelNegociacao?: (imovelId: string) => void
   onClick?: () => void
   onMover?: () => void
   className?: string
 }
 
-export function CardLead({ lead, contadorMatches, onClick, onMover, className }: CardLeadProps) {
+export function CardLead({
+  lead,
+  contadorMatches,
+  negociacoesAtivas,
+  onAbrirImovelNegociacao,
+  onClick,
+  onMover,
+  className,
+}: CardLeadProps) {
   const { perfilBusca } = lead
   const isStandby = lead.etapa === 7
   const isPerdido = lead.etapa === 8
@@ -70,6 +84,13 @@ export function CardLead({ lead, contadorMatches, onClick, onMover, className }:
           <Users className="h-3.5 w-3.5" strokeWidth={1.5} />
           {contadorMatches} possíveis negócios disponíveis
         </div>
+      )}
+
+      {lead.etapa === 4 && negociacoesAtivas != null && negociacoesAtivas.length > 0 && (
+        <NegociacaoAtivaExpansivel
+          negociacoes={negociacoesAtivas}
+          onAbrirImovel={onAbrirImovelNegociacao}
+        />
       )}
 
       {onMover && (

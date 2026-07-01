@@ -3,6 +3,7 @@ import { AppLayout } from '@/app/layout/AppLayout'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { DesignSystemPage } from '@/pages/DesignSystemPage'
 import { MeusImoveisPage } from '@/pages/MeusImoveisPage'
+import { MeusClientesPage } from '@/pages/MeusClientesPage'
 
 export const router = createBrowserRouter(
   [
@@ -13,7 +14,7 @@ export const router = createBrowserRouter(
         { index: true, element: <Navigate to="/dashboard" replace /> },
         { path: 'dashboard', element: <PlaceholderPage titulo="Dashboard" /> },
         { path: 'meus-imoveis', element: <MeusImoveisPage /> },
-        { path: 'meus-clientes', element: <PlaceholderPage titulo="Meus Clientes" /> },
+        { path: 'meus-clientes', element: <MeusClientesPage /> },
         { path: 'imoveis/novo', element: <PlaceholderPage titulo="Cadastro de Imóvel" /> },
         { path: 'leads/novo', element: <PlaceholderPage titulo="Cadastro de Lead" /> },
         { path: 'todos-imoveis', element: <PlaceholderPage titulo="Todos os Imóveis" /> },
