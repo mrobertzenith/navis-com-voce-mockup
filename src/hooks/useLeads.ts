@@ -19,6 +19,16 @@ async function atualizarLead(id: string, patch: Partial<Lead>): Promise<Lead> {
   return res.json()
 }
 
+async function criarLead(dados: Omit<Lead, 'id' | 'codigo' | 'dataCadastro'>): Promise<Lead> {
+  const res = await fetch('/api/leads', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(dados),
+  })
+  if (!res.ok) throw new Error('Falha ao criar lead')
+  return res.json()
+}
+
 export function useLeads() {
   return useQuery({ queryKey: LEADS_KEY, queryFn: fetchLeads })
 }
@@ -27,6 +37,16 @@ export function useAtualizarLead() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Partial<Lead> }) => atualizarLead(id, patch),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: LEADS_KEY })
+    },
+  })
+}
+
+export function useCriarLead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: criarLead,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: LEADS_KEY })
     },

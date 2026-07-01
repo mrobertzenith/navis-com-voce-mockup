@@ -4,6 +4,8 @@ import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { DesignSystemPage } from '@/pages/DesignSystemPage'
 import { MeusImoveisPage } from '@/pages/MeusImoveisPage'
 import { MeusClientesPage } from '@/pages/MeusClientesPage'
+import { CadastroImovelPage } from '@/pages/CadastroImovelPage'
+import { CadastroLeadPage } from '@/pages/CadastroLeadPage'
 
 export const router = createBrowserRouter(
   [
@@ -15,8 +17,8 @@ export const router = createBrowserRouter(
         { path: 'dashboard', element: <PlaceholderPage titulo="Dashboard" /> },
         { path: 'meus-imoveis', element: <MeusImoveisPage /> },
         { path: 'meus-clientes', element: <MeusClientesPage /> },
-        { path: 'imoveis/novo', element: <PlaceholderPage titulo="Cadastro de Imóvel" /> },
-        { path: 'leads/novo', element: <PlaceholderPage titulo="Cadastro de Lead" /> },
+        { path: 'imoveis/novo', element: <CadastroImovelPage /> },
+        { path: 'leads/novo', element: <CadastroLeadPage /> },
         { path: 'todos-imoveis', element: <PlaceholderPage titulo="Todos os Imóveis" /> },
         { path: 'todos-leads', element: <PlaceholderPage titulo="Todos os Leads" /> },
         { path: 'todos-corretores', element: <PlaceholderPage titulo="Todos os Corretores" /> },

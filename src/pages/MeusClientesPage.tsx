@@ -12,6 +12,7 @@ import { avaliarTransicaoLead } from '@/domain/gatesLead'
 import type { EtapaLead, Lead } from '@/domain/types'
 import { useAtualizarLead, useLeads } from '@/hooks/useLeads'
 import { useImoveis } from '@/hooks/useImoveis'
+import { useMatches } from '@/hooks/useMatches'
 import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
 import { useUIStore } from '@/stores/uiStore'
 
@@ -31,6 +32,7 @@ export function MeusClientesPage() {
   const { data: leads = [], isLoading } = useLeads()
   const { data: imoveis = [] } = useImoveis()
   const atualizarLead = useAtualizarLead()
+  const { contadorPorLead } = useMatches()
   const { toast } = useToast()
   const abrirModalImovel = useUIStore((s) => s.abrirModalImovel)
   const [busca, setBusca] = useState('')
@@ -149,6 +151,7 @@ export function MeusClientesPage() {
         renderCard={(lead, { onMover }) => (
           <CardLead
             lead={lead}
+            contadorMatches={contadorPorLead[lead.id]}
             negociacoesAtivas={resolverNegociacoes(lead)}
             onAbrirImovelNegociacao={(imovelId) => abrirModalImovel(imovelId)}
             onMover={onMover}

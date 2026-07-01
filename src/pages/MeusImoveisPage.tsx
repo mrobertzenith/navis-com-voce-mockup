@@ -11,6 +11,7 @@ import { ETAPA_IMOVEL_LABEL, ETAPA_IMOVEL_ORDEM } from '@/domain/constants'
 import { avaliarTransicaoImovel } from '@/domain/gatesImovel'
 import type { EtapaImovel, Imovel } from '@/domain/types'
 import { useAtualizarImovel, useImoveis } from '@/hooks/useImoveis'
+import { useMatches } from '@/hooks/useMatches'
 import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
 import { formatDiasDesde } from '@/lib/format'
 
@@ -29,6 +30,7 @@ interface PendingMove {
 export function MeusImoveisPage() {
   const { data: imoveis = [], isLoading } = useImoveis()
   const atualizarImovel = useAtualizarImovel()
+  const { contadorPorImovel } = useMatches()
   const { toast } = useToast()
   const [busca, setBusca] = useState('')
   const [pending, setPending] = useState<PendingMove | null>(null)
@@ -138,6 +140,7 @@ export function MeusImoveisPage() {
           <CardImovel
             imovel={imovel}
             diasParado={formatDiasDesde(imovel.atualizadoEm)}
+            contadorMatches={contadorPorImovel[imovel.id]}
             onMover={onMover}
           />
         )}

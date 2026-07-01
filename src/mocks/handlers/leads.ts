@@ -6,6 +6,12 @@ export const leadsHandlers = [
     return HttpResponse.json(leadsDb.getAll())
   }),
 
+  http.post('/api/leads', async ({ request }) => {
+    const dados = await request.json()
+    const criado = leadsDb.create(dados as Parameters<typeof leadsDb.create>[0])
+    return HttpResponse.json(criado, { status: 201 })
+  }),
+
   http.patch('/api/leads/:id', async ({ params, request }) => {
     const patch = await request.json()
     const atualizado = leadsDb.update(params.id as string, patch as Record<string, unknown>)

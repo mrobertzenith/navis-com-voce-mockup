@@ -19,12 +19,24 @@ function persistir() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(imoveis))
 }
 
+let seq = imoveis.length + 1
+
 export const imoveisDb = {
   getAll(): Imovel[] {
     return imoveis
   },
   getById(id: string): Imovel | undefined {
     return imoveis.find((i) => i.id === id)
+  },
+  cibJaExiste(cib: string): Imovel | undefined {
+    return imoveis.find((i) => i.cib === cib)
+  },
+  create(dados: Omit<Imovel, 'id' | 'criadoEm' | 'atualizadoEm'>): Imovel {
+    const agora = new Date().toISOString()
+    const novo: Imovel = { ...dados, id: `im-novo-${seq++}`, criadoEm: agora, atualizadoEm: agora }
+    imoveis = [...imoveis, novo]
+    persistir()
+    return novo
   },
   update(id: string, patch: Partial<Imovel>): Imovel | undefined {
     const idx = imoveis.findIndex((i) => i.id === id)
