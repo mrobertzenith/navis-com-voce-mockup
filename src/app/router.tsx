@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/app/layout/AppLayout'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
+import { DesignSystemPage } from '@/pages/DesignSystemPage'
 
 export const router = createBrowserRouter(
   [
@@ -23,6 +24,7 @@ export const router = createBrowserRouter(
           path: 'configuracoes/score',
           element: <PlaceholderPage titulo="Configurações > Score" />,
         },
+        { path: 'design-system', element: <DesignSystemPage /> },
       ],
     },
     { path: '/login', element: <PlaceholderPage titulo="Login" /> },
