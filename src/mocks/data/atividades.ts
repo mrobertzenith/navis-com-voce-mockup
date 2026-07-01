@@ -11,7 +11,7 @@ export const ATIVIDADES_SEED: Atividade[] = [
   {
     id: 'ativ-2',
     corretorId: CORRETOR_LOGADO_ID,
-    descricao: 'Lead #2410 (Camila Duarte) moveu para "Visita agendada".',
+    descricao: 'Cliente #2410 (Camila Duarte) moveu para "Visita agendada".',
     timestamp: '2026-06-29T11:05:00.000Z',
   },
   {
@@ -23,7 +23,7 @@ export const ATIVIDADES_SEED: Atividade[] = [
   {
     id: 'ativ-4',
     corretorId: CORRETOR_LOGADO_ID,
-    descricao: 'Novo lead cadastrado: Lead #2401.',
+    descricao: 'Novo cliente cadastrado: Cliente #2401.',
     timestamp: '2026-06-25T16:15:00.000Z',
   },
   {

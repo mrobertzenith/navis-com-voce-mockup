@@ -7,7 +7,7 @@ export const NOTIFICACOES_SEED: Notificacao[] = [
     destinatarioCorretorId: CORRETOR_LOGADO_ID,
     tipoEvento: 'E12',
     titulo: 'Acompanhamento de visita',
-    corpo: 'A visita do Lead #2409 (Camila Duarte) foi realizada? O cliente gostou do imóvel?',
+    corpo: 'A visita do Cliente #2409 (Camila Duarte) foi realizada? O cliente gostou do imóvel?',
     lida: false,
     criadaEm: '2026-07-01T09:00:00.000Z',
   },

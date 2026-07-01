@@ -11,7 +11,7 @@ import type { Lead } from '@/domain/types'
 import { formatData, formatPreco, formatTelefone } from '@/lib/format'
 import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
 
-interface ModalDetalheLeadProps {
+interface ModalDetalheClienteProps {
   lead: Lead | null
   onClose: () => void
 }
@@ -25,7 +25,7 @@ const ORIGEM_LABEL: Record<string, string> = {
   site: 'Site',
 }
 
-export function ModalDetalheLead({ lead, onClose }: ModalDetalheLeadProps) {
+export function ModalDetalheCliente({ lead, onClose }: ModalDetalheClienteProps) {
   if (!lead) return null
 
   const ehProprio = lead.corretorResponsavelId === CORRETOR_LOGADO_ID

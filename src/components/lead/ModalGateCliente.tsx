@@ -14,7 +14,7 @@ import { CAMPO_GATE_LEAD_CONFIG, type CampoGateLead } from '@/domain/gatesLead'
 import { ETAPA_LEAD_LABEL } from '@/domain/constants'
 import type { EtapaLead, Lead } from '@/domain/types'
 
-interface ModalGateLeadProps {
+interface ModalGateClienteProps {
   lead: Lead | null
   destino: EtapaLead | null
   camposFaltantes: CampoGateLead[]
@@ -23,14 +23,14 @@ interface ModalGateLeadProps {
   onConfirmar: (patch: Partial<Lead>) => void
 }
 
-export function ModalGateLead({
+export function ModalGateCliente({
   lead,
   destino,
   camposFaltantes,
   requerConfirmacao,
   onCancelar,
   onConfirmar,
-}: ModalGateLeadProps) {
+}: ModalGateClienteProps) {
   const [valores, setValores] = useState<Record<string, string>>({})
   const [checks, setChecks] = useState<Record<string, boolean>>({})
 
@@ -61,8 +61,8 @@ export function ModalGateLead({
           <DialogTitle>Mover para "{ETAPA_LEAD_LABEL[destino]}"</DialogTitle>
           <DialogDescription>
             {camposFaltantes.length > 0
-              ? 'Alguns dados são obrigatórios para avançar o lead para esta etapa.'
-              : 'Confirme a movimentação deste lead.'}
+              ? 'Alguns dados são obrigatórios para avançar o cliente para esta etapa.'
+              : 'Confirme a movimentação deste cliente.'}
           </DialogDescription>
         </DialogHeader>
 

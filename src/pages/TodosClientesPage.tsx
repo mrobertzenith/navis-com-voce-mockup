@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { MessageCircle } from 'lucide-react'
-import { CardLead, type LeadCardData } from '@/components/lead/CardLead'
+import { CardCliente, type LeadCardData } from '@/components/lead/CardCliente'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -22,7 +22,7 @@ const TIPOS: TipoImovel[] = [
   'galpao_comercial_industrial',
 ]
 
-export function TodosLeadsPage() {
+export function TodosClientesPage() {
   const { data: leads = [], isLoading } = useLeads()
   const [tipo, setTipo] = useState<string>('')
   const [cidade, setCidade] = useState<string>('')
@@ -44,12 +44,12 @@ export function TodosLeadsPage() {
   }, [elegiveis, tipo, cidade])
 
   if (isLoading) {
-    return <div className="p-6 text-sm text-text-mut">Carregando leads…</div>
+    return <div className="p-6 text-sm text-text-mut">Carregando clientes…</div>
   }
 
   return (
     <div className="p-6">
-      <h1 className="mb-1 text-xl font-bold">Todos os Leads</h1>
+      <h1 className="mb-1 text-xl font-bold">Todos os Clientes</h1>
       <p className="mb-4 text-sm text-text-mut">
         Lista anonimizada — nomes e contatos dos clientes nunca são exibidos aqui.
       </p>
@@ -88,7 +88,7 @@ export function TodosLeadsPage() {
       </div>
 
       {filtrados.length === 0 ? (
-        <EmptyState title="Nenhum lead encontrado" description="Ajuste os filtros para ver mais resultados." />
+        <EmptyState title="Nenhum cliente encontrado" description="Ajuste os filtros para ver mais resultados." />
       ) : (
         <>
           <div className="hidden overflow-x-auto rounded-card border border-border sm:block">
@@ -143,7 +143,7 @@ export function TodosLeadsPage() {
 
           <div className="flex flex-col gap-3 sm:hidden">
             {filtrados.map((lead) => (
-              <CardLead key={lead.id} lead={lead} />
+              <CardCliente key={lead.id} lead={lead} visao="publica" />
             ))}
           </div>
         </>

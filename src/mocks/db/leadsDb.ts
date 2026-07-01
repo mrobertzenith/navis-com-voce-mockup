@@ -21,7 +21,7 @@ function persistir() {
 
 let seq = leads.length + 1
 let ultimoCodigo = leads.reduce((max, l) => {
-  const n = Number(l.codigo.replace('Lead #', ''))
+  const n = Number(l.codigo.replace('Cliente #', ''))
   return Number.isFinite(n) ? Math.max(max, n) : max
 }, 2400)
 
@@ -37,7 +37,7 @@ export const leadsDb = {
     const novo: Lead = {
       ...dados,
       id: `lead-novo-${seq++}`,
-      codigo: `Lead #${ultimoCodigo}`,
+      codigo: `Cliente #${ultimoCodigo}`,
       dataCadastro: new Date().toISOString(),
     }
     leads = [...leads, novo]

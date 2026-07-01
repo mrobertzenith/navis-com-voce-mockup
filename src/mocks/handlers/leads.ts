@@ -16,7 +16,7 @@ export const leadsHandlers = [
     const patch = await request.json()
     const atualizado = leadsDb.update(params.id as string, patch as Record<string, unknown>)
     if (!atualizado) {
-      return HttpResponse.json({ message: 'Lead não encontrado' }, { status: 404 })
+      return HttpResponse.json({ message: 'Cliente não encontrado' }, { status: 404 })
     }
     return HttpResponse.json(atualizado)
   }),

@@ -10,15 +10,12 @@ import type { Lead } from '@/domain/types'
 import { cn } from '@/lib/cn'
 import { formatData, formatPreco } from '@/lib/format'
 
-/**
- * `nome` é omitido de propósito: CardLead nunca deve ter acesso ao nome do lead,
- * mesmo quando renderizado na tela do corretor responsável (regra de produto,
- * não convenção visual — ver §6 do spec v2).
- */
 export type LeadCardData = Omit<Lead, 'nome'>
 
-interface CardLeadProps {
-  lead: LeadCardData
+interface CardClienteProps {
+  lead: Lead | LeadCardData
+  /** 'propria': tela do corretor responsável, mostra o nome real. 'publica': tela de outros corretores, mantém anonimizado. */
+  visao: 'propria' | 'publica'
   contadorMatches?: number
   negociacoesAtivas?: NegociacaoResumo[]
   onAbrirImovelNegociacao?: (imovelId: string) => void
@@ -28,8 +25,9 @@ interface CardLeadProps {
   className?: string
 }
 
-export function CardLead({
+export function CardCliente({
   lead,
+  visao,
   contadorMatches,
   negociacoesAtivas,
   onAbrirImovelNegociacao,
@@ -37,10 +35,11 @@ export function CardLead({
   onClickContador,
   onMover,
   className,
-}: CardLeadProps) {
+}: CardClienteProps) {
   const { perfilBusca } = lead
   const isStandby = lead.etapa === 7
   const isPerdido = lead.etapa === 8
+  const identificacao = visao === 'propria' && 'nome' in lead ? lead.nome : lead.codigo
   const faixaValor =
     perfilBusca.valorDe != null && perfilBusca.valorAte != null
       ? `${formatPreco(perfilBusca.valorDe)} – ${formatPreco(perfilBusca.valorAte)}`
@@ -71,7 +70,7 @@ export function CardLead({
       )}
     >
       <div className="mb-2 flex items-start justify-between gap-2">
-        <span className="font-mono text-sm font-semibold text-ink">{lead.codigo}</span>
+        <span className="truncate font-mono text-sm font-semibold text-ink">{identificacao}</span>
         {isStandby && <TarjaStandby />}
         {isPerdido && <TarjaArquivado />}
       </div>

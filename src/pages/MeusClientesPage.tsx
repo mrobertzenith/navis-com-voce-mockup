@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { KanbanBoard, type ColunaDef } from '@/components/kanban/KanbanBoard'
-import { CardLead } from '@/components/lead/CardLead'
-import { ModalGateLead } from '@/components/lead/ModalGateLead'
+import { CardCliente } from '@/components/lead/CardCliente'
+import { ModalGateCliente } from '@/components/lead/ModalGateCliente'
 import { DrillDownMatch } from '@/components/match/DrillDownMatch'
 import type { MatchItem } from '@/components/match/ListaMatches'
 import { Input } from '@/components/ui/input'
@@ -150,7 +150,7 @@ export function MeusClientesPage() {
       { id: lead.id, patch: patchFinal },
       {
         onSuccess: () => {
-          toast({ title: 'Lead movido', description: `Agora em "${ETAPA_LEAD_LABEL[destino]}".` })
+          toast({ title: 'Cliente movido', description: `Agora em "${ETAPA_LEAD_LABEL[destino]}".` })
         },
       },
     )
@@ -176,7 +176,7 @@ export function MeusClientesPage() {
             />
           </div>
           <Button asChild>
-            <Link to="/leads/novo">+ Novo Lead</Link>
+            <Link to="/clientes/novo">+ Novo Cliente</Link>
           </Button>
         </div>
       </div>
@@ -186,8 +186,9 @@ export function MeusClientesPage() {
         itensPorColuna={itensPorColuna}
         getItemId={(lead) => lead.id}
         renderCard={(lead, { onMover }) => (
-          <CardLead
+          <CardCliente
             lead={lead}
+            visao="propria"
             contadorMatches={contadorPorLead[lead.id]}
             negociacoesAtivas={resolverNegociacoes(lead)}
             onAbrirImovelNegociacao={(imovelId) => abrirModalImovel(imovelId)}
@@ -200,7 +201,7 @@ export function MeusClientesPage() {
         onSolicitarMovimentacao={iniciarMovimentacao}
       />
 
-      <ModalGateLead
+      <ModalGateCliente
         lead={pending?.lead ?? null}
         destino={pending?.destino ?? null}
         camposFaltantes={pending?.camposFaltantes ?? []}

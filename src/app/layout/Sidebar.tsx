@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { to: '/meus-imoveis', label: 'Meus Imóveis', icon: Building2 },
   { to: '/meus-clientes', label: 'Meus Clientes', icon: Users },
   { to: '/todos-imoveis', label: 'Todos os Imóveis', icon: ListChecks },
-  { to: '/todos-leads', label: 'Todos os Leads', icon: UsersRound },
+  { to: '/todos-clientes', label: 'Todos os Clientes', icon: UsersRound },
   { to: '/notificacoes', label: 'Notificações', icon: Bell },
   { to: '/configuracoes/score', label: 'Configurações', icon: Settings },
 ]

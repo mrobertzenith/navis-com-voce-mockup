@@ -4,7 +4,7 @@ import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
 let seq = 2400
 function proximoCodigo(): string {
   seq += 1
-  return `Lead #${seq}`
+  return `Cliente #${seq}`
 }
 
 interface ClienteSeed {

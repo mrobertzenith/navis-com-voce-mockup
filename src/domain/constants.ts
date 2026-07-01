@@ -37,7 +37,7 @@ export const ETAPA_IMOVEL_LABEL: Record<EtapaImovel, string> = {
 export const ETAPA_IMOVEL_ORDEM: EtapaImovel[] = ['a', 'b', 'c', 'd', 'e', 'f']
 
 export const ETAPA_LEAD_LABEL: Record<EtapaLead, string> = {
-  1: 'Novo Lead',
+  1: 'Novo Cliente',
   2: 'Em contato',
   3: 'Visita agendada',
   4: 'Em negociação',

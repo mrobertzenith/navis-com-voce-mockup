@@ -4,11 +4,11 @@ import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { MeusImoveisPage } from '@/pages/MeusImoveisPage'
 import { MeusClientesPage } from '@/pages/MeusClientesPage'
 import { CadastroImovelPage } from '@/pages/CadastroImovelPage'
-import { CadastroLeadPage } from '@/pages/CadastroLeadPage'
+import { CadastroClientePage } from '@/pages/CadastroClientePage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { OnboardingPage } from '@/pages/OnboardingPage'
 import { TodosImoveisPage } from '@/pages/TodosImoveisPage'
-import { TodosLeadsPage } from '@/pages/TodosLeadsPage'
+import { TodosClientesPage } from '@/pages/TodosClientesPage'
 import { NotificacoesPage } from '@/pages/NotificacoesPage'
 import { ConfiguracoesScorePage } from '@/pages/ConfiguracoesScorePage'
 
@@ -23,9 +23,9 @@ export const router = createBrowserRouter(
         { path: 'meus-imoveis', element: <MeusImoveisPage /> },
         { path: 'meus-clientes', element: <MeusClientesPage /> },
         { path: 'imoveis/novo', element: <CadastroImovelPage /> },
-        { path: 'leads/novo', element: <CadastroLeadPage /> },
+        { path: 'clientes/novo', element: <CadastroClientePage /> },
         { path: 'todos-imoveis', element: <TodosImoveisPage /> },
-        { path: 'todos-leads', element: <TodosLeadsPage /> },
+        { path: 'todos-clientes', element: <TodosClientesPage /> },
         { path: 'todos-corretores', element: <PlaceholderPage titulo="Todos os Corretores" /> },
         { path: 'imoveis-perdidos', element: <PlaceholderPage titulo="Imóveis Perdidos" /> },
         { path: 'notificacoes', element: <NotificacoesPage /> },

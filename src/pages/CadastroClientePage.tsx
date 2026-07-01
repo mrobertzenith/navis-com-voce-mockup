@@ -87,7 +87,7 @@ const CAMPOS_POR_PASSO: (keyof FormData)[][] = [
   ['etapaAlvo', 'observacoes', 'dataVisita'],
 ]
 
-export function CadastroLeadPage() {
+export function CadastroClientePage() {
   const [passo, setPasso] = useState(1)
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -152,7 +152,7 @@ export function CadastroLeadPage() {
 
     criarLead.mutate(payload, {
       onSuccess: (lead) => {
-        toast({ title: 'Lead cadastrado', description: `${lead.codigo} criado com sucesso.` })
+        toast({ title: 'Cliente cadastrado', description: `${lead.codigo} criado com sucesso.` })
         navigate('/meus-clientes')
       },
     })
@@ -160,7 +160,7 @@ export function CadastroLeadPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-6">
-      <h1 className="mb-1 text-xl font-bold">Cadastro de Lead</h1>
+      <h1 className="mb-1 text-xl font-bold">Cadastro de Cliente</h1>
       <p className="mb-1 text-sm text-text-mut">
         Cadastre o cliente com o perfil mínimo de busca. Sem isso o sistema não consegue gerar matches.
       </p>
@@ -306,13 +306,13 @@ export function CadastroLeadPage() {
             </div>
 
             <div className="mt-2 flex flex-col gap-1.5 border-t border-border pt-4">
-              <Label>Mover lead para a etapa</Label>
+              <Label>Mover cliente para a etapa</Label>
               <Select value={valores.etapaAlvo} onValueChange={(v) => setValue('etapaAlvo', v as '1' | '2' | '3')}>
                 <SelectTrigger className="w-64">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="1">Novo Lead</SelectItem>
+                  <SelectItem value="1">Novo Cliente</SelectItem>
                   <SelectItem value="2">Em contato</SelectItem>
                   <SelectItem value="3">Visita agendada</SelectItem>
                 </SelectContent>

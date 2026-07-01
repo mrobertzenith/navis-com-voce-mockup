@@ -4,7 +4,7 @@ import { Topbar } from '@/app/layout/Topbar'
 import { Sidebar } from '@/app/layout/Sidebar'
 import { BannerDemo } from '@/components/shared/BannerDemo'
 import { ModalDetalheImovel } from '@/components/imovel/ModalDetalheImovel'
-import { ModalDetalheLead } from '@/components/lead/ModalDetalheLead'
+import { ModalDetalheCliente } from '@/components/lead/ModalDetalheCliente'
 import { useImoveis } from '@/hooks/useImoveis'
 import { useLeads } from '@/hooks/useLeads'
 import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
@@ -44,7 +44,7 @@ export function AppLayout() {
       {imovelSelecionado && (
         <ModalDetalheImovel imovel={imovelSelecionado} meusLeads={meusLeads} onClose={fecharModais} />
       )}
-      {leadSelecionado && <ModalDetalheLead lead={leadSelecionado} onClose={fecharModais} />}
+      {leadSelecionado && <ModalDetalheCliente lead={leadSelecionado} onClose={fecharModais} />}
     </div>
   )
 }
