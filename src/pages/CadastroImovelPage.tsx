@@ -7,6 +7,7 @@ import { WizardSteps } from '@/components/shared/WizardSteps'
 import { SelectorCascadeUnico } from '@/components/shared/SelectorCascade'
 import { ChipBoolean } from '@/components/shared/ChipBoolean'
 import { ChipTipoImovel } from '@/components/imovel/ChipTipoImovel'
+import { UploaderFotos } from '@/components/imovel/UploaderFotos'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -56,16 +57,19 @@ const schema = z.object({
   aceitaPet: z.boolean().optional(),
   nomeCondominio: z.string().optional(),
 
+  fotos: z.array(z.string()).optional(),
+
   valorEstimado: z.coerce.number().min(0).optional(),
   cib: z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
 
-const PASSOS = ['Localização', 'Características', 'Diferenciais', 'Valor e CIB']
+const PASSOS = ['Localização', 'Características', 'Diferenciais', 'Fotos', 'Valor e CIB']
 const CAMPOS_POR_PASSO: (keyof FormData)[][] = [
   ['estado', 'cidade', 'bairro', 'enderecoRua', 'enderecoNumero'],
   ['tipo', 'quartos', 'suites', 'vagas', 'banheiros', 'area'],
+  [],
   [],
   [],
 ]
@@ -90,6 +94,7 @@ export function CadastroImovelPage() {
       suites: 0,
       vagas: 0,
       banheiros: 0,
+      fotos: [],
     },
   })
 
@@ -148,6 +153,7 @@ export function CadastroImovelPage() {
       churrasqueira: dados.churrasqueira,
       aceitaPet: dados.aceitaPet,
       nomeCondominio: dados.nomeCondominio || undefined,
+      fotos: dados.fotos && dados.fotos.length > 0 ? dados.fotos : undefined,
       emNegociacaoFlag: false,
     }
 
@@ -292,6 +298,18 @@ export function CadastroImovelPage() {
         )}
 
         {passo === 4 && (
+          <>
+            <div className="flex flex-col gap-1.5">
+              <Label>Fotos (opcional)</Label>
+              <UploaderFotos
+                fotos={valores.fotos ?? []}
+                onChange={(fotos) => setValue('fotos', fotos)}
+              />
+            </div>
+          </>
+        )}
+
+        {passo === 5 && (
           <>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="valorEstimado">Valor estimado (opcional nesta etapa)</Label>

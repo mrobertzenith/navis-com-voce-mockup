@@ -78,7 +78,9 @@ export interface Imovel {
   cib?: string
   matriculaUrl?: string
   linkAnuncioUrl?: string
+  linkQuebrado?: boolean
   nomeCondominio?: string
+  fotos?: string[]
 
   valorEstimado?: number
   valorAnuncio?: number

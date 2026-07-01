@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Copy, MessageCircle } from 'lucide-react'
 import { ChipTipoImovel } from '@/components/imovel/ChipTipoImovel'
+import { CarouselFotos } from '@/components/imovel/CarouselFotos'
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,7 @@ import { useToast } from '@/components/ui/use-toast'
 import type { Imovel, Lead } from '@/domain/types'
 import { formatM2, formatPreco } from '@/lib/format'
 import { CORRETORES, CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
+import { fotoPadrao } from '@/mocks/data/fotosImoveis'
 
 interface ModalDetalheImovelProps {
   imovel: Imovel | null
@@ -67,6 +69,8 @@ export function ModalDetalheImovel({ imovel, meusLeads, onClose }: ModalDetalheI
         </DialogHeader>
 
         <div className="flex flex-col gap-3">
+          <CarouselFotos fotos={imovel.fotos ?? [fotoPadrao(imovel.tipo)]} />
+
           <ChipTipoImovel tipo={imovel.tipo} />
 
           <p className="font-mono text-xl font-semibold text-ink">

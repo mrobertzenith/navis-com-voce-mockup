@@ -1,5 +1,5 @@
 import type { Lead } from '@/domain/types'
-import { LEADS_SEED } from '@/mocks/data/leads'
+import { LEADS_SEED } from '@/mocks/data/clientes'
 
 const STORAGE_KEY = 'navis-mock-leads'
 
