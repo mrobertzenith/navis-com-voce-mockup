@@ -6,6 +6,8 @@ import { MeusImoveisPage } from '@/pages/MeusImoveisPage'
 import { MeusClientesPage } from '@/pages/MeusClientesPage'
 import { CadastroImovelPage } from '@/pages/CadastroImovelPage'
 import { CadastroLeadPage } from '@/pages/CadastroLeadPage'
+import { DashboardPage } from '@/pages/DashboardPage'
+import { OnboardingPage } from '@/pages/OnboardingPage'
 
 export const router = createBrowserRouter(
   [
@@ -14,7 +16,7 @@ export const router = createBrowserRouter(
       element: <AppLayout />,
       children: [
         { index: true, element: <Navigate to="/dashboard" replace /> },
-        { path: 'dashboard', element: <PlaceholderPage titulo="Dashboard" /> },
+        { path: 'dashboard', element: <DashboardPage /> },
         { path: 'meus-imoveis', element: <MeusImoveisPage /> },
         { path: 'meus-clientes', element: <MeusClientesPage /> },
         { path: 'imoveis/novo', element: <CadastroImovelPage /> },
@@ -32,7 +34,7 @@ export const router = createBrowserRouter(
       ],
     },
     { path: '/login', element: <PlaceholderPage titulo="Login" /> },
-    { path: '/onboarding', element: <PlaceholderPage titulo="Onboarding" /> },
+    { path: '/onboarding', element: <OnboardingPage /> },
   ],
   { basename: '/navis-com-voce-mockup/' },
 )
