@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/app/layout/AppLayout'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { DesignSystemPage } from '@/pages/DesignSystemPage'
+import { MeusImoveisPage } from '@/pages/MeusImoveisPage'
 
 export const router = createBrowserRouter(
   [
@@ -11,7 +12,7 @@ export const router = createBrowserRouter(
       children: [
         { index: true, element: <Navigate to="/dashboard" replace /> },
         { path: 'dashboard', element: <PlaceholderPage titulo="Dashboard" /> },
-        { path: 'meus-imoveis', element: <PlaceholderPage titulo="Meus Imóveis" /> },
+        { path: 'meus-imoveis', element: <MeusImoveisPage /> },
         { path: 'meus-clientes', element: <PlaceholderPage titulo="Meus Clientes" /> },
         { path: 'imoveis/novo', element: <PlaceholderPage titulo="Cadastro de Imóvel" /> },
         { path: 'leads/novo', element: <PlaceholderPage titulo="Cadastro de Lead" /> },

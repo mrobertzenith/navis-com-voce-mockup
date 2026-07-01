@@ -10,7 +10,7 @@ export function AppLayout() {
       <Topbar />
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 bg-bg">
+        <main className="min-w-0 flex-1 bg-bg">
           <Outlet />
         </main>
       </div>
