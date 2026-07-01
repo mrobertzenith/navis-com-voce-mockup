@@ -1,4 +1,5 @@
 import { Users } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { ChipTipoImovel } from '@/components/imovel/ChipTipoImovel'
 import {
   NegociacaoAtivaExpansivel,
@@ -48,7 +49,7 @@ export function CardCliente({
         : `a partir de ${formatPreco(perfilBusca.valorDe)}`
 
   return (
-    <div
+    <motion.div
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -62,6 +63,9 @@ export function CardCliente({
             }
           : undefined
       }
+      whileHover={onClick ? { y: -2 } : undefined}
+      whileTap={onClick ? { scale: 0.98 } : undefined}
+      transition={{ duration: 0.15, ease: 'easeOut' }}
       className={cn(
         'relative rounded-card border border-border bg-surface p-3 shadow-card transition-shadow',
         onClick && 'cursor-pointer hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
@@ -130,6 +134,6 @@ export function CardCliente({
           Mover
         </Button>
       )}
-    </div>
+    </motion.div>
   )
 }

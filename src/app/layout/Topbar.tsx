@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Bell, RotateCcw, User } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { useDemoStore } from '@/stores/demoStore'
 import { useNotificacoesStore } from '@/stores/notificacoesStore'
@@ -21,9 +22,13 @@ export function Topbar() {
           <Link to="/notificacoes">
             <Bell strokeWidth={1.5} />
             {naoLidas > 0 && (
-              <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 font-mono text-[10px] font-semibold text-white">
+              <motion.span
+                className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 font-mono text-[10px] font-semibold text-white"
+                animate={{ scale: [1, 1.12, 1] }}
+                transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+              >
                 {naoLidas}
-              </span>
+              </motion.span>
             )}
           </Link>
         </Button>

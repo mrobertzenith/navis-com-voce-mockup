@@ -6,6 +6,7 @@ import { DonutChart, type DonutDatum } from '@/components/dashboard/DonutChart'
 import { KpiHero } from '@/components/dashboard/KpiHero'
 import { PipelineBar, type PipelineDatum } from '@/components/dashboard/PipelineBar'
 import { VendasChart, type VendaMensal } from '@/components/dashboard/VendasChart'
+import { AnimatedNumber } from '@/components/shared/AnimatedNumber'
 import { Button } from '@/components/ui/button'
 import { ETAPA_IMOVEL_LABEL, ETAPA_LEAD_LABEL } from '@/domain/constants'
 import { useImoveis } from '@/hooks/useImoveis'
@@ -176,14 +177,17 @@ export function DashboardPage() {
         <div className="lg:col-span-2">
           <KpiHero
             titulo="Potencial em carteira (imóveis publicados)"
-            valor={formatPreco(potencialVGV)}
+            valorNumerico={potencialVGV}
+            formatarValor={formatPreco}
             subtitulo={`${publicados.length} imóveis publicados · imóveis publicados por mês nos últimos 6 meses`}
             serieSparkline={sparklinePublicacoes}
           />
         </div>
         <div className="rounded-card border border-border bg-surface p-4 shadow-card">
           <p className="font-heading text-xs font-semibold uppercase tracking-wide text-text-mut">Vendas</p>
-          <p className="mt-1 font-mono text-3xl font-bold text-ink">{vendidos.length}</p>
+          <p className="mt-1 font-mono text-3xl font-bold text-ink">
+            <AnimatedNumber valor={vendidos.length} />
+          </p>
           <p className="mt-1 text-xs text-text-soft">
             VGV {formatPreco(vgvVendido)} · última venda {ultimaVenda ? formatData(ultimaVenda.dataVenda) : '—'}
           </p>

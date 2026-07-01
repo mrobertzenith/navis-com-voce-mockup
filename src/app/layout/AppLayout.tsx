@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Topbar } from '@/app/layout/Topbar'
 import { Sidebar } from '@/app/layout/Sidebar'
 import { BannerDemo } from '@/components/shared/BannerDemo'
@@ -11,6 +12,7 @@ import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
 import { useUIStore } from '@/stores/uiStore'
 
 export function AppLayout() {
+  const location = useLocation()
   const { data: imoveis = [] } = useImoveis()
   const { data: leads = [] } = useLeads()
   const modalImovelId = useUIStore((s) => s.modalImovelId)
@@ -37,7 +39,17 @@ export function AppLayout() {
       <div className="flex flex-1">
         <Sidebar />
         <main className="min-w-0 flex-1 bg-bg">
-          <Outlet />
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.16, ease: 'easeInOut' }}
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
 

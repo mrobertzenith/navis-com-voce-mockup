@@ -1,4 +1,5 @@
 import { BedDouble, Car, ShowerHead, Users } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { ChipTipoImovel } from '@/components/imovel/ChipTipoImovel'
 import { Tarja } from '@/components/shared/Tarja'
 import { Button } from '@/components/ui/button'
@@ -38,7 +39,7 @@ export function CardImovel({
   const capa = imovel.fotos?.[0] ?? fotoPadrao(imovel.tipo)
 
   return (
-    <div
+    <motion.div
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -52,6 +53,9 @@ export function CardImovel({
             }
           : undefined
       }
+      whileHover={onClick ? { y: -2 } : undefined}
+      whileTap={onClick ? { scale: 0.98 } : undefined}
+      transition={{ duration: 0.15, ease: 'easeOut' }}
       className={cn(
         'relative overflow-hidden rounded-card border border-border bg-surface shadow-card transition-shadow',
         onClick && 'cursor-pointer hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
@@ -132,6 +136,6 @@ export function CardImovel({
           </Button>
         )}
       </div>
-    </div>
+    </motion.div>
   )
 }

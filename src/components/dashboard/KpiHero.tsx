@@ -1,18 +1,22 @@
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts'
+import { AnimatedNumber } from '@/components/shared/AnimatedNumber'
 
 interface KpiHeroProps {
   titulo: string
-  valor: string
+  valorNumerico: number
+  formatarValor: (valor: number) => string
   subtitulo?: string
   serieSparkline: { label: string; valor: number }[]
 }
 
-export function KpiHero({ titulo, valor, subtitulo, serieSparkline }: KpiHeroProps) {
+export function KpiHero({ titulo, valorNumerico, formatarValor, subtitulo, serieSparkline }: KpiHeroProps) {
   return (
     <div className="flex flex-col justify-between gap-4 rounded-card border border-border bg-surface p-4 shadow-card sm:flex-row sm:items-center">
       <div>
         <p className="font-heading text-xs font-semibold uppercase tracking-wide text-text-mut">{titulo}</p>
-        <p className="mt-1 font-mono text-3xl font-bold text-ink">{valor}</p>
+        <p className="mt-1 font-mono text-3xl font-bold text-ink">
+          <AnimatedNumber valor={valorNumerico} formatar={formatarValor} />
+        </p>
         {subtitulo && <p className="mt-1 text-xs text-text-soft">{subtitulo}</p>}
       </div>
       <div className="h-16 w-full sm:w-48">

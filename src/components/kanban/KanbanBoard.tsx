@@ -44,6 +44,7 @@ export function KanbanBoard<T>({
   const [activeId, setActiveId] = useState<string | null>(null)
   const [colunaMobileAtiva, setColunaMobileAtiva] = useState(colunas[0]?.id)
   const [itemParaMover, setItemParaMover] = useState<{ id: string; colunaOrigemId: string } | null>(null)
+  const [pulseItemId, setPulseItemId] = useState<string | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
@@ -75,6 +76,8 @@ export function KanbanBoard<T>({
       return
     }
 
+    setPulseItemId(itemId)
+    setTimeout(() => setPulseItemId((atual) => (atual === itemId ? null : atual)), 600)
     onSolicitarMovimentacao(itemId, colunaOrigemId, colunaDestinoId)
   }
 
@@ -106,7 +109,11 @@ export function KanbanBoard<T>({
                   estadoDrag={estadoDrag}
                 >
                   {(itensPorColuna[coluna.id] ?? []).map((item) => (
-                    <KanbanCard key={getItemId(item)} id={getItemId(item)}>
+                    <KanbanCard
+                      key={getItemId(item)}
+                      id={getItemId(item)}
+                      destaque={pulseItemId === getItemId(item)}
+                    >
                       {renderCard(item, {})}
                     </KanbanCard>
                   ))}
