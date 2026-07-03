@@ -75,7 +75,7 @@ export interface Imovel {
 
   tipo: TipoImovel
 
-  cib?: string
+  cnm?: string
   matriculaUrl?: string
   linkAnuncioUrl?: string
   linkQuebrado?: boolean
@@ -96,6 +96,7 @@ export interface Imovel {
 
   elevador?: boolean
   mobiliado?: boolean
+  comArmarios?: boolean
   lazer?: boolean
   varanda?: boolean
   churrasqueira?: boolean
@@ -144,6 +145,7 @@ export interface PerfilBusca {
 
   elevador?: boolean
   mobiliado?: boolean
+  comArmarios?: boolean
   lazer?: boolean
   varanda?: boolean
   churrasqueira?: boolean
@@ -169,12 +171,15 @@ export interface Lead {
   dataCadastro: string
   ttlAtual?: string
   dataVisita?: string
+  imovelVisitaId?: string
   motivoStandby?: string
   meMantenhaInformado?: boolean
   motivoPerdido?: string
   dataEntradaStandby?: string
   pagamentosConcluidos?: boolean
   chavesEntregues?: boolean
+  imovelFechadoId?: string
+  valorNegociado?: number
 
   /** negociações ativas na etapa (4) — modelo simplificado até o motor de matching (Fase 4) */
   negociacoesAtivas?: { imovelId: string; dataInicio: string }[]

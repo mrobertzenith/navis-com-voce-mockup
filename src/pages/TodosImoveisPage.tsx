@@ -42,6 +42,9 @@ export function TodosImoveisPage() {
   const [cidade, setCidade] = useState<string>('')
   const [precoMin, setPrecoMin] = useState('')
   const [precoMax, setPrecoMax] = useState('')
+  const [quartosMin, setQuartosMin] = useState('')
+  const [vagasMin, setVagasMin] = useState('')
+  const [areaMin, setAreaMin] = useState('')
   const [ordenacao, setOrdenacao] = useState<Ordenacao>('cadastro_desc')
 
   const baseVisao = useMemo(() => {
@@ -65,6 +68,13 @@ export function TodosImoveisPage() {
     if (cidade) lista = lista.filter((i) => i.cidade === cidade)
     if (precoMin) lista = lista.filter((i) => (i.valorAnuncio ?? 0) >= Number(precoMin))
     if (precoMax) lista = lista.filter((i) => (i.valorAnuncio ?? 0) <= Number(precoMax))
+    if (quartosMin) lista = lista.filter((i) => i.quartos >= Number(quartosMin))
+    if (vagasMin) lista = lista.filter((i) => i.vagas >= Number(vagasMin))
+    if (areaMin) {
+      lista = lista.filter(
+        (i) => (i.areaPrivativaM2 ?? i.areaConstruidaM2 ?? i.areaTerrenoM2 ?? 0) >= Number(areaMin),
+      )
+    }
 
     const comparadores: Record<Ordenacao, (a: Imovel, b: Imovel) => number> = {
       preco_asc: (a, b) => (a.valorAnuncio ?? 0) - (b.valorAnuncio ?? 0),
@@ -73,7 +83,7 @@ export function TodosImoveisPage() {
       cadastro_desc: (a, b) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime(),
     }
     return [...lista].sort(comparadores[ordenacao])
-  }, [baseVisao, tipo, cidade, precoMin, precoMax, ordenacao])
+  }, [baseVisao, tipo, cidade, precoMin, precoMax, quartosMin, vagasMin, areaMin, ordenacao])
 
   if (isLoading) {
     return <div className="p-6 text-sm text-text-mut">Carregando imóveis…</div>
@@ -108,7 +118,7 @@ export function TodosImoveisPage() {
         </div>
       </div>
 
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
         <div className="flex flex-col gap-1.5">
           <Label>Tipo</Label>
           <Select value={tipo} onValueChange={setTipo}>
@@ -146,6 +156,18 @@ export function TodosImoveisPage() {
         <div className="flex flex-col gap-1.5">
           <Label>Preço máx.</Label>
           <Input type="number" value={precoMax} onChange={(e) => setPrecoMax(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Quartos (mín.)</Label>
+          <Input type="number" min={0} value={quartosMin} onChange={(e) => setQuartosMin(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Vagas (mín.)</Label>
+          <Input type="number" min={0} value={vagasMin} onChange={(e) => setVagasMin(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Área mín. (m²)</Label>
+          <Input type="number" min={0} value={areaMin} onChange={(e) => setAreaMin(e.target.value)} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>Ordenar por</Label>

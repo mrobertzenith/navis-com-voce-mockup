@@ -39,7 +39,7 @@ export function ModalGateImovel({
 
   function handleConfirmar() {
     const patch: Partial<Imovel> = {}
-    if (valores.cib) patch.cib = valores.cib
+    if (valores.cnm) patch.cnm = valores.cnm
     if (valores.valorAnuncio) patch.valorAnuncio = Number(valores.valorAnuncio)
     if (valores.linkAnuncioUrl) patch.linkAnuncioUrl = valores.linkAnuncioUrl
     if (valores.metragem) patch.areaPrivativaM2 = Number(valores.metragem)
@@ -70,7 +70,7 @@ export function ModalGateImovel({
                 value={valores[campo] ?? ''}
                 onChange={(e) => setValores((v) => ({ ...v, [campo]: e.target.value }))}
                 placeholder={
-                  campo === 'linkAnuncioUrl' ? 'https://...' : campo === 'cib' ? 'CIB-XX-00000' : undefined
+                  campo === 'linkAnuncioUrl' ? 'https://...' : campo === 'cnm' ? '0000.0000.0000.0000' : undefined
                 }
               />
             </div>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { MessageCircle } from 'lucide-react'
 import { CardCliente, type LeadCardData } from '@/components/lead/CardCliente'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { ETAPA_LEAD_LABEL, TIPO_IMOVEL_LABEL } from '@/domain/constants'
@@ -26,6 +27,10 @@ export function TodosClientesPage() {
   const { data: leads = [], isLoading } = useLeads()
   const [tipo, setTipo] = useState<string>('')
   const [cidade, setCidade] = useState<string>('')
+  const [quartosMin, setQuartosMin] = useState('')
+  const [valorMin, setValorMin] = useState('')
+  const [valorMax, setValorMax] = useState('')
+  const [areaMin, setAreaMin] = useState('')
 
   const elegiveis: LeadCardData[] = useMemo(() => {
     return leads.filter((l) => l.etapa !== 8).map(({ nome: _nome, ...resto }) => resto)
@@ -40,8 +45,12 @@ export function TodosClientesPage() {
     let lista = elegiveis
     if (tipo) lista = lista.filter((l) => l.perfilBusca.tipos.includes(tipo as TipoImovel))
     if (cidade) lista = lista.filter((l) => l.perfilBusca.cidade === cidade)
+    if (quartosMin) lista = lista.filter((l) => (l.perfilBusca.quartosMin ?? 0) >= Number(quartosMin))
+    if (valorMin) lista = lista.filter((l) => (l.perfilBusca.valorAte ?? Infinity) >= Number(valorMin))
+    if (valorMax) lista = lista.filter((l) => (l.perfilBusca.valorDe ?? 0) <= Number(valorMax))
+    if (areaMin) lista = lista.filter((l) => (l.perfilBusca.areaAte ?? l.perfilBusca.areaDe ?? 0) >= Number(areaMin))
     return lista
-  }, [elegiveis, tipo, cidade])
+  }, [elegiveis, tipo, cidade, quartosMin, valorMin, valorMax, areaMin])
 
   if (isLoading) {
     return <div className="p-6 text-sm text-text-mut">Carregando clientes…</div>
@@ -54,7 +63,7 @@ export function TodosClientesPage() {
         Lista anonimizada — nomes e contatos dos clientes nunca são exibidos aqui.
       </p>
 
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         <div className="flex flex-col gap-1.5">
           <Label>Tipo desejado</Label>
           <Select value={tipo} onValueChange={setTipo}>
@@ -84,6 +93,22 @@ export function TodosClientesPage() {
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Quartos (mín.)</Label>
+          <Input type="number" min={0} value={quartosMin} onChange={(e) => setQuartosMin(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Área mín. (m²)</Label>
+          <Input type="number" min={0} value={areaMin} onChange={(e) => setAreaMin(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Valor mín.</Label>
+          <Input type="number" min={0} value={valorMin} onChange={(e) => setValorMin(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Valor máx.</Label>
+          <Input type="number" min={0} value={valorMax} onChange={(e) => setValorMax(e.target.value)} />
         </div>
       </div>
 

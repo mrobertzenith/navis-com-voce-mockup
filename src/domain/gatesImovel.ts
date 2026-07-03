@@ -1,10 +1,10 @@
 import { ETAPA_IMOVEL_ORDEM } from '@/domain/constants'
 import type { EtapaImovel, Imovel } from '@/domain/types'
 
-export type CampoGateImovel = 'cib' | 'valorAnuncio' | 'linkAnuncioUrl' | 'metragem' | 'valorVenda'
+export type CampoGateImovel = 'cnm' | 'valorAnuncio' | 'linkAnuncioUrl' | 'metragem' | 'valorVenda'
 
 export const CAMPO_GATE_LABEL: Record<CampoGateImovel, string> = {
-  cib: 'CIB',
+  cnm: 'CNM',
   valorAnuncio: 'Valor de anúncio',
   linkAnuncioUrl: 'Link do anúncio',
   metragem: 'Metragem (área)',
@@ -46,7 +46,7 @@ export function avaliarTransicaoImovel(
   const efetivo = { ...imovel, ...patch }
   const faltantes: CampoGateImovel[] = []
 
-  if (destino === 'b' && !efetivo.cib) faltantes.push('cib')
+  if (destino === 'b' && !efetivo.cnm) faltantes.push('cnm')
   if (destino === 'c' && efetivo.valorAnuncio == null) faltantes.push('valorAnuncio')
   if (destino === 'd') {
     if (!efetivo.linkAnuncioUrl) faltantes.push('linkAnuncioUrl')

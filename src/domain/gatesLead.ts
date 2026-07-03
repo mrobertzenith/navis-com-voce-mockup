@@ -1,13 +1,25 @@
 import { ETAPA_LEAD_ORDEM } from '@/domain/constants'
 import type { EtapaLead, Lead } from '@/domain/types'
 
-export type CampoGateLead = 'observacoes' | 'dataVisita' | 'motivoStandby' | 'motivoPerdido' | 'pagamentosConcluidos' | 'chavesEntregues'
+export type CampoGateLead =
+  | 'observacoes'
+  | 'dataVisita'
+  | 'imovelVisitaId'
+  | 'imovelFechadoId'
+  | 'valorNegociado'
+  | 'motivoStandby'
+  | 'motivoPerdido'
+  | 'pagamentosConcluidos'
+  | 'chavesEntregues'
 
-export type TipoCampoGateLead = 'textarea' | 'date' | 'checkbox'
+export type TipoCampoGateLead = 'textarea' | 'date' | 'checkbox' | 'imovel' | 'number'
 
 export const CAMPO_GATE_LEAD_CONFIG: Record<CampoGateLead, { label: string; tipo: TipoCampoGateLead }> = {
   observacoes: { label: 'Observações', tipo: 'textarea' },
   dataVisita: { label: 'Data da visita', tipo: 'date' },
+  imovelVisitaId: { label: 'Imóvel da visita', tipo: 'imovel' },
+  imovelFechadoId: { label: 'Imóvel do negócio', tipo: 'imovel' },
+  valorNegociado: { label: 'Valor negociado', tipo: 'number' },
   motivoStandby: { label: 'Motivo do standby (até 500 caracteres)', tipo: 'textarea' },
   motivoPerdido: { label: 'Motivo da perda (até 500 caracteres)', tipo: 'textarea' },
   pagamentosConcluidos: { label: 'Pagamentos concluídos', tipo: 'checkbox' },
@@ -51,7 +63,14 @@ export function avaliarTransicaoLead(
   const faltantes: CampoGateLead[] = []
 
   if (destino === 2 && !efetivo.observacoes) faltantes.push('observacoes')
-  if (destino === 3 && !efetivo.dataVisita) faltantes.push('dataVisita')
+  if (destino === 3) {
+    if (!efetivo.dataVisita) faltantes.push('dataVisita')
+    if (!efetivo.imovelVisitaId) faltantes.push('imovelVisitaId')
+  }
+  if (destino === 5) {
+    if (!efetivo.imovelFechadoId) faltantes.push('imovelFechadoId')
+    if (efetivo.valorNegociado == null) faltantes.push('valorNegociado')
+  }
   if (destino === 6) {
     if (!efetivo.pagamentosConcluidos) faltantes.push('pagamentosConcluidos')
     if (!efetivo.chavesEntregues) faltantes.push('chavesEntregues')

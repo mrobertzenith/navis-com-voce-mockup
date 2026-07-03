@@ -1,3 +1,5 @@
+import { Pencil } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import {
   Dialog,
   DialogContent,
@@ -5,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { ChipTipoImovel } from '@/components/imovel/ChipTipoImovel'
 import { ETAPA_LEAD_LABEL } from '@/domain/constants'
 import type { Lead } from '@/domain/types'
@@ -41,7 +44,17 @@ export function ModalDetalheCliente({ lead, onClose }: ModalDetalheClienteProps)
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>{ehProprio ? lead.nome : lead.codigo}</DialogTitle>
+          <div className="flex items-start justify-between gap-2">
+            <DialogTitle>{ehProprio ? lead.nome : lead.codigo}</DialogTitle>
+            {ehProprio && (
+              <Button variant="outline" size="sm" asChild>
+                <Link to={`/clientes/${lead.id}/editar`} onClick={onClose}>
+                  <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Editar
+                </Link>
+              </Button>
+            )}
+          </div>
           <DialogDescription>
             {lead.codigo} · {ETAPA_LEAD_LABEL[lead.etapa]}
           </DialogDescription>

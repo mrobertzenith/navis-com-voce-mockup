@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -13,8 +13,12 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
 import type { EtapaLead, Lead, OrigemLead, TipoImovel } from '@/domain/types'
-import { useCriarLead } from '@/hooks/useLeads'
+import { useAtualizarLead, useCriarLead, useLeads } from '@/hooks/useLeads'
+import { useImoveis } from '@/hooks/useImoveis'
 import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
+
+const numeroOpcional = () =>
+  z.preprocess((v) => (v === '' || v == null ? undefined : v), z.coerce.number().min(0).optional())
 
 const TIPOS: TipoImovel[] = [
   'apartamento',
@@ -48,22 +52,24 @@ const schema = z
     estado: z.string().min(1, 'Obrigatório'),
     cidade: z.string().min(1, 'Obrigatório'),
     bairros: z.array(z.string()).min(1, 'Selecione ao menos um bairro'),
-    valorDe: z.coerce.number().min(0).optional(),
-    valorAte: z.coerce.number().min(0).optional(),
+    valorDe: numeroOpcional(),
+    valorAte: numeroOpcional(),
 
-    quartosMin: z.coerce.number().min(0).optional(),
-    suitesMin: z.coerce.number().min(0).optional(),
-    vagasMin: z.coerce.number().min(0).optional(),
-    areaDe: z.coerce.number().min(0).optional(),
-    areaAte: z.coerce.number().min(0).optional(),
+    quartosMin: numeroOpcional(),
+    suitesMin: numeroOpcional(),
+    vagasMin: numeroOpcional(),
+    areaDe: numeroOpcional(),
+    areaAte: numeroOpcional(),
     elevador: z.boolean().optional(),
     mobiliado: z.boolean().optional(),
+    comArmarios: z.boolean().optional(),
     lazer: z.boolean().optional(),
     aceitaPet: z.boolean().optional(),
 
     etapaAlvo: z.enum(['1', '2', '3']),
     observacoes: z.string().optional(),
     dataVisita: z.string().optional(),
+    imovelVisitaId: z.string().optional(),
   })
   .refine((d) => d.valorDe != null || d.valorAte != null, {
     message: 'Informe ao menos o valor mínimo ou máximo',
@@ -77,6 +83,10 @@ const schema = z
     message: 'Data da visita é obrigatória para criar direto em "Visita agendada"',
     path: ['dataVisita'],
   })
+  .refine((d) => d.etapaAlvo !== '3' || Boolean(d.imovelVisitaId), {
+    message: 'Selecione o imóvel da visita',
+    path: ['imovelVisitaId'],
+  })
 
 type FormData = z.infer<typeof schema>
 
@@ -84,14 +94,23 @@ const PASSOS = ['Identificação', 'Perfil de busca', 'Preferências detalhadas'
 const CAMPOS_POR_PASSO: (keyof FormData)[][] = [
   ['nome', 'email'],
   ['tipos', 'estado', 'cidade', 'bairros', 'valorDe', 'valorAte'],
-  ['etapaAlvo', 'observacoes', 'dataVisita'],
+  ['etapaAlvo', 'observacoes', 'dataVisita', 'imovelVisitaId'],
 ]
 
 export function CadastroClientePage() {
+  const { id: clienteId } = useParams()
+  const editando = Boolean(clienteId)
   const [passo, setPasso] = useState(1)
   const navigate = useNavigate()
   const { toast } = useToast()
   const criarLead = useCriarLead()
+  const atualizarLead = useAtualizarLead()
+  const { data: leads = [] } = useLeads()
+  const clienteExistente = editando ? leads.find((l) => l.id === clienteId) : undefined
+  const { data: imoveis = [] } = useImoveis()
+  const imoveisDisponiveis = imoveis.filter(
+    (i) => i.corretorResponsavelId === CORRETOR_LOGADO_ID && i.etapa === 'd',
+  )
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -105,8 +124,36 @@ export function CadastroClientePage() {
     },
   })
 
-  const { watch, setValue, handleSubmit, trigger, formState } = form
+  const { watch, setValue, handleSubmit, trigger, formState, reset } = form
   const valores = watch()
+
+  useEffect(() => {
+    if (!clienteExistente) return
+    reset({
+      nome: clienteExistente.nome,
+      telefoneWhatsapp: clienteExistente.telefoneWhatsapp,
+      email: clienteExistente.email,
+      origem: clienteExistente.origem,
+      tipos: clienteExistente.perfilBusca.tipos,
+      estado: clienteExistente.perfilBusca.estado,
+      cidade: clienteExistente.perfilBusca.cidade,
+      bairros: clienteExistente.perfilBusca.bairros,
+      valorDe: clienteExistente.perfilBusca.valorDe ?? undefined,
+      valorAte: clienteExistente.perfilBusca.valorAte ?? undefined,
+      quartosMin: clienteExistente.perfilBusca.quartosMin,
+      suitesMin: clienteExistente.perfilBusca.suitesMin,
+      vagasMin: clienteExistente.perfilBusca.vagasMin,
+      areaDe: clienteExistente.perfilBusca.areaDe,
+      areaAte: clienteExistente.perfilBusca.areaAte,
+      elevador: clienteExistente.perfilBusca.elevador,
+      mobiliado: clienteExistente.perfilBusca.mobiliado,
+      comArmarios: clienteExistente.perfilBusca.comArmarios,
+      lazer: clienteExistente.perfilBusca.lazer,
+      aceitaPet: clienteExistente.perfilBusca.aceitaPet,
+      etapaAlvo: '1',
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clienteExistente?.id])
 
   async function avancar() {
     const campos = CAMPOS_POR_PASSO[passo - 1]
@@ -118,7 +165,64 @@ export function CadastroClientePage() {
     setPasso((p) => Math.max(p - 1, 1))
   }
 
+  function onInvalid(erros: typeof formState.errors) {
+    const primeiroCampo = Object.keys(erros)[0] as keyof FormData | undefined
+    const passoComErro = primeiroCampo
+      ? CAMPOS_POR_PASSO.findIndex((campos) => campos.includes(primeiroCampo))
+      : -1
+    if (passoComErro >= 0) setPasso(passoComErro + 1)
+    toast({
+      title: 'Verifique os dados informados',
+      description: 'Alguns campos obrigatórios ainda não foram preenchidos corretamente.',
+      variant: 'destructive',
+    })
+  }
+
   function onSubmit(dados: FormData) {
+    const perfilBusca = {
+      id: '',
+      leadId: '',
+      estado: dados.estado,
+      cidade: dados.cidade,
+      bairros: dados.bairros,
+      raioKm: 5,
+      tipos: dados.tipos,
+      valorDe: dados.valorDe ?? null,
+      valorAte: dados.valorAte ?? null,
+      quartosMin: dados.quartosMin,
+      suitesMin: dados.suitesMin,
+      vagasMin: dados.vagasMin,
+      areaDe: dados.areaDe,
+      areaAte: dados.areaAte,
+      elevador: dados.elevador,
+      mobiliado: dados.mobiliado,
+      comArmarios: dados.comArmarios,
+      lazer: dados.lazer,
+      aceitaPet: dados.aceitaPet,
+    }
+
+    if (editando && clienteExistente) {
+      atualizarLead.mutate(
+        {
+          id: clienteExistente.id,
+          patch: {
+            nome: dados.nome,
+            email: dados.email || undefined,
+            telefoneWhatsapp: dados.telefoneWhatsapp || undefined,
+            origem: (dados.origem as OrigemLead) || undefined,
+            perfilBusca,
+          },
+        },
+        {
+          onSuccess: () => {
+            toast({ title: 'Cliente atualizado', description: 'As alterações foram salvas.' })
+            navigate('/meus-clientes')
+          },
+        },
+      )
+      return
+    }
+
     const payload: Omit<Lead, 'id' | 'codigo' | 'dataCadastro'> = {
       corretorResponsavelId: CORRETOR_LOGADO_ID,
       etapa: Number(dados.etapaAlvo) as EtapaLead,
@@ -128,26 +232,8 @@ export function CadastroClientePage() {
       origem: (dados.origem as OrigemLead) || undefined,
       observacoes: dados.observacoes || undefined,
       dataVisita: dados.dataVisita || undefined,
-      perfilBusca: {
-        id: '',
-        leadId: '',
-        estado: dados.estado,
-        cidade: dados.cidade,
-        bairros: dados.bairros,
-        raioKm: 5,
-        tipos: dados.tipos,
-        valorDe: dados.valorDe ?? null,
-        valorAte: dados.valorAte ?? null,
-        quartosMin: dados.quartosMin,
-        suitesMin: dados.suitesMin,
-        vagasMin: dados.vagasMin,
-        areaDe: dados.areaDe,
-        areaAte: dados.areaAte,
-        elevador: dados.elevador,
-        mobiliado: dados.mobiliado,
-        lazer: dados.lazer,
-        aceitaPet: dados.aceitaPet,
-      },
+      imovelVisitaId: dados.imovelVisitaId || undefined,
+      perfilBusca,
     }
 
     criarLead.mutate(payload, {
@@ -160,16 +246,18 @@ export function CadastroClientePage() {
 
   return (
     <div className="mx-auto max-w-2xl p-6">
-      <h1 className="mb-1 text-xl font-bold">Cadastro de Cliente</h1>
+      <h1 className="mb-1 text-xl font-bold">{editando ? 'Editar Cliente' : 'Cadastro de Cliente'}</h1>
       <p className="mb-1 text-sm text-text-mut">
-        Cadastre o cliente com o perfil mínimo de busca. Sem isso o sistema não consegue gerar matches.
+        {editando
+          ? 'Atualize os dados de identificação e o perfil de busca deste cliente.'
+          : 'Cadastre o cliente com o perfil mínimo de busca. Sem isso o sistema não consegue gerar matches.'}
       </p>
       <p className="mb-6 text-sm text-text-mut">
         Passo {passo} de {PASSOS.length}
       </p>
       <WizardSteps passos={PASSOS} passoAtual={passo} />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="flex flex-col gap-5">
         {passo === 1 && (
           <>
             <div className="flex flex-col gap-1.5">
@@ -301,46 +389,71 @@ export function CadastroClientePage() {
             <div className="flex flex-wrap gap-2">
               <ChipBoolean label="Elevador" selecionado={!!valores.elevador} onToggle={() => setValue('elevador', !valores.elevador)} />
               <ChipBoolean label="Mobiliado" selecionado={!!valores.mobiliado} onToggle={() => setValue('mobiliado', !valores.mobiliado)} />
+              <ChipBoolean label="Com armários" selecionado={!!valores.comArmarios} onToggle={() => setValue('comArmarios', !valores.comArmarios)} />
               <ChipBoolean label="Lazer" selecionado={!!valores.lazer} onToggle={() => setValue('lazer', !valores.lazer)} />
               <ChipBoolean label="Aceita pet" selecionado={!!valores.aceitaPet} onToggle={() => setValue('aceitaPet', !valores.aceitaPet)} />
             </div>
 
-            <div className="mt-2 flex flex-col gap-1.5 border-t border-border pt-4">
-              <Label>Mover cliente para a etapa</Label>
-              <Select value={valores.etapaAlvo} onValueChange={(v) => setValue('etapaAlvo', v as '1' | '2' | '3')}>
-                <SelectTrigger className="w-64">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Novo Cliente</SelectItem>
-                  <SelectItem value="2">Em contato</SelectItem>
-                  <SelectItem value="3">Visita agendada</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {!editando && (
+              <>
+                <div className="mt-2 flex flex-col gap-1.5 border-t border-border pt-4">
+                  <Label>Mover cliente para a etapa</Label>
+                  <Select value={valores.etapaAlvo} onValueChange={(v) => setValue('etapaAlvo', v as '1' | '2' | '3')}>
+                    <SelectTrigger className="w-64">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Novo Cliente</SelectItem>
+                      <SelectItem value="2">Em contato</SelectItem>
+                      <SelectItem value="3">Visita agendada</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            {valores.etapaAlvo === '2' && (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="observacoes">Observações (obrigatório para "Em contato")</Label>
-                <textarea
-                  id="observacoes"
-                  {...form.register('observacoes')}
-                  className="min-h-20 w-full rounded-card border border-border bg-surface px-3 py-2 text-[15px] font-body text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                />
-                {formState.errors.observacoes && (
-                  <p className="text-sm text-danger">{formState.errors.observacoes.message}</p>
+                {valores.etapaAlvo === '2' && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="observacoes">Observações (obrigatório para "Em contato")</Label>
+                    <textarea
+                      id="observacoes"
+                      {...form.register('observacoes')}
+                      className="min-h-20 w-full rounded-card border border-border bg-surface px-3 py-2 text-[15px] font-body text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    />
+                    {formState.errors.observacoes && (
+                      <p className="text-sm text-danger">{formState.errors.observacoes.message}</p>
+                    )}
+                  </div>
                 )}
-              </div>
-            )}
 
-            {valores.etapaAlvo === '3' && (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="dataVisita">Data da visita (obrigatório para "Visita agendada")</Label>
-                <Input id="dataVisita" type="date" {...form.register('dataVisita')} />
-                {formState.errors.dataVisita && (
-                  <p className="text-sm text-danger">{formState.errors.dataVisita.message}</p>
+                {valores.etapaAlvo === '3' && (
+                  <>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="dataVisita">Data da visita (obrigatório para "Visita agendada")</Label>
+                      <Input id="dataVisita" type="date" {...form.register('dataVisita')} />
+                      {formState.errors.dataVisita && (
+                        <p className="text-sm text-danger">{formState.errors.dataVisita.message}</p>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Imóvel da visita (obrigatório para "Visita agendada")</Label>
+                      <Select value={valores.imovelVisitaId} onValueChange={(v) => setValue('imovelVisitaId', v, { shouldValidate: true })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o imóvel" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {imoveisDisponiveis.map((i) => (
+                            <SelectItem key={i.id} value={i.id}>
+                              {i.enderecoRua}, {i.enderecoNumero} · {i.bairro}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {formState.errors.imovelVisitaId && (
+                        <p className="text-sm text-danger">{formState.errors.imovelVisitaId.message}</p>
+                      )}
+                    </div>
+                  </>
                 )}
-              </div>
+              </>
             )}
           </>
         )}
@@ -354,8 +467,8 @@ export function CadastroClientePage() {
               Próximo
             </Button>
           ) : (
-            <Button type="submit" disabled={criarLead.isPending}>
-              Concluir cadastro
+            <Button type="submit" disabled={criarLead.isPending || atualizarLead.isPending}>
+              {editando ? 'Salvar alterações' : 'Concluir cadastro'}
             </Button>
           )}
         </div>

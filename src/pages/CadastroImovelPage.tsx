@@ -32,6 +32,7 @@ const TIPOS: TipoImovel[] = [
 
 const TIPOS_COM_TERRENO_SEPARADO: TipoImovel[] = ['casa_rua', 'casa_condominio', 'casa_comercial']
 const TIPOS_APENAS_TERRENO: TipoImovel[] = ['terreno_rua', 'terreno_condominio', 'terreno_comercial']
+const TIPOS_COM_ARMARIOS: TipoImovel[] = ['apartamento', 'casa_rua', 'casa_condominio', 'casa_comercial']
 
 const schema = z.object({
   estado: z.string().min(1, 'Obrigatório'),
@@ -51,6 +52,7 @@ const schema = z.object({
 
   elevador: z.boolean().optional(),
   mobiliado: z.boolean().optional(),
+  comArmarios: z.boolean().optional(),
   lazer: z.boolean().optional(),
   varanda: z.boolean().optional(),
   churrasqueira: z.boolean().optional(),
@@ -60,7 +62,7 @@ const schema = z.object({
   fotos: z.array(z.string()).optional(),
 
   valorEstimado: z.coerce.number().min(0).optional(),
-  cib: z.string().optional(),
+  cnm: z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
@@ -76,7 +78,7 @@ const CAMPOS_POR_PASSO: (keyof FormData)[][] = [
 
 export function CadastroImovelPage() {
   const [passo, setPasso] = useState(1)
-  const [erroCib, setErroCib] = useState<string | null>(null)
+  const [erroCnm, setErroCnm] = useState<string | null>(null)
   const navigate = useNavigate()
   const { toast } = useToast()
   const { data: imoveis = [] } = useImoveis()
@@ -111,15 +113,28 @@ export function CadastroImovelPage() {
     setPasso((p) => Math.max(p - 1, 1))
   }
 
+  function onInvalid(erros: typeof formState.errors) {
+    const primeiroCampo = Object.keys(erros)[0] as keyof FormData | undefined
+    const passoComErro = primeiroCampo
+      ? CAMPOS_POR_PASSO.findIndex((campos) => campos.includes(primeiroCampo))
+      : -1
+    if (passoComErro >= 0) setPasso(passoComErro + 1)
+    toast({
+      title: 'Verifique os dados informados',
+      description: 'Alguns campos obrigatórios ainda não foram preenchidos corretamente.',
+      variant: 'destructive',
+    })
+  }
+
   function onSubmit(dados: FormData) {
-    if (dados.cib) {
-      const existente = imoveis.find((i) => i.cib === dados.cib)
+    if (dados.cnm) {
+      const existente = imoveis.find((i) => i.cnm === dados.cnm)
       if (existente) {
-        setErroCib(existente.corretorResponsavelId)
+        setErroCnm(existente.corretorResponsavelId)
         return
       }
     }
-    setErroCib(null)
+    setErroCnm(null)
 
     const coords = encontrarBairro(dados.cidade, dados.bairro)
     const usaTerrenoSeparado = TIPOS_COM_TERRENO_SEPARADO.includes(dados.tipo)
@@ -137,7 +152,7 @@ export function CadastroImovelPage() {
       lat: coords?.lat ?? -21.17,
       lng: coords?.lng ?? -47.81,
       tipo: dados.tipo,
-      cib: dados.cib || undefined,
+      cnm: dados.cnm || undefined,
       valorEstimado: dados.valorEstimado,
       quartos: dados.quartos,
       suites: dados.suites,
@@ -148,6 +163,7 @@ export function CadastroImovelPage() {
       areaTerrenoM2: usaTerrenoSeparado || apenasTerreno ? dados.areaTerreno ?? dados.area : undefined,
       elevador: dados.elevador,
       mobiliado: dados.mobiliado,
+      comArmarios: dados.comArmarios,
       lazer: dados.lazer,
       varanda: dados.varanda,
       churrasqueira: dados.churrasqueira,
@@ -167,6 +183,7 @@ export function CadastroImovelPage() {
 
   const usaTerrenoSeparado = valores.tipo && TIPOS_COM_TERRENO_SEPARADO.includes(valores.tipo)
   const apenasTerreno = valores.tipo && TIPOS_APENAS_TERRENO.includes(valores.tipo)
+  const mostrarArmarios = valores.tipo && TIPOS_COM_ARMARIOS.includes(valores.tipo)
 
   return (
     <div className="mx-auto max-w-2xl p-6">
@@ -176,7 +193,7 @@ export function CadastroImovelPage() {
       </p>
       <WizardSteps passos={PASSOS} passoAtual={passo} />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+      <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="flex flex-col gap-5">
         {passo === 1 && (
           <>
             <SelectorCascadeUnico
@@ -284,6 +301,9 @@ export function CadastroImovelPage() {
               <div className="flex flex-wrap gap-2">
                 <ChipBoolean label="Elevador" selecionado={!!valores.elevador} onToggle={() => setValue('elevador', !valores.elevador)} />
                 <ChipBoolean label="Mobiliado" selecionado={!!valores.mobiliado} onToggle={() => setValue('mobiliado', !valores.mobiliado)} />
+                {mostrarArmarios && (
+                  <ChipBoolean label="Com armários" selecionado={!!valores.comArmarios} onToggle={() => setValue('comArmarios', !valores.comArmarios)} />
+                )}
                 <ChipBoolean label="Lazer" selecionado={!!valores.lazer} onToggle={() => setValue('lazer', !valores.lazer)} />
                 <ChipBoolean label="Varanda" selecionado={!!valores.varanda} onToggle={() => setValue('varanda', !valores.varanda)} />
                 <ChipBoolean label="Churrasqueira" selecionado={!!valores.churrasqueira} onToggle={() => setValue('churrasqueira', !valores.churrasqueira)} />
@@ -316,25 +336,26 @@ export function CadastroImovelPage() {
               <Input id="valorEstimado" type="number" min={0} {...form.register('valorEstimado')} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="cib">CIB (opcional agora — obrigatório para avançar de etapa)</Label>
+              <Label htmlFor="cnm">CNM (opcional agora — obrigatório para avançar de etapa)</Label>
               <Input
-                id="cib"
-                {...form.register('cib')}
+                id="cnm"
+                {...form.register('cnm')}
                 onChange={(e) => {
-                  form.register('cib').onChange(e)
-                  setErroCib(null)
+                  form.register('cnm').onChange(e)
+                  setErroCnm(null)
                 }}
-                placeholder="CIB-XX-00000"
+                placeholder="0000.0000.0000.0000"
               />
               <p className="text-xs text-text-soft">
-                O CIB identifica o imóvel de forma única na base. Você pode informar depois, mas
-                será exigido para avançar da etapa "Novo" para "Análise e Estudo".
+                O CNM (Cadastro Nacional de Matrícula) identifica o imóvel de forma única e
+                nacional na base. Você pode informar depois, mas será exigido para avançar da
+                etapa "Novo" para "Análise e Estudo".
               </p>
-              {erroCib && (
+              {erroCnm && (
                 <div className="mt-1 rounded-card border border-danger/30 bg-danger/5 p-3 text-sm text-danger">
-                  Este CIB já está cadastrado por {nomeCorretor(erroCib)}
+                  Este CNM já está cadastrado por {nomeCorretor(erroCnm)}
                   {(() => {
-                    const c = CORRETORES.find((c) => c.id === erroCib)
+                    const c = CORRETORES.find((c) => c.id === erroCnm)
                     return c ? ` · WhatsApp: ${c.telefoneWhatsapp}` : ''
                   })()}
                   .

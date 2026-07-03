@@ -9,6 +9,7 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { OnboardingPage } from '@/pages/OnboardingPage'
 import { TodosImoveisPage } from '@/pages/TodosImoveisPage'
 import { TodosClientesPage } from '@/pages/TodosClientesPage'
+import { RankingCorretoresPage } from '@/pages/RankingCorretoresPage'
 import { NotificacoesPage } from '@/pages/NotificacoesPage'
 import { ConfiguracoesScorePage } from '@/pages/ConfiguracoesScorePage'
 
@@ -24,8 +25,10 @@ export const router = createBrowserRouter(
         { path: 'meus-clientes', element: <MeusClientesPage /> },
         { path: 'imoveis/novo', element: <CadastroImovelPage /> },
         { path: 'clientes/novo', element: <CadastroClientePage /> },
+        { path: 'clientes/:id/editar', element: <CadastroClientePage /> },
         { path: 'todos-imoveis', element: <TodosImoveisPage /> },
         { path: 'todos-clientes', element: <TodosClientesPage /> },
+        { path: 'ranking-corretores', element: <RankingCorretoresPage /> },
         { path: 'todos-corretores', element: <PlaceholderPage titulo="Todos os Corretores" /> },
         { path: 'imoveis-perdidos', element: <PlaceholderPage titulo="Imóveis Perdidos" /> },
         { path: 'notificacoes', element: <NotificacoesPage /> },

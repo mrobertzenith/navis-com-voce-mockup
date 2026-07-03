@@ -10,9 +10,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CAMPO_GATE_LEAD_CONFIG, type CampoGateLead } from '@/domain/gatesLead'
 import { ETAPA_LEAD_LABEL } from '@/domain/constants'
 import type { EtapaLead, Lead } from '@/domain/types'
+import { useImoveis } from '@/hooks/useImoveis'
+import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
 
 interface ModalGateClienteProps {
   lead: Lead | null
@@ -33,6 +36,8 @@ export function ModalGateCliente({
 }: ModalGateClienteProps) {
   const [valores, setValores] = useState<Record<string, string>>({})
   const [checks, setChecks] = useState<Record<string, boolean>>({})
+  const { data: imoveis = [] } = useImoveis()
+  const meusImoveis = imoveis.filter((i) => i.corretorResponsavelId === CORRETOR_LOGADO_ID)
 
   if (!lead || !destino) return null
 
@@ -45,6 +50,9 @@ export function ModalGateCliente({
     const patch: Partial<Lead> = {}
     if (valores.observacoes) patch.observacoes = valores.observacoes
     if (valores.dataVisita) patch.dataVisita = valores.dataVisita
+    if (valores.imovelVisitaId) patch.imovelVisitaId = valores.imovelVisitaId
+    if (valores.imovelFechadoId) patch.imovelFechadoId = valores.imovelFechadoId
+    if (valores.valorNegociado) patch.valorNegociado = Number(valores.valorNegociado)
     if (valores.motivoStandby) patch.motivoStandby = valores.motivoStandby.slice(0, 500)
     if (valores.motivoPerdido) patch.motivoPerdido = valores.motivoPerdido.slice(0, 500)
     if (checks.pagamentosConcluidos) patch.pagamentosConcluidos = true
@@ -85,7 +93,7 @@ export function ModalGateCliente({
             return (
               <div key={campo} className="flex flex-col gap-1.5">
                 <Label htmlFor={campo}>{config.label}</Label>
-                {config.tipo === 'textarea' ? (
+                {config.tipo === 'textarea' && (
                   <textarea
                     id={campo}
                     value={valores[campo] ?? ''}
@@ -93,13 +101,40 @@ export function ModalGateCliente({
                     onChange={(e) => setValores((v) => ({ ...v, [campo]: e.target.value }))}
                     className="min-h-20 w-full rounded-card border border-border bg-surface px-3 py-2 text-[15px] font-body text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   />
-                ) : (
+                )}
+                {config.tipo === 'date' && (
                   <Input
                     id={campo}
                     type="date"
                     value={valores[campo] ?? ''}
                     onChange={(e) => setValores((v) => ({ ...v, [campo]: e.target.value }))}
                   />
+                )}
+                {config.tipo === 'number' && (
+                  <Input
+                    id={campo}
+                    type="number"
+                    min={0}
+                    value={valores[campo] ?? ''}
+                    onChange={(e) => setValores((v) => ({ ...v, [campo]: e.target.value }))}
+                  />
+                )}
+                {config.tipo === 'imovel' && (
+                  <Select
+                    value={valores[campo] ?? ''}
+                    onValueChange={(v) => setValores((val) => ({ ...val, [campo]: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o imóvel" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {meusImoveis.map((i) => (
+                        <SelectItem key={i.id} value={i.id}>
+                          {i.enderecoRua}, {i.enderecoNumero} · {i.bairro}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
             )

@@ -28,8 +28,8 @@ export const imoveisDb = {
   getById(id: string): Imovel | undefined {
     return imoveis.find((i) => i.id === id)
   },
-  cibJaExiste(cib: string): Imovel | undefined {
-    return imoveis.find((i) => i.cib === cib)
+  cnmJaExiste(cnm: string): Imovel | undefined {
+    return imoveis.find((i) => i.cnm === cnm)
   },
   create(dados: Omit<Imovel, 'id' | 'criadoEm' | 'atualizadoEm'>): Imovel {
     const agora = new Date().toISOString()

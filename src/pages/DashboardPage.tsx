@@ -141,11 +141,11 @@ export function DashboardPage() {
       })
     }
 
-    const semCib = meusImoveis.filter((i) => i.etapa === 'a' && !i.cib)
-    if (semCib.length > 0) {
+    const semCnm = meusImoveis.filter((i) => i.etapa === 'a' && !i.cnm)
+    if (semCnm.length > 0) {
       acoes.push({
-        id: 'sem-cib',
-        descricao: `${semCib.length} ${semCib.length === 1 ? 'imóvel novo está' : 'imóveis novos estão'} sem CIB preenchido`,
+        id: 'sem-cnm',
+        descricao: `${semCnm.length} ${semCnm.length === 1 ? 'imóvel novo está' : 'imóveis novos estão'} sem CNM preenchido`,
         to: '/meus-imoveis',
       })
     }

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Building2, Users, Bell, Settings, ListChecks, UsersRound } from 'lucide-react'
+import { LayoutDashboard, Building2, Users, Bell, Settings, ListChecks, UsersRound, Trophy } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
 const NAV_ITEMS = [
@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: '/meus-clientes', label: 'Meus Clientes', icon: Users },
   { to: '/todos-imoveis', label: 'Todos os Imóveis', icon: ListChecks },
   { to: '/todos-clientes', label: 'Todos os Clientes', icon: UsersRound },
+  { to: '/ranking-corretores', label: 'Ranking de Corretores', icon: Trophy },
   { to: '/notificacoes', label: 'Notificações', icon: Bell },
   { to: '/configuracoes/score', label: 'Configurações', icon: Settings },
 ]
