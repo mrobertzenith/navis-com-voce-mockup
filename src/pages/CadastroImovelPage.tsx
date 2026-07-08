@@ -67,7 +67,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-const PASSOS = ['Localização', 'Características', 'Diferenciais', 'Fotos', 'Valor e CIB']
+const PASSOS = ['Localização', 'Características', 'Diferenciais', 'Fotos', 'Valor e CNM']
 const CAMPOS_POR_PASSO: (keyof FormData)[][] = [
   ['estado', 'cidade', 'bairro', 'enderecoRua', 'enderecoNumero'],
   ['tipo', 'quartos', 'suites', 'vagas', 'banheiros', 'area'],
@@ -336,7 +336,9 @@ export function CadastroImovelPage() {
               <Input id="valorEstimado" type="number" min={0} {...form.register('valorEstimado')} />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="cnm">CNM (opcional agora — obrigatório para avançar de etapa)</Label>
+              <Label htmlFor="cnm">
+                CNM (Cadastro Nacional de Matrícula) — opcional agora, obrigatório para avançar de etapa
+              </Label>
               <Input
                 id="cnm"
                 {...form.register('cnm')}

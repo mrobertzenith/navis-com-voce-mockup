@@ -95,7 +95,14 @@ export function ModalDetalheImovel({ imovel, meusLeads, onClose }: ModalDetalheI
 
           {imovel.linkAnuncioUrl && (
             <div className="flex items-center gap-2 rounded-card border border-border bg-bg p-2">
-              <span className="flex-1 truncate text-xs text-text-mut">{imovel.linkAnuncioUrl}</span>
+              <a
+                href={imovel.linkAnuncioUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 truncate text-xs text-primary hover:underline"
+              >
+                {imovel.linkAnuncioUrl}
+              </a>
               <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={copiarLink}>
                 <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
               </Button>

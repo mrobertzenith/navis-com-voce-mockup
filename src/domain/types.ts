@@ -172,6 +172,7 @@ export interface Lead {
   ttlAtual?: string
   dataVisita?: string
   imovelVisitaId?: string
+  imovelNegociacaoId?: string
   motivoStandby?: string
   meMantenhaInformado?: boolean
   motivoPerdido?: string

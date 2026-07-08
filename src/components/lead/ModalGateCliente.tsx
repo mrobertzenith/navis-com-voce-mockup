@@ -13,9 +13,11 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CAMPO_GATE_LEAD_CONFIG, type CampoGateLead } from '@/domain/gatesLead'
 import { ETAPA_LEAD_LABEL } from '@/domain/constants'
+import { calcularMatch } from '@/domain/matching'
 import type { EtapaLead, Lead } from '@/domain/types'
 import { useImoveis } from '@/hooks/useImoveis'
 import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
+import { useScoreStore } from '@/stores/scoreStore'
 
 interface ModalGateClienteProps {
   lead: Lead | null
@@ -37,7 +39,11 @@ export function ModalGateCliente({
   const [valores, setValores] = useState<Record<string, string>>({})
   const [checks, setChecks] = useState<Record<string, boolean>>({})
   const { data: imoveis = [] } = useImoveis()
+  const pesos = useScoreStore((s) => s.pesos)
   const meusImoveis = imoveis.filter((i) => i.corretorResponsavelId === CORRETOR_LOGADO_ID)
+  const imoveisCompativeis = lead
+    ? meusImoveis.filter((i) => calcularMatch(i, lead, pesos) != null)
+    : []
 
   if (!lead || !destino) return null
 
@@ -51,6 +57,7 @@ export function ModalGateCliente({
     if (valores.observacoes) patch.observacoes = valores.observacoes
     if (valores.dataVisita) patch.dataVisita = valores.dataVisita
     if (valores.imovelVisitaId) patch.imovelVisitaId = valores.imovelVisitaId
+    if (valores.imovelNegociacaoId) patch.imovelNegociacaoId = valores.imovelNegociacaoId
     if (valores.imovelFechadoId) patch.imovelFechadoId = valores.imovelFechadoId
     if (valores.valorNegociado) patch.valorNegociado = Number(valores.valorNegociado)
     if (valores.motivoStandby) patch.motivoStandby = valores.motivoStandby.slice(0, 500)
@@ -120,21 +127,29 @@ export function ModalGateCliente({
                   />
                 )}
                 {config.tipo === 'imovel' && (
-                  <Select
-                    value={valores[campo] ?? ''}
-                    onValueChange={(v) => setValores((val) => ({ ...val, [campo]: v }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o imóvel" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {meusImoveis.map((i) => (
-                        <SelectItem key={i.id} value={i.id}>
-                          {i.enderecoRua}, {i.enderecoNumero} · {i.bairro}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <>
+                    <Select
+                      value={valores[campo] ?? ''}
+                      onValueChange={(v) => setValores((val) => ({ ...val, [campo]: v }))}
+                      disabled={imoveisCompativeis.length === 0}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o imóvel" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {imoveisCompativeis.map((i) => (
+                          <SelectItem key={i.id} value={i.id}>
+                            {i.enderecoRua}, {i.enderecoNumero} · {i.bairro}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {imoveisCompativeis.length === 0 && (
+                      <p className="text-xs text-text-soft">
+                        Nenhum dos seus imóveis tem perfil compatível com este cliente no momento.
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             )

@@ -4,7 +4,7 @@ import type { EtapaImovel, Imovel } from '@/domain/types'
 export type CampoGateImovel = 'cnm' | 'valorAnuncio' | 'linkAnuncioUrl' | 'metragem' | 'valorVenda'
 
 export const CAMPO_GATE_LABEL: Record<CampoGateImovel, string> = {
-  cnm: 'CNM',
+  cnm: 'CNM (Cadastro Nacional de Matrícula)',
   valorAnuncio: 'Valor de anúncio',
   linkAnuncioUrl: 'Link do anúncio',
   metragem: 'Metragem (área)',

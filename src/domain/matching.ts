@@ -45,9 +45,14 @@ function avaliarGateLocalizacao(imovel: Imovel, perfil: PerfilBusca): ResultadoG
   return { passou: distancia <= perfil.raioKm, bairroExato: false }
 }
 
+/** Preço de referência para o gate: usa o anúncio quando existe, senão o valor estimado. */
+function valorReferencia(imovel: Imovel): number | undefined {
+  return imovel.valorAnuncio ?? imovel.valorEstimado
+}
+
 function avaliarGatePreco(imovel: Imovel, perfil: PerfilBusca): { passou: boolean; dentroExato: boolean } {
-  if (imovel.valorAnuncio == null) return { passou: true, dentroExato: false } // match de aviso — gate ignorado
-  const valor = imovel.valorAnuncio
+  const valor = valorReferencia(imovel)
+  if (valor == null) return { passou: true, dentroExato: false } // sem nenhuma referência de valor — gate ignorado
   const piso = perfil.valorDe
   const teto = perfil.valorAte
 
@@ -115,7 +120,7 @@ export function calcularScoreImovel(imovel: Imovel, perfil: PerfilBusca, pesos: 
     precisao: gateLocalizacao.bairroExato ? 1 : 0.7,
   })
 
-  if (imovel.valorAnuncio != null) {
+  if (valorReferencia(imovel) != null) {
     contribuicoes.push({
       peso: pesos.preco_dentro_vs_tolerancia,
       precisao: gatePreco.dentroExato ? 1 : 0.7,
@@ -160,7 +165,7 @@ export function calcularScoreImovel(imovel: Imovel, perfil: PerfilBusca, pesos: 
   const somaContribuicoes = contribuicoes.reduce((s, c) => s + c.peso * c.precisao, 0)
   const scoreBase = somaContribuicoes / somaPesos
 
-  const isAviso = imovel.valorAnuncio == null
+  const isAviso = valorReferencia(imovel) == null
   return isAviso ? scoreBase * 0.5 : scoreBase
 }
 
@@ -192,6 +197,6 @@ export function calcularMatch(imovel: Imovel, lead: Lead, pesos: PesosScore): Ma
     imovelId: imovel.id,
     leadId: lead.id,
     score: Math.max(0, Math.min(100, scoreFinal)),
-    isAviso: imovel.valorAnuncio == null,
+    isAviso: valorReferencia(imovel) == null,
   }
 }

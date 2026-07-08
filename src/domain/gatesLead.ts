@@ -5,6 +5,7 @@ export type CampoGateLead =
   | 'observacoes'
   | 'dataVisita'
   | 'imovelVisitaId'
+  | 'imovelNegociacaoId'
   | 'imovelFechadoId'
   | 'valorNegociado'
   | 'motivoStandby'
@@ -18,6 +19,7 @@ export const CAMPO_GATE_LEAD_CONFIG: Record<CampoGateLead, { label: string; tipo
   observacoes: { label: 'Observações', tipo: 'textarea' },
   dataVisita: { label: 'Data da visita', tipo: 'date' },
   imovelVisitaId: { label: 'Imóvel da visita', tipo: 'imovel' },
+  imovelNegociacaoId: { label: 'Imóvel da negociação', tipo: 'imovel' },
   imovelFechadoId: { label: 'Imóvel do negócio', tipo: 'imovel' },
   valorNegociado: { label: 'Valor negociado', tipo: 'number' },
   motivoStandby: { label: 'Motivo do standby (até 500 caracteres)', tipo: 'textarea' },
@@ -67,6 +69,7 @@ export function avaliarTransicaoLead(
     if (!efetivo.dataVisita) faltantes.push('dataVisita')
     if (!efetivo.imovelVisitaId) faltantes.push('imovelVisitaId')
   }
+  if (destino === 4 && !efetivo.imovelNegociacaoId) faltantes.push('imovelNegociacaoId')
   if (destino === 5) {
     if (!efetivo.imovelFechadoId) faltantes.push('imovelFechadoId')
     if (efetivo.valorNegociado == null) faltantes.push('valorNegociado')

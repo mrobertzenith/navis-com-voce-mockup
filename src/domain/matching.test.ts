@@ -82,8 +82,18 @@ describe('passaGates', () => {
     expect(passaGates(imovel, perfilBase())).toBe(true)
   })
 
-  it('imóvel sem valor de anúncio (etapas a/b) ignora o gate de preço', () => {
-    const imovel = imovelBase({ valorAnuncio: undefined, etapa: 'a' })
+  it('imóvel sem nenhuma referência de valor (nem anúncio, nem estimado) ignora o gate de preço', () => {
+    const imovel = imovelBase({ valorAnuncio: undefined, valorEstimado: undefined, etapa: 'a' })
+    expect(passaGates(imovel, perfilBase())).toBe(true)
+  })
+
+  it('imóvel sem valor de anúncio mas com valor estimado fora da tolerância falha o gate de preço', () => {
+    const imovel = imovelBase({ valorAnuncio: undefined, valorEstimado: 1150000, etapa: 'b' })
+    expect(passaGates(imovel, perfilBase())).toBe(false)
+  })
+
+  it('imóvel sem valor de anúncio mas com valor estimado dentro da tolerância passa o gate de preço', () => {
+    const imovel = imovelBase({ valorAnuncio: undefined, valorEstimado: 490000, etapa: 'b' })
     expect(passaGates(imovel, perfilBase())).toBe(true)
   })
 })

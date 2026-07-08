@@ -72,9 +72,9 @@ export function RankingCorretoresPage() {
         <div className="flex flex-col gap-1.5">
           <Label>Estado</Label>
           <Select
-            value={estado}
+            value={estado || 'todos'}
             onValueChange={(v) => {
-              setEstado(v)
+              setEstado(v === 'todos' ? '' : v)
               setCidade('')
             }}
           >
@@ -82,6 +82,7 @@ export function RankingCorretoresPage() {
               <SelectValue placeholder="Todos (ranking geral)" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="todos">Todos (ranking geral)</SelectItem>
               {estados.map((e) => (
                 <SelectItem key={e} value={e}>
                   {e}
@@ -92,11 +93,12 @@ export function RankingCorretoresPage() {
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>Cidade</Label>
-          <Select value={cidade} onValueChange={setCidade}>
+          <Select value={cidade || 'todas'} onValueChange={(v) => setCidade(v === 'todas' ? '' : v)}>
             <SelectTrigger>
               <SelectValue placeholder="Todas" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="todas">Todas</SelectItem>
               {cidades.map((c) => (
                 <SelectItem key={c} value={c}>
                   {c}

@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
 import type { EtapaLead, Lead, OrigemLead, TipoImovel } from '@/domain/types'
+import { passaGates } from '@/domain/matching'
 import { useAtualizarLead, useCriarLead, useLeads } from '@/hooks/useLeads'
 import { useImoveis } from '@/hooks/useImoveis'
 import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
@@ -108,9 +109,6 @@ export function CadastroClientePage() {
   const { data: leads = [] } = useLeads()
   const clienteExistente = editando ? leads.find((l) => l.id === clienteId) : undefined
   const { data: imoveis = [] } = useImoveis()
-  const imoveisDisponiveis = imoveis.filter(
-    (i) => i.corretorResponsavelId === CORRETOR_LOGADO_ID && i.etapa === 'd',
-  )
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -126,6 +124,22 @@ export function CadastroClientePage() {
 
   const { watch, setValue, handleSubmit, trigger, formState, reset } = form
   const valores = watch()
+
+  const imoveisDisponiveis = imoveis.filter((i) => {
+    if (i.corretorResponsavelId !== CORRETOR_LOGADO_ID || i.etapa !== 'd') return false
+    if (!valores.tipos?.length || !valores.cidade || !valores.bairros?.length) return false
+    return passaGates(i, {
+      id: '',
+      leadId: '',
+      estado: valores.estado,
+      cidade: valores.cidade,
+      bairros: valores.bairros,
+      raioKm: 5,
+      tipos: valores.tipos,
+      valorDe: valores.valorDe ?? null,
+      valorAte: valores.valorAte ?? null,
+    })
+  })
 
   useEffect(() => {
     if (!clienteExistente) return
@@ -435,7 +449,11 @@ export function CadastroClientePage() {
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <Label>Imóvel da visita (obrigatório para "Visita agendada")</Label>
-                      <Select value={valores.imovelVisitaId} onValueChange={(v) => setValue('imovelVisitaId', v, { shouldValidate: true })}>
+                      <Select
+                        value={valores.imovelVisitaId}
+                        onValueChange={(v) => setValue('imovelVisitaId', v, { shouldValidate: true })}
+                        disabled={imoveisDisponiveis.length === 0}
+                      >
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione o imóvel" />
                         </SelectTrigger>
@@ -447,6 +465,11 @@ export function CadastroClientePage() {
                           ))}
                         </SelectContent>
                       </Select>
+                      {imoveisDisponiveis.length === 0 && (
+                        <p className="text-xs text-text-soft">
+                          Nenhum dos seus imóveis publicados tem perfil compatível com este cliente no momento.
+                        </p>
+                      )}
                       {formState.errors.imovelVisitaId && (
                         <p className="text-sm text-danger">{formState.errors.imovelVisitaId.message}</p>
                       )}

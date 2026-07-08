@@ -14,11 +14,12 @@ import { avaliarTransicaoLead } from '@/domain/gatesLead'
 import { calcularMatch } from '@/domain/matching'
 import type { EtapaLead, Lead } from '@/domain/types'
 import { useAtualizarLead, useLeads } from '@/hooks/useLeads'
-import { useImoveis } from '@/hooks/useImoveis'
+import { useAtualizarImovel, useImoveis } from '@/hooks/useImoveis'
 import { useMatches } from '@/hooks/useMatches'
 import { CORRETORES, CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 import { formatPreco } from '@/lib/format'
 import { useDismissStore } from '@/stores/dismissStore'
+import { useNotificacoesStore } from '@/stores/notificacoesStore'
 import { useScoreStore } from '@/stores/scoreStore'
 import { useUIStore } from '@/stores/uiStore'
 
@@ -38,6 +39,8 @@ export function MeusClientesPage() {
   const { data: leads = [], isLoading } = useLeads()
   const { data: imoveis = [] } = useImoveis()
   const atualizarLead = useAtualizarLead()
+  const atualizarImovel = useAtualizarImovel()
+  const adicionarNotificacao = useNotificacoesStore((s) => s.adicionarNotificacao)
   const { contadorPorLead } = useMatches()
   const pesos = useScoreStore((s) => s.pesos)
   const descartados = useDismissStore((s) => s.descartados)
@@ -145,6 +148,47 @@ export function MeusClientesPage() {
 
     const patchFinal: Partial<Lead> = { ...patch, etapa: destino }
     if (destino === 7) patchFinal.dataEntradaStandby = new Date().toISOString()
+
+    if (destino === 4 && patchFinal.imovelNegociacaoId) {
+      const imovelId = patchFinal.imovelNegociacaoId
+      delete patchFinal.imovelNegociacaoId
+      patchFinal.negociacoesAtivas = [
+        ...(lead.negociacoesAtivas ?? []),
+        { imovelId, dataInicio: new Date().toISOString() },
+      ]
+      const imovel = imoveis.find((i) => i.id === imovelId)
+      const mesmoCorretor = imovel?.corretorResponsavelId === CORRETOR_LOGADO_ID
+
+      atualizarLead.mutate(
+        { id: lead.id, patch: patchFinal },
+        {
+          onSuccess: () => {
+            if (imovel && mesmoCorretor && imovel.etapa !== 'e') {
+              atualizarImovel.mutate({ id: imovel.id, patch: { etapa: 'e', emNegociacaoFlag: true } })
+              toast({
+                title: 'Cliente e imóvel movidos',
+                description: 'Ambos agora em "Em negociação".',
+              })
+            } else if (imovel && !mesmoCorretor) {
+              adicionarNotificacao({
+                destinatarioCorretorId: CORRETOR_LOGADO_ID,
+                tipoEvento: 'E16',
+                titulo: 'Aprovação pendente',
+                corpo: `Solicitação enviada a ${nomeCorretor(imovel.corretorResponsavelId)} para mover "${imovel.enderecoRua}, ${imovel.enderecoNumero}" para "Em negociação".`,
+              })
+              toast({
+                title: 'Cliente movido',
+                description: 'Aguardando aprovação do corretor responsável pelo imóvel.',
+              })
+            } else {
+              toast({ title: 'Cliente movido', description: `Agora em "${ETAPA_LEAD_LABEL[destino]}".` })
+            }
+          },
+        },
+      )
+      setPending(null)
+      return
+    }
 
     atualizarLead.mutate(
       { id: lead.id, patch: patchFinal },

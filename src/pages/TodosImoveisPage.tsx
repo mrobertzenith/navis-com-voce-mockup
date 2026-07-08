@@ -121,11 +121,12 @@ export function TodosImoveisPage() {
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-8">
         <div className="flex flex-col gap-1.5">
           <Label>Tipo</Label>
-          <Select value={tipo} onValueChange={setTipo}>
+          <Select value={tipo || 'todos'} onValueChange={(v) => setTipo(v === 'todos' ? '' : v)}>
             <SelectTrigger>
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
               {TIPOS.map((t) => (
                 <SelectItem key={t} value={t}>
                   {TIPO_IMOVEL_LABEL[t]}
@@ -136,11 +137,12 @@ export function TodosImoveisPage() {
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>Cidade</Label>
-          <Select value={cidade} onValueChange={setCidade}>
+          <Select value={cidade || 'todas'} onValueChange={(v) => setCidade(v === 'todas' ? '' : v)}>
             <SelectTrigger>
               <SelectValue placeholder="Todas" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="todas">Todas</SelectItem>
               {cidades.map((c) => (
                 <SelectItem key={c} value={c}>
                   {c}
