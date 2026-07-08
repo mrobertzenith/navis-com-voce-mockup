@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, Building2, Users, Bell, Settings, ListChecks, UsersRound, Trophy } from 'lucide-react'
 import { cn } from '@/lib/cn'
 
-const NAV_ITEMS = [
+export const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/meus-imoveis', label: 'Meus Imóveis', icon: Building2 },
   { to: '/meus-clientes', label: 'Meus Clientes', icon: Users },

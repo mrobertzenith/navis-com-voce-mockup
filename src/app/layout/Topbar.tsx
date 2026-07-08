@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Bell, RotateCcw, User } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { MobileNav } from '@/app/layout/MobileNav'
 import { Button } from '@/components/ui/button'
 import { useDemoStore } from '@/stores/demoStore'
 import { useNotificacoesStore } from '@/stores/notificacoesStore'
@@ -11,7 +12,8 @@ export function Topbar() {
 
   return (
     <header className="flex h-16 items-center justify-between gap-2 border-b border-border bg-surface px-3 sm:px-6">
-      <div className="flex min-w-0 items-baseline gap-1.5">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <MobileNav />
         <span className="truncate font-heading text-base font-bold text-ink sm:text-lg">
           NAVIS COM VOCÊ
         </span>
