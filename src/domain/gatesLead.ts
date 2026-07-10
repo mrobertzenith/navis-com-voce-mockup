@@ -3,8 +3,7 @@ import type { EtapaLead, Lead } from '@/domain/types'
 
 export type CampoGateLead =
   | 'observacoes'
-  | 'dataVisita'
-  | 'imovelVisitaId'
+  | 'visitasAgendadas'
   | 'imovelNegociacaoId'
   | 'imovelFechadoId'
   | 'valorNegociado'
@@ -13,13 +12,12 @@ export type CampoGateLead =
   | 'pagamentosConcluidos'
   | 'chavesEntregues'
 
-export type TipoCampoGateLead = 'textarea' | 'date' | 'checkbox' | 'imovel' | 'number'
+export type TipoCampoGateLead = 'textarea' | 'date' | 'checkbox' | 'imovel' | 'imovel-multi' | 'visitas' | 'number'
 
 export const CAMPO_GATE_LEAD_CONFIG: Record<CampoGateLead, { label: string; tipo: TipoCampoGateLead }> = {
   observacoes: { label: 'Observações', tipo: 'textarea' },
-  dataVisita: { label: 'Data da visita', tipo: 'date' },
-  imovelVisitaId: { label: 'Imóvel da visita', tipo: 'imovel' },
-  imovelNegociacaoId: { label: 'Imóvel da negociação', tipo: 'imovel' },
+  visitasAgendadas: { label: 'Visitas agendadas', tipo: 'visitas' },
+  imovelNegociacaoId: { label: 'Imóveis da negociação', tipo: 'imovel-multi' },
   imovelFechadoId: { label: 'Imóvel do negócio', tipo: 'imovel' },
   valorNegociado: { label: 'Valor negociado', tipo: 'number' },
   motivoStandby: { label: 'Motivo do standby (até 500 caracteres)', tipo: 'textarea' },
@@ -65,9 +63,8 @@ export function avaliarTransicaoLead(
   const faltantes: CampoGateLead[] = []
 
   if (destino === 2 && !efetivo.observacoes) faltantes.push('observacoes')
-  if (destino === 3) {
-    if (!efetivo.dataVisita) faltantes.push('dataVisita')
-    if (!efetivo.imovelVisitaId) faltantes.push('imovelVisitaId')
+  if (destino === 3 && !(efetivo.visitasAgendadas && efetivo.visitasAgendadas.length > 0)) {
+    faltantes.push('visitasAgendadas')
   }
   if (destino === 4 && !efetivo.imovelNegociacaoId) faltantes.push('imovelNegociacaoId')
   if (destino === 5) {

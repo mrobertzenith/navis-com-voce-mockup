@@ -1,7 +1,7 @@
 import { ETAPA_IMOVEL_ORDEM } from '@/domain/constants'
 import type { EtapaImovel, Imovel } from '@/domain/types'
 
-export type CampoGateImovel = 'cnm' | 'valorAnuncio' | 'linkAnuncioUrl' | 'metragem' | 'valorVenda'
+export type CampoGateImovel = 'cnm' | 'valorAnuncio' | 'linkAnuncioUrl' | 'metragem' | 'valorVenda' | 'leadNegociacaoId'
 
 export const CAMPO_GATE_LABEL: Record<CampoGateImovel, string> = {
   cnm: 'CNM (Cadastro Nacional de Matrícula)',
@@ -9,6 +9,12 @@ export const CAMPO_GATE_LABEL: Record<CampoGateImovel, string> = {
   linkAnuncioUrl: 'Link do anúncio',
   metragem: 'Metragem (área)',
   valorVenda: 'Valor de venda',
+  leadNegociacaoId: 'Cliente da negociação',
+}
+
+/** patch usado apenas para avaliar o gate — não é persistido no Imovel */
+interface PatchGateImovel extends Partial<Imovel> {
+  leadNegociacaoId?: string
 }
 
 interface ResultadoTransicao {
@@ -26,7 +32,7 @@ function temMetragem(imovel: Imovel): boolean {
 export function avaliarTransicaoImovel(
   imovel: Imovel,
   destino: EtapaImovel,
-  patch: Partial<Imovel> = {},
+  patch: PatchGateImovel = {},
 ): ResultadoTransicao {
   const origem = imovel.etapa
   const idxOrigem = ETAPA_IMOVEL_ORDEM.indexOf(origem)
@@ -52,6 +58,7 @@ export function avaliarTransicaoImovel(
     if (!efetivo.linkAnuncioUrl) faltantes.push('linkAnuncioUrl')
     if (!temMetragem(efetivo)) faltantes.push('metragem')
   }
+  if (destino === 'e' && !efetivo.leadNegociacaoId) faltantes.push('leadNegociacaoId')
   if (destino === 'f' && efetivo.valorVenda == null) faltantes.push('valorVenda')
 
   const requerConfirmacao = destino === 'e' || destino === 'f'

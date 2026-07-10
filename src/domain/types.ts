@@ -170,8 +170,9 @@ export interface Lead {
 
   dataCadastro: string
   ttlAtual?: string
-  dataVisita?: string
-  imovelVisitaId?: string
+  /** pode haver mais de uma visita agendada, cada uma com seu próprio imóvel e data */
+  visitasAgendadas?: { imovelId: string; data: string }[]
+  /** ids de imóveis vinculados ao entrar em negociação, separados por vírgula (campo transiente do gate) */
   imovelNegociacaoId?: string
   motivoStandby?: string
   meMantenhaInformado?: boolean

@@ -96,6 +96,13 @@ describe('passaGates', () => {
     const imovel = imovelBase({ valorAnuncio: undefined, valorEstimado: 490000, etapa: 'b' })
     expect(passaGates(imovel, perfilBase())).toBe(true)
   })
+
+  it('com raioKm configurado mais estreito, um bairro vizinho fora do perfil deixa de bater (raio configurável)', () => {
+    // Jardim Sumaré -> Ribeirânia ficam a ~4km um do outro
+    const imovel = imovelBase({ bairro: 'Ribeirânia', lat: -21.1633, lng: -47.8465 })
+    expect(passaGates(imovel, perfilBase({ raioKm: 5 }))).toBe(true)
+    expect(passaGates(imovel, perfilBase({ raioKm: 2 }))).toBe(false)
+  })
 })
 
 describe('calcularMatch', () => {

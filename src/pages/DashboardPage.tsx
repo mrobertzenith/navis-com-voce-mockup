@@ -131,7 +131,7 @@ export function DashboardPage() {
     const hoje = Date.now()
 
     const visitasAtrasadas = meusLeads.filter(
-      (l) => l.etapa === 3 && l.dataVisita && new Date(l.dataVisita).getTime() < hoje,
+      (l) => l.etapa === 3 && l.visitasAgendadas?.some((v) => new Date(v.data).getTime() < hoje),
     )
     if (visitasAtrasadas.length > 0) {
       acoes.push({

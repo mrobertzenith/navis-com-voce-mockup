@@ -12,7 +12,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { ETAPA_LEAD_LABEL, ETAPA_LEAD_ORDEM, TIPO_IMOVEL_LABEL } from '@/domain/constants'
 import { avaliarTransicaoLead } from '@/domain/gatesLead'
 import { calcularMatch } from '@/domain/matching'
-import type { EtapaLead, Lead } from '@/domain/types'
+import type { EtapaLead, Imovel, Lead } from '@/domain/types'
 import { useAtualizarLead, useLeads } from '@/hooks/useLeads'
 import { useAtualizarImovel, useImoveis } from '@/hooks/useImoveis'
 import { useMatches } from '@/hooks/useMatches'
@@ -150,35 +150,46 @@ export function MeusClientesPage() {
     if (destino === 7) patchFinal.dataEntradaStandby = new Date().toISOString()
 
     if (destino === 4 && patchFinal.imovelNegociacaoId) {
-      const imovelId = patchFinal.imovelNegociacaoId
+      const imovelIds = patchFinal.imovelNegociacaoId.split(',').filter(Boolean)
       delete patchFinal.imovelNegociacaoId
       patchFinal.negociacoesAtivas = [
         ...(lead.negociacoesAtivas ?? []),
-        { imovelId, dataInicio: new Date().toISOString() },
+        ...imovelIds.map((imovelId) => ({ imovelId, dataInicio: new Date().toISOString() })),
       ]
-      const imovel = imoveis.find((i) => i.id === imovelId)
-      const mesmoCorretor = imovel?.corretorResponsavelId === CORRETOR_LOGADO_ID
+      const imoveisSelecionados = imovelIds
+        .map((id) => imoveis.find((i) => i.id === id))
+        .filter((i): i is Imovel => i != null)
 
       atualizarLead.mutate(
         { id: lead.id, patch: patchFinal },
         {
           onSuccess: () => {
-            if (imovel && mesmoCorretor && imovel.etapa !== 'e') {
+            const proprios = imoveisSelecionados.filter(
+              (i) => i.corretorResponsavelId === CORRETOR_LOGADO_ID && i.etapa !== 'e',
+            )
+            const deOutros = imoveisSelecionados.filter((i) => i.corretorResponsavelId !== CORRETOR_LOGADO_ID)
+
+            proprios.forEach((imovel) => {
               atualizarImovel.mutate({ id: imovel.id, patch: { etapa: 'e', emNegociacaoFlag: true } })
-              toast({
-                title: 'Cliente e imóvel movidos',
-                description: 'Ambos agora em "Em negociação".',
-              })
-            } else if (imovel && !mesmoCorretor) {
+            })
+            deOutros.forEach((imovel) => {
               adicionarNotificacao({
                 destinatarioCorretorId: CORRETOR_LOGADO_ID,
                 tipoEvento: 'E16',
                 titulo: 'Aprovação pendente',
                 corpo: `Solicitação enviada a ${nomeCorretor(imovel.corretorResponsavelId)} para mover "${imovel.enderecoRua}, ${imovel.enderecoNumero}" para "Em negociação".`,
               })
+            })
+
+            if (proprios.length > 0 && deOutros.length === 0) {
+              toast({ title: 'Cliente e imóvel(is) movidos', description: 'Ambos agora em "Em negociação".' })
+            } else if (deOutros.length > 0) {
               toast({
                 title: 'Cliente movido',
-                description: 'Aguardando aprovação do corretor responsável pelo imóvel.',
+                description:
+                  proprios.length > 0
+                    ? 'Seus imóveis foram movidos; aguardando aprovação para os demais.'
+                    : 'Aguardando aprovação do(s) corretor(es) responsável(is) pelo(s) imóvel(is).',
               })
             } else {
               toast({ title: 'Cliente movido', description: `Agora em "${ETAPA_LEAD_LABEL[destino]}".` })

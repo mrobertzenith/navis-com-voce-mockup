@@ -53,6 +53,7 @@ const schema = z
     estado: z.string().min(1, 'Obrigatório'),
     cidade: z.string().min(1, 'Obrigatório'),
     bairros: z.array(z.string()).min(1, 'Selecione ao menos um bairro'),
+    raioKm: z.coerce.number().min(2).max(10),
     valorDe: numeroOpcional(),
     valorAte: numeroOpcional(),
 
@@ -69,8 +70,7 @@ const schema = z
 
     etapaAlvo: z.enum(['1', '2', '3']),
     observacoes: z.string().optional(),
-    dataVisita: z.string().optional(),
-    imovelVisitaId: z.string().optional(),
+    visitas: z.array(z.object({ imovelId: z.string(), data: z.string() })).optional(),
   })
   .refine((d) => d.valorDe != null || d.valorAte != null, {
     message: 'Informe ao menos o valor mínimo ou máximo',
@@ -80,13 +80,13 @@ const schema = z
     message: 'Observações são obrigatórias para criar direto em "Em contato"',
     path: ['observacoes'],
   })
-  .refine((d) => d.etapaAlvo !== '3' || Boolean(d.dataVisita), {
-    message: 'Data da visita é obrigatória para criar direto em "Visita agendada"',
-    path: ['dataVisita'],
+  .refine((d) => d.etapaAlvo !== '3' || (d.visitas != null && d.visitas.length > 0), {
+    message: 'Selecione ao menos um imóvel com data de visita',
+    path: ['visitas'],
   })
-  .refine((d) => d.etapaAlvo !== '3' || Boolean(d.imovelVisitaId), {
-    message: 'Selecione o imóvel da visita',
-    path: ['imovelVisitaId'],
+  .refine((d) => d.etapaAlvo !== '3' || (d.visitas ?? []).every((v) => Boolean(v.data)), {
+    message: 'Informe a data de cada imóvel selecionado',
+    path: ['visitas'],
   })
 
 type FormData = z.infer<typeof schema>
@@ -94,8 +94,8 @@ type FormData = z.infer<typeof schema>
 const PASSOS = ['Identificação', 'Perfil de busca', 'Preferências detalhadas']
 const CAMPOS_POR_PASSO: (keyof FormData)[][] = [
   ['nome', 'email'],
-  ['tipos', 'estado', 'cidade', 'bairros', 'valorDe', 'valorAte'],
-  ['etapaAlvo', 'observacoes', 'dataVisita', 'imovelVisitaId'],
+  ['tipos', 'estado', 'cidade', 'bairros', 'raioKm', 'valorDe', 'valorAte'],
+  ['etapaAlvo', 'observacoes', 'visitas'],
 ]
 
 export function CadastroClientePage() {
@@ -118,6 +118,7 @@ export function CadastroClientePage() {
       estado: '',
       cidade: '',
       bairros: [],
+      raioKm: 5,
       etapaAlvo: '1',
     },
   })
@@ -134,7 +135,7 @@ export function CadastroClientePage() {
       estado: valores.estado,
       cidade: valores.cidade,
       bairros: valores.bairros,
-      raioKm: 5,
+      raioKm: valores.raioKm ?? 5,
       tipos: valores.tipos,
       valorDe: valores.valorDe ?? null,
       valorAte: valores.valorAte ?? null,
@@ -152,6 +153,7 @@ export function CadastroClientePage() {
       estado: clienteExistente.perfilBusca.estado,
       cidade: clienteExistente.perfilBusca.cidade,
       bairros: clienteExistente.perfilBusca.bairros,
+      raioKm: clienteExistente.perfilBusca.raioKm ?? 5,
       valorDe: clienteExistente.perfilBusca.valorDe ?? undefined,
       valorAte: clienteExistente.perfilBusca.valorAte ?? undefined,
       quartosMin: clienteExistente.perfilBusca.quartosMin,
@@ -199,7 +201,7 @@ export function CadastroClientePage() {
       estado: dados.estado,
       cidade: dados.cidade,
       bairros: dados.bairros,
-      raioKm: 5,
+      raioKm: dados.raioKm,
       tipos: dados.tipos,
       valorDe: dados.valorDe ?? null,
       valorAte: dados.valorAte ?? null,
@@ -245,8 +247,7 @@ export function CadastroClientePage() {
       telefoneWhatsapp: dados.telefoneWhatsapp || undefined,
       origem: (dados.origem as OrigemLead) || undefined,
       observacoes: dados.observacoes || undefined,
-      dataVisita: dados.dataVisita || undefined,
-      imovelVisitaId: dados.imovelVisitaId || undefined,
+      visitasAgendadas: dados.visitas && dados.visitas.length > 0 ? dados.visitas : undefined,
       perfilBusca,
     }
 
@@ -359,6 +360,29 @@ export function CadastroClientePage() {
               <p className="text-sm text-danger">Selecione estado, cidade e ao menos um bairro.</p>
             )}
 
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="raioKm">Raio de busca além do bairro exato (km)</Label>
+              <Select
+                value={String(valores.raioKm ?? 5)}
+                onValueChange={(v) => setValue('raioKm', Number(v), { shouldValidate: true })}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 9 }, (_, i) => i + 2).map((km) => (
+                    <SelectItem key={km} value={String(km)}>
+                      {km} km
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-text-soft">
+                Imóveis fora dos bairros selecionados, mas dentro deste raio, também entram no match.
+                Em cidades mais densas, prefira um raio menor.
+              </p>
+            </div>
+
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="valorDe">De (R$)</Label>
@@ -439,42 +463,62 @@ export function CadastroClientePage() {
                 )}
 
                 {valores.etapaAlvo === '3' && (
-                  <>
-                    <div className="flex flex-col gap-1.5">
-                      <Label htmlFor="dataVisita">Data da visita (obrigatório para "Visita agendada")</Label>
-                      <Input id="dataVisita" type="date" {...form.register('dataVisita')} />
-                      {formState.errors.dataVisita && (
-                        <p className="text-sm text-danger">{formState.errors.dataVisita.message}</p>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <Label>Imóvel da visita (obrigatório para "Visita agendada")</Label>
-                      <Select
-                        value={valores.imovelVisitaId}
-                        onValueChange={(v) => setValue('imovelVisitaId', v, { shouldValidate: true })}
-                        disabled={imoveisDisponiveis.length === 0}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o imóvel" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {imoveisDisponiveis.map((i) => (
-                            <SelectItem key={i.id} value={i.id}>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Imóveis e datas de visita (pode selecionar mais de um)</Label>
+                    {imoveisDisponiveis.length === 0 && (
+                      <p className="text-xs text-text-soft">
+                        Nenhum dos seus imóveis publicados tem perfil compatível com este cliente no momento.
+                      </p>
+                    )}
+                    <div className="flex flex-col gap-2">
+                      {imoveisDisponiveis.map((i) => {
+                        const visitas = valores.visitas ?? []
+                        const idx = visitas.findIndex((v) => v.imovelId === i.id)
+                        const selecionado = idx >= 0
+                        return (
+                          <div
+                            key={i.id}
+                            className="flex flex-col gap-2 rounded-card border border-border p-3 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <label className="flex items-center gap-2 text-sm text-text">
+                              <input
+                                type="checkbox"
+                                checked={selecionado}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setValue('visitas', [...visitas, { imovelId: i.id, data: '' }], { shouldValidate: true })
+                                  } else {
+                                    setValue(
+                                      'visitas',
+                                      visitas.filter((v) => v.imovelId !== i.id),
+                                      { shouldValidate: true },
+                                    )
+                                  }
+                                }}
+                                className="h-4 w-4 rounded border-border"
+                              />
                               {i.enderecoRua}, {i.enderecoNumero} · {i.bairro}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {imoveisDisponiveis.length === 0 && (
-                        <p className="text-xs text-text-soft">
-                          Nenhum dos seus imóveis publicados tem perfil compatível com este cliente no momento.
-                        </p>
-                      )}
-                      {formState.errors.imovelVisitaId && (
-                        <p className="text-sm text-danger">{formState.errors.imovelVisitaId.message}</p>
-                      )}
+                            </label>
+                            {selecionado && (
+                              <Input
+                                type="date"
+                                value={visitas[idx].data}
+                                onChange={(e) => {
+                                  const novasVisitas = [...visitas]
+                                  novasVisitas[idx] = { imovelId: i.id, data: e.target.value }
+                                  setValue('visitas', novasVisitas, { shouldValidate: true })
+                                }}
+                                className="sm:w-44"
+                              />
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
-                  </>
+                    {formState.errors.visitas && (
+                      <p className="text-sm text-danger">{formState.errors.visitas.message}</p>
+                    )}
+                  </div>
                 )}
               </>
             )}

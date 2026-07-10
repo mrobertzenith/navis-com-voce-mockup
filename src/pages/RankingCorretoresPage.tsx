@@ -53,7 +53,7 @@ export function RankingCorretoresPage() {
         vendas: porCorretor.get(c.id)?.vendas ?? 0,
         vgv: porCorretor.get(c.id)?.vgv ?? 0,
       }))
-      .sort((a, b) => b.vendas - a.vendas || b.vgv - a.vgv)
+      .sort((a, b) => b.vgv - a.vgv || b.vendas - a.vendas)
   }, [imoveis, estado, cidade])
 
   if (isLoading) {
@@ -64,8 +64,8 @@ export function RankingCorretoresPage() {
     <div className="p-6">
       <h1 className="mb-1 text-xl font-bold">Ranking de Corretores</h1>
       <p className="mb-4 text-sm text-text-mut">
-        Classificação por número de vendas concluídas. Ajuste os filtros para ver o ranking por
-        cidade ou estado.
+        Classificação por VGV (valor geral de vendas) — a métrica que equilibra corretores de
+        ticket alto e popular. Ajuste os filtros para ver o ranking por cidade ou estado.
       </p>
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -119,8 +119,8 @@ export function RankingCorretoresPage() {
                 <th className="px-4 py-3">Posição</th>
                 <th className="px-4 py-3">Corretor</th>
                 <th className="px-4 py-3">Cidade</th>
-                <th className="px-4 py-3">Vendas</th>
                 <th className="px-4 py-3">VGV vendido</th>
+                <th className="px-4 py-3">Vendas</th>
               </tr>
             </thead>
             <tbody>
@@ -134,7 +134,7 @@ export function RankingCorretoresPage() {
                 >
                   <td className="px-4 py-3 font-mono">
                     <span className="inline-flex items-center gap-1.5">
-                      {i < 3 && linha.vendas > 0 && (
+                      {i < 3 && linha.vgv > 0 && (
                         <Trophy
                           className={cn(
                             'h-3.5 w-3.5',
@@ -155,8 +155,8 @@ export function RankingCorretoresPage() {
                     )}
                   </td>
                   <td className="px-4 py-3">{linha.cidade}/{linha.estado}</td>
-                  <td className="px-4 py-3 font-mono">{linha.vendas}</td>
                   <td className="px-4 py-3 font-mono">{formatPreco(linha.vgv)}</td>
+                  <td className="px-4 py-3 font-mono">{linha.vendas}</td>
                 </tr>
               ))}
             </tbody>

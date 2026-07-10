@@ -16,7 +16,7 @@ interface ClienteSeed {
   origem?: OrigemLead
   observacoes?: string
   dataCadastro: string
-  dataVisita?: string
+  visitasAgendadas?: { imovelId: string; data: string }[]
   motivoStandby?: string
   meMantenhaInformado?: boolean
   motivoPerdido?: string
@@ -58,7 +58,7 @@ function construir(seed: ClienteSeed): Lead {
     origem: seed.origem,
     observacoes: seed.observacoes,
     dataCadastro: seed.dataCadastro,
-    dataVisita: seed.dataVisita,
+    visitasAgendadas: seed.visitasAgendadas,
     motivoStandby: seed.motivoStandby,
     meMantenhaInformado: seed.meMantenhaInformado,
     motivoPerdido: seed.motivoPerdido,
@@ -161,42 +161,48 @@ export const LEADS_SEED: Lead[] = [
   construir({
     corretorResponsavelId: ANA, etapa: 3, nome: 'Camila Duarte',
     telefoneWhatsapp: '16999990009', origem: 'indicacao', observacoes: 'Visita marcada para o fim de semana.',
-    dataCadastro: '2026-05-20T10:00:00.000Z', dataVisita: '2026-07-04T14:00:00.000Z',
+    dataCadastro: '2026-05-20T10:00:00.000Z',
+    visitasAgendadas: [{ imovelId: 'im-014', data: '2026-07-04T14:00:00.000Z' }],
     estado: 'SP', cidade: 'Ribeirão Preto', bairros: ['Jardim Sumaré'],
     tipos: ['apartamento'], valorDe: 420000, valorAte: 520000, quartosMin: 2, vagasMin: 2,
   }),
   construir({
     corretorResponsavelId: ANA, etapa: 3, nome: 'Vinícius Andrade',
     telefoneWhatsapp: '16990001010', origem: 'site', observacoes: 'Segunda visita, já viu duas opções.',
-    dataCadastro: '2026-05-15T10:00:00.000Z', dataVisita: '2026-07-03T10:00:00.000Z',
+    dataCadastro: '2026-05-15T10:00:00.000Z',
+    visitasAgendadas: [{ imovelId: 'im-015', data: '2026-07-03T10:00:00.000Z' }],
     estado: 'SP', cidade: 'Ribeirão Preto', bairros: ['Jardim Botânico', 'Ribeirânia'],
     tipos: ['apartamento'], valorDe: 600000, valorAte: 800000, suitesMin: 2, lazer: true,
   }),
   construir({
     corretorResponsavelId: OUTROS[3], etapa: 3, nome: 'Priscila Mendes',
     telefoneWhatsapp: '16991002020', origem: 'campanha_online', observacoes: 'Visita reagendada duas vezes.',
-    dataCadastro: '2026-05-10T10:00:00.000Z', dataVisita: '2026-07-05T09:00:00.000Z',
+    dataCadastro: '2026-05-10T10:00:00.000Z',
+    visitasAgendadas: [{ imovelId: 'im-018', data: '2026-07-05T09:00:00.000Z' }],
     estado: 'SP', cidade: 'Ribeirão Preto', bairros: ['City Ribeirão'],
     tipos: ['sala_comercial'], valorDe: 260000, valorAte: 380000,
   }),
   construir({
     corretorResponsavelId: OUTROS[4], etapa: 3, nome: 'Guilherme Rocha',
     telefoneWhatsapp: '11992003030', origem: 'indicacao', observacoes: 'Confirmar horário de visita por WhatsApp.',
-    dataCadastro: '2026-05-25T10:00:00.000Z', dataVisita: '2026-07-06T15:00:00.000Z',
+    dataCadastro: '2026-05-25T10:00:00.000Z',
+    visitasAgendadas: [{ imovelId: 'im-023', data: '2026-07-06T15:00:00.000Z' }],
     estado: 'SP', cidade: 'São Paulo', bairros: ['Pinheiros'],
     tipos: ['apartamento'], valorDe: 1100000, valorAte: 1500000, elevador: true, lazer: true,
   }),
   construir({
     corretorResponsavelId: ANA, etapa: 3, nome: 'Renata Xavier',
     telefoneWhatsapp: '16993004040', origem: 'rede_social', observacoes: 'Quer levar o marido na segunda visita.',
-    dataCadastro: '2026-06-01T10:00:00.000Z', dataVisita: '2026-07-08T11:00:00.000Z',
+    dataCadastro: '2026-06-01T10:00:00.000Z',
+    visitasAgendadas: [{ imovelId: 'im-016', data: '2026-07-08T11:00:00.000Z' }],
     estado: 'SP', cidade: 'Ribeirão Preto', bairros: ['Jardim Canadá'],
     tipos: ['casa_condominio'], valorDe: 1700000, valorAte: 2000000, churrasqueira: true, aceitaPet: true,
   }),
   construir({
     corretorResponsavelId: OUTROS[6], etapa: 3, nome: 'Leandro Souza',
     telefoneWhatsapp: '19994005050', origem: 'site', observacoes: 'Cliente já fez proposta verbal em imóvel similar.',
-    dataCadastro: '2026-05-28T10:00:00.000Z', dataVisita: '2026-07-02T16:00:00.000Z',
+    dataCadastro: '2026-05-28T10:00:00.000Z',
+    visitasAgendadas: [{ imovelId: 'im-021', data: '2026-07-02T16:00:00.000Z' }],
     estado: 'SP', cidade: 'Campinas', bairros: ['Taquaral', 'Cambuí'],
     tipos: ['casa_rua'], valorDe: 420000, valorAte: 520000,
   }),

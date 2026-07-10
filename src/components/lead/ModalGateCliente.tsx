@@ -38,6 +38,8 @@ export function ModalGateCliente({
 }: ModalGateClienteProps) {
   const [valores, setValores] = useState<Record<string, string>>({})
   const [checks, setChecks] = useState<Record<string, boolean>>({})
+  const [visitasSelecionadas, setVisitasSelecionadas] = useState<Record<string, string>>({})
+  const [imoveisNegociacao, setImoveisNegociacao] = useState<string[]>([])
   const { data: imoveis = [] } = useImoveis()
   const pesos = useScoreStore((s) => s.pesos)
   const meusImoveis = imoveis.filter((i) => i.corretorResponsavelId === CORRETOR_LOGADO_ID)
@@ -49,15 +51,22 @@ export function ModalGateCliente({
 
   const podeConfirmar = camposFaltantes.every((campo) => {
     const config = CAMPO_GATE_LEAD_CONFIG[campo]
-    return config.tipo === 'checkbox' ? checks[campo] : valores[campo]?.trim()
+    if (config.tipo === 'checkbox') return checks[campo]
+    if (config.tipo === 'visitas') {
+      const entradas = Object.entries(visitasSelecionadas)
+      return entradas.length > 0 && entradas.every(([, data]) => data.trim())
+    }
+    if (config.tipo === 'imovel-multi') return imoveisNegociacao.length > 0
+    return valores[campo]?.trim()
   })
 
   function handleConfirmar() {
     const patch: Partial<Lead> = {}
     if (valores.observacoes) patch.observacoes = valores.observacoes
-    if (valores.dataVisita) patch.dataVisita = valores.dataVisita
-    if (valores.imovelVisitaId) patch.imovelVisitaId = valores.imovelVisitaId
-    if (valores.imovelNegociacaoId) patch.imovelNegociacaoId = valores.imovelNegociacaoId
+    if (Object.keys(visitasSelecionadas).length > 0) {
+      patch.visitasAgendadas = Object.entries(visitasSelecionadas).map(([imovelId, data]) => ({ imovelId, data }))
+    }
+    if (imoveisNegociacao.length > 0) patch.imovelNegociacaoId = imoveisNegociacao.join(',')
     if (valores.imovelFechadoId) patch.imovelFechadoId = valores.imovelFechadoId
     if (valores.valorNegociado) patch.valorNegociado = Number(valores.valorNegociado)
     if (valores.motivoStandby) patch.motivoStandby = valores.motivoStandby.slice(0, 500)
@@ -67,6 +76,8 @@ export function ModalGateCliente({
     onConfirmar(patch)
     setValores({})
     setChecks({})
+    setVisitasSelecionadas({})
+    setImoveisNegociacao([])
   }
 
   return (
@@ -144,6 +155,83 @@ export function ModalGateCliente({
                         ))}
                       </SelectContent>
                     </Select>
+                    {imoveisCompativeis.length === 0 && (
+                      <p className="text-xs text-text-soft">
+                        Nenhum dos seus imóveis tem perfil compatível com este cliente no momento.
+                      </p>
+                    )}
+                  </>
+                )}
+                {config.tipo === 'imovel-multi' && (
+                  <>
+                    <div className="flex flex-col gap-2">
+                      {imoveisCompativeis.map((i) => {
+                        const selecionado = imoveisNegociacao.includes(i.id)
+                        return (
+                          <label key={i.id} className="flex items-center gap-2 text-sm font-body text-text">
+                            <input
+                              type="checkbox"
+                              checked={selecionado}
+                              onChange={() =>
+                                setImoveisNegociacao((atual) =>
+                                  selecionado ? atual.filter((id) => id !== i.id) : [...atual, i.id],
+                                )
+                              }
+                              className="h-4 w-4 rounded border-border"
+                            />
+                            {i.enderecoRua}, {i.enderecoNumero} · {i.bairro}
+                          </label>
+                        )
+                      })}
+                    </div>
+                    {imoveisCompativeis.length === 0 && (
+                      <p className="text-xs text-text-soft">
+                        Nenhum dos seus imóveis tem perfil compatível com este cliente no momento.
+                      </p>
+                    )}
+                  </>
+                )}
+                {config.tipo === 'visitas' && (
+                  <>
+                    <div className="flex flex-col gap-2">
+                      {imoveisCompativeis.map((i) => {
+                        const selecionado = i.id in visitasSelecionadas
+                        return (
+                          <div
+                            key={i.id}
+                            className="flex flex-col gap-2 rounded-card border border-border p-3 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <label className="flex items-center gap-2 text-sm text-text">
+                              <input
+                                type="checkbox"
+                                checked={selecionado}
+                                onChange={() =>
+                                  setVisitasSelecionadas((atual) => {
+                                    if (selecionado) {
+                                      const { [i.id]: _remover, ...resto } = atual
+                                      return resto
+                                    }
+                                    return { ...atual, [i.id]: '' }
+                                  })
+                                }
+                                className="h-4 w-4 rounded border-border"
+                              />
+                              {i.enderecoRua}, {i.enderecoNumero} · {i.bairro}
+                            </label>
+                            {selecionado && (
+                              <Input
+                                type="date"
+                                value={visitasSelecionadas[i.id]}
+                                onChange={(e) =>
+                                  setVisitasSelecionadas((atual) => ({ ...atual, [i.id]: e.target.value }))
+                                }
+                                className="sm:w-44"
+                              />
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
                     {imoveisCompativeis.length === 0 && (
                       <p className="text-xs text-text-soft">
                         Nenhum dos seus imóveis tem perfil compatível com este cliente no momento.
