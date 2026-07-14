@@ -16,7 +16,7 @@ import { ETAPA_IMOVEL_LABEL } from '@/domain/constants'
 import { calcularMatch } from '@/domain/matching'
 import type { EtapaImovel, Imovel } from '@/domain/types'
 import { useLeads } from '@/hooks/useLeads'
-import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
+import { CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 import { useScoreStore } from '@/stores/scoreStore'
 
 interface ModalGateImovelProps {
@@ -39,11 +39,7 @@ export function ModalGateImovel({
   const [valores, setValores] = useState<Record<string, string>>({})
   const { data: leads = [] } = useLeads()
   const pesos = useScoreStore((s) => s.pesos)
-  const leadsCompativeis = imovel
-    ? leads
-        .filter((l) => l.corretorResponsavelId === CORRETOR_LOGADO_ID)
-        .filter((l) => calcularMatch(imovel, l, pesos) != null)
-    : []
+  const leadsCompativeis = imovel ? leads.filter((l) => calcularMatch(imovel, l, pesos) != null) : []
 
   if (!imovel || !destino) return null
 
@@ -91,13 +87,16 @@ export function ModalGateImovel({
                       {leadsCompativeis.map((l) => (
                         <SelectItem key={l.id} value={l.id}>
                           {l.codigo}
+                          {l.corretorResponsavelId !== CORRETOR_LOGADO_ID
+                            ? ` — cliente de ${nomeCorretor(l.corretorResponsavelId)}`
+                            : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   {leadsCompativeis.length === 0 && (
                     <p className="text-xs text-text-soft">
-                      Nenhum dos seus clientes tem perfil compatível com este imóvel no momento.
+                      Nenhum cliente (seu ou de outro corretor) tem perfil compatível com este imóvel no momento.
                     </p>
                   )}
                 </>

@@ -22,3 +22,25 @@
     @apply font-heading text-ink;
   }
 }
+
+@layer utilities {
+  /* Scrollbar sempre visível: no macOS/iOS a scrollbar padrão só aparece durante o scroll,
+     o que faz o Kanban parecer sem rolagem horizontal nenhuma. */
+  .scroll-x-visible {
+    scrollbar-width: auto;
+    scrollbar-color: theme('colors.border') transparent;
+  }
+
+  .scroll-x-visible::-webkit-scrollbar {
+    height: 10px;
+  }
+
+  .scroll-x-visible::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scroll-x-visible::-webkit-scrollbar-thumb {
+    background-color: theme('colors.border');
+    border-radius: 9999px;
+  }
+}

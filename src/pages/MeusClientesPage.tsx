@@ -145,9 +145,48 @@ export function MeusClientesPage() {
   function confirmarMovimentacao(patch: Partial<Lead>) {
     if (!pending) return
     const { lead, destino } = pending
+    const origem = lead.etapa
 
     const patchFinal: Partial<Lead> = { ...patch, etapa: destino }
     if (destino === 7) patchFinal.dataEntradaStandby = new Date().toISOString()
+
+    const indoParaTras = ETAPA_LEAD_ORDEM.indexOf(destino) < ETAPA_LEAD_ORDEM.indexOf(origem)
+
+    // Reversão saindo de "Em negociação": desfaz vínculos e devolve os imóveis próprios para Publicado
+    if (origem === 4 && indoParaTras) {
+      const negociacoesAnteriores = lead.negociacoesAtivas ?? []
+      patchFinal.negociacoesAtivas = []
+      // usar [] em vez de undefined: o patch é serializado com JSON.stringify, que descarta chaves undefined
+      patchFinal.pendenteAprovacaoImoveis = []
+
+      atualizarLead.mutate(
+        { id: lead.id, patch: patchFinal },
+        {
+          onSuccess: () => {
+            negociacoesAnteriores.forEach((neg) => {
+              const imovel = imoveis.find((i) => i.id === neg.imovelId)
+              const outroClienteAindaNegociando = leads.some(
+                (l) => l.id !== lead.id && l.negociacoesAtivas?.some((n) => n.imovelId === neg.imovelId),
+              )
+              if (
+                imovel &&
+                imovel.corretorResponsavelId === CORRETOR_LOGADO_ID &&
+                imovel.etapa === 'e' &&
+                !outroClienteAindaNegociando
+              ) {
+                atualizarImovel.mutate({ id: imovel.id, patch: { etapa: 'd', emNegociacaoFlag: false } })
+              }
+            })
+            toast({
+              title: 'Cliente movido',
+              description: `Agora em "${ETAPA_LEAD_LABEL[destino]}". Negociações ativas foram desfeitas.`,
+            })
+          },
+        },
+      )
+      setPending(null)
+      return
+    }
 
     if (destino === 4 && patchFinal.imovelNegociacaoId) {
       const imovelIds = patchFinal.imovelNegociacaoId.split(',').filter(Boolean)
@@ -160,15 +199,22 @@ export function MeusClientesPage() {
         .map((id) => imoveis.find((i) => i.id === id))
         .filter((i): i is Imovel => i != null)
 
+      const proprios = imoveisSelecionados.filter(
+        (i) => i.corretorResponsavelId === CORRETOR_LOGADO_ID && i.etapa !== 'e',
+      )
+      const deOutros = imoveisSelecionados.filter((i) => i.corretorResponsavelId !== CORRETOR_LOGADO_ID)
+
+      if (deOutros.length > 0) {
+        patchFinal.pendenteAprovacaoImoveis = [
+          ...(lead.pendenteAprovacaoImoveis ?? []),
+          ...deOutros.map((i) => i.id),
+        ]
+      }
+
       atualizarLead.mutate(
         { id: lead.id, patch: patchFinal },
         {
           onSuccess: () => {
-            const proprios = imoveisSelecionados.filter(
-              (i) => i.corretorResponsavelId === CORRETOR_LOGADO_ID && i.etapa !== 'e',
-            )
-            const deOutros = imoveisSelecionados.filter((i) => i.corretorResponsavelId !== CORRETOR_LOGADO_ID)
-
             proprios.forEach((imovel) => {
               atualizarImovel.mutate({ id: imovel.id, patch: { etapa: 'e', emNegociacaoFlag: true } })
             })
@@ -177,7 +223,8 @@ export function MeusClientesPage() {
                 destinatarioCorretorId: CORRETOR_LOGADO_ID,
                 tipoEvento: 'E16',
                 titulo: 'Aprovação pendente',
-                corpo: `Solicitação enviada a ${nomeCorretor(imovel.corretorResponsavelId)} para mover "${imovel.enderecoRua}, ${imovel.enderecoNumero}" para "Em negociação".`,
+                corpo: `"${lead.codigo}" quer negociar "${imovel.enderecoRua}, ${imovel.enderecoNumero}" com ${nomeCorretor(imovel.corretorResponsavelId)}. Aprove para confirmar a negociação.`,
+                acaoPendente: { leadId: lead.id, imovelId: imovel.id },
               })
             })
 
@@ -188,8 +235,8 @@ export function MeusClientesPage() {
                 title: 'Cliente movido',
                 description:
                   proprios.length > 0
-                    ? 'Seus imóveis foram movidos; aguardando aprovação para os demais.'
-                    : 'Aguardando aprovação do(s) corretor(es) responsável(is) pelo(s) imóvel(is).',
+                    ? 'Seus imóveis foram movidos; os demais ficam pendentes de aprovação.'
+                    : 'Cliente pendente de aprovação do(s) corretor(es) responsável(is) pelo(s) imóvel(is).',
               })
             } else {
               toast({ title: 'Cliente movido', description: `Agora em "${ETAPA_LEAD_LABEL[destino]}".` })

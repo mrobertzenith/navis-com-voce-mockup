@@ -8,6 +8,7 @@ interface NotificacoesState {
   marcarComoLida: (id: string) => void
   marcarComoNaoLida: (id: string) => void
   adicionarNotificacao: (notificacao: Omit<Notificacao, 'id' | 'lida' | 'criadaEm'>) => void
+  resolverNotificacao: (id: string) => void
 }
 
 export const useNotificacoesStore = create<NotificacoesState>()(
@@ -33,6 +34,10 @@ export const useNotificacoesStore = create<NotificacoesState>()(
             },
             ...s.notificacoes,
           ],
+        })),
+      resolverNotificacao: (id) =>
+        set((s) => ({
+          notificacoes: s.notificacoes.map((n) => (n.id === id ? { ...n, resolvida: true, lida: true } : n)),
         })),
     }),
     { name: 'navis-notificacoes' },

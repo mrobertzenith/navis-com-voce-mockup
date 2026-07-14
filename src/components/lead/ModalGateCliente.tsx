@@ -16,7 +16,7 @@ import { ETAPA_LEAD_LABEL } from '@/domain/constants'
 import { calcularMatch } from '@/domain/matching'
 import type { EtapaLead, Lead } from '@/domain/types'
 import { useImoveis } from '@/hooks/useImoveis'
-import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
+import { CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 import { useScoreStore } from '@/stores/scoreStore'
 
 interface ModalGateClienteProps {
@@ -45,6 +45,10 @@ export function ModalGateCliente({
   const meusImoveis = imoveis.filter((i) => i.corretorResponsavelId === CORRETOR_LOGADO_ID)
   const imoveisCompativeis = lead
     ? meusImoveis.filter((i) => calcularMatch(i, lead, pesos) != null)
+    : []
+  /** negociação pode envolver imóveis de outros corretores, sujeitos à aprovação deles */
+  const imoveisNegociacaoCompativeis = lead
+    ? imoveis.filter((i) => calcularMatch(i, lead, pesos) != null)
     : []
 
   if (!lead || !destino) return null
@@ -165,7 +169,7 @@ export function ModalGateCliente({
                 {config.tipo === 'imovel-multi' && (
                   <>
                     <div className="flex flex-col gap-2">
-                      {imoveisCompativeis.map((i) => {
+                      {imoveisNegociacaoCompativeis.map((i) => {
                         const selecionado = imoveisNegociacao.includes(i.id)
                         return (
                           <label key={i.id} className="flex items-center gap-2 text-sm font-body text-text">
@@ -180,13 +184,16 @@ export function ModalGateCliente({
                               className="h-4 w-4 rounded border-border"
                             />
                             {i.enderecoRua}, {i.enderecoNumero} · {i.bairro}
+                            {i.corretorResponsavelId !== CORRETOR_LOGADO_ID
+                              ? ` — imóvel de ${nomeCorretor(i.corretorResponsavelId)}`
+                              : ''}
                           </label>
                         )
                       })}
                     </div>
-                    {imoveisCompativeis.length === 0 && (
+                    {imoveisNegociacaoCompativeis.length === 0 && (
                       <p className="text-xs text-text-soft">
-                        Nenhum dos seus imóveis tem perfil compatível com este cliente no momento.
+                        Nenhum imóvel (seu ou de outro corretor) tem perfil compatível com este cliente no momento.
                       </p>
                     )}
                   </>

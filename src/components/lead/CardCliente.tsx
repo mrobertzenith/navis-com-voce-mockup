@@ -1,4 +1,4 @@
-import { Users } from 'lucide-react'
+import { Handshake, Users } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { ChipTipoImovel } from '@/components/imovel/ChipTipoImovel'
 import {
@@ -78,6 +78,13 @@ export function CardCliente({
         {isStandby && <TarjaStandby />}
         {isPerdido && <TarjaArquivado />}
       </div>
+
+      {lead.etapa === 4 && (lead.pendenteAprovacaoImoveis?.length ?? 0) > 0 && (
+        <span className="mb-1.5 inline-flex items-center gap-1 rounded-chip bg-warning/10 px-2 py-0.5 text-xs font-medium font-body text-warning">
+          <Handshake className="h-3 w-3" strokeWidth={1.5} />
+          Pendente de aprovação
+        </span>
+      )}
 
       <div className="mb-1.5 flex flex-wrap gap-1">
         {perfilBusca.tipos.map((tipo) => (

@@ -88,7 +88,7 @@ export function KanbanBoard<T>({
       {/* Desktop: colunas com DnD */}
       <div className="hidden md:block">
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="flex gap-3 overflow-x-auto pb-4">
+          <div className="scroll-x-visible flex gap-3 overflow-x-auto pb-4">
             {colunas.map((coluna) => {
               const estadoDrag = activeId
                 ? isColunaValidaParaDrag

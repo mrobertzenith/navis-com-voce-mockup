@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react'
-import { Bell, BellOff, Handshake, Link2Off, Users } from 'lucide-react'
+import { Bell, BellOff, Check, Handshake, Link2Off, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useToast } from '@/components/ui/use-toast'
 import { EmptyState } from '@/components/shared/EmptyState'
 import type { TipoEvento } from '@/domain/types'
+import { useAtualizarImovel } from '@/hooks/useImoveis'
+import { useAtualizarLead, useLeads } from '@/hooks/useLeads'
 import { formatData } from '@/lib/format'
 import { useNotificacoesStore } from '@/stores/notificacoesStore'
 import { cn } from '@/lib/cn'
@@ -21,7 +24,27 @@ export function NotificacoesPage() {
   const notificacoes = useNotificacoesStore((s) => s.notificacoes)
   const marcarComoLida = useNotificacoesStore((s) => s.marcarComoLida)
   const marcarComoNaoLida = useNotificacoesStore((s) => s.marcarComoNaoLida)
+  const resolverNotificacao = useNotificacoesStore((s) => s.resolverNotificacao)
+  const { data: leads = [] } = useLeads()
+  const atualizarImovel = useAtualizarImovel()
+  const atualizarLead = useAtualizarLead()
+  const { toast } = useToast()
   const [filtro, setFiltro] = useState<Filtro>('todas')
+
+  function aprovar(notificacaoId: string, leadId: string, imovelId: string) {
+    const lead = leads.find((l) => l.id === leadId)
+    atualizarImovel.mutate({ id: imovelId, patch: { etapa: 'e', emNegociacaoFlag: true } })
+    if (lead) {
+      const pendenteRestante = (lead.pendenteAprovacaoImoveis ?? []).filter((id) => id !== imovelId)
+      atualizarLead.mutate({
+        id: lead.id,
+        // usar [] em vez de undefined: o patch é serializado com JSON.stringify, que descarta chaves undefined
+        patch: { pendenteAprovacaoImoveis: pendenteRestante },
+      })
+    }
+    resolverNotificacao(notificacaoId)
+    toast({ title: 'Negociação aprovada', description: 'O imóvel foi movido para "Em negociação".' })
+  }
 
   const tiposPresentes = useMemo(
     () => Array.from(new Set(notificacoes.map((n) => n.tipoEvento))),
@@ -84,6 +107,22 @@ export function NotificacoesPage() {
                     <span className="shrink-0 font-mono text-xs text-text-soft">{formatData(n.criadaEm)}</span>
                   </div>
                   <p className="text-sm text-text-mut">{n.corpo}</p>
+                  {n.acaoPendente && !n.resolvida && (
+                    <Button
+                      size="sm"
+                      className="mt-2 h-7 px-2 text-xs"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        aprovar(n.id, n.acaoPendente!.leadId, n.acaoPendente!.imovelId)
+                      }}
+                    >
+                      <Check className="h-3 w-3" strokeWidth={1.5} />
+                      Aprovar
+                    </Button>
+                  )}
+                  {n.acaoPendente && n.resolvida && (
+                    <p className="mt-1 text-xs text-success">Aprovado</p>
+                  )}
                   {n.lida && (
                     <Button
                       variant="ghost"

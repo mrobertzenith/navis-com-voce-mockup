@@ -185,6 +185,8 @@ export interface Lead {
 
   /** negociações ativas na etapa (4) — modelo simplificado até o motor de matching (Fase 4) */
   negociacoesAtivas?: { imovelId: string; dataInicio: string }[]
+  /** imóveis de outros corretores vinculados nesta negociação que ainda aguardam aprovação deles */
+  pendenteAprovacaoImoveis?: string[]
 }
 
 export interface Vinculo {
@@ -251,6 +253,9 @@ export interface Notificacao {
   corpo: string
   lida: boolean
   criadaEm: string
+  /** presente quando a notificação representa uma aprovação pendente de negociação cross-corretor */
+  acaoPendente?: { leadId: string; imovelId: string }
+  resolvida?: boolean
 }
 
 export interface Atividade {

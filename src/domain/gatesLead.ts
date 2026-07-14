@@ -55,6 +55,11 @@ export function avaliarTransicaoLead(
 
   const idxOrigem = ETAPA_LEAD_ORDEM.indexOf(origem)
   const idxDestino = ETAPA_LEAD_ORDEM.indexOf(destino)
+
+  if (idxDestino === idxOrigem - 1) {
+    return { tipo: 'reversao', camposFaltantes: [], requerConfirmacao: true }
+  }
+
   if (idxDestino !== idxOrigem + 1) {
     return { tipo: 'invalida', camposFaltantes: [], requerConfirmacao: false }
   }

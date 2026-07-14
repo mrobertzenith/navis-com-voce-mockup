@@ -130,6 +130,7 @@ export function MeusImoveisPage() {
   function confirmarMovimentacao(patch: Partial<Imovel> & { leadNegociacaoId?: string }) {
     if (!pending) return
     const { imovel, destino } = pending
+    const origem = imovel.etapa
 
     const { leadNegociacaoId, ...resto } = patch
     const patchFinal: Partial<Imovel> = { ...resto, etapa: destino }
@@ -139,6 +140,38 @@ export function MeusImoveisPage() {
       if (!imovel.dataPublicacao) patchFinal.dataPublicacao = new Date().toISOString()
     }
     if (destino === 'f') patchFinal.dataVenda = new Date().toISOString()
+
+    // Reversão saindo de "Em negociação": desfaz o vínculo do(s) cliente(s) e devolve para a etapa anterior
+    if (origem === 'e' && destino === 'd') {
+      const leadsVinculados = leads.filter((l) => l.negociacoesAtivas?.some((n) => n.imovelId === imovel.id))
+
+      atualizarImovel.mutate(
+        { id: imovel.id, patch: patchFinal },
+        {
+          onSuccess: () => {
+            leadsVinculados.forEach((lead) => {
+              const negociacoesRestantes = (lead.negociacoesAtivas ?? []).filter((n) => n.imovelId !== imovel.id)
+              const pendenteRestante = (lead.pendenteAprovacaoImoveis ?? []).filter((id) => id !== imovel.id)
+              atualizarLead.mutate({
+                id: lead.id,
+                patch: {
+                  negociacoesAtivas: negociacoesRestantes,
+                  // usar [] em vez de undefined: o patch é serializado com JSON.stringify, que descarta chaves undefined
+                  pendenteAprovacaoImoveis: pendenteRestante,
+                  ...(negociacoesRestantes.length === 0 && lead.etapa === 4 ? { etapa: 3 } : {}),
+                },
+              })
+            })
+            toast({
+              title: 'Imóvel movido',
+              description: `Agora em "${ETAPA_IMOVEL_LABEL[destino]}". Negociações vinculadas foram desfeitas.`,
+            })
+          },
+        },
+      )
+      setPending(null)
+      return
+    }
 
     if (destino === 'e' && leadNegociacaoId) {
       const lead = leads.find((l) => l.id === leadNegociacaoId)
@@ -156,7 +189,10 @@ export function MeusImoveisPage() {
                   ...(lead.negociacoesAtivas ?? []),
                   { imovelId: imovel.id, dataInicio: new Date().toISOString() },
                 ],
-                ...(mesmoCorretor && lead.etapa !== 4 ? { etapa: 4 } : {}),
+                pendenteAprovacaoImoveis: mesmoCorretor
+                  ? lead.pendenteAprovacaoImoveis
+                  : [...(lead.pendenteAprovacaoImoveis ?? []), imovel.id],
+                ...(lead.etapa !== 4 ? { etapa: 4 } : {}),
               },
             })
             if (mesmoCorretor) {
@@ -166,9 +202,10 @@ export function MeusImoveisPage() {
                 destinatarioCorretorId: CORRETOR_LOGADO_ID,
                 tipoEvento: 'E16',
                 titulo: 'Aprovação pendente',
-                corpo: `Solicitação enviada a ${nomeCorretor(lead.corretorResponsavelId)} para mover "${lead.codigo}" para "Em negociação".`,
+                corpo: `Você vinculou "${imovel.enderecoRua}, ${imovel.enderecoNumero}" ao cliente "${lead.codigo}" de ${nomeCorretor(lead.corretorResponsavelId)}. Aprove para confirmar a negociação.`,
+                acaoPendente: { leadId: lead.id, imovelId: imovel.id },
               })
-              toast({ title: 'Imóvel movido', description: 'Aguardando aprovação do corretor responsável pelo cliente.' })
+              toast({ title: 'Imóvel movido', description: 'Cliente pendente de aprovação do corretor responsável.' })
             }
           },
         },
