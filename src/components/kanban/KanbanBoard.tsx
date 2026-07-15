@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -48,6 +48,49 @@ export function KanbanBoard<T>({
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
+  // Scrollbar horizontal "espelho", fixa no rodapé da viewport: a scrollbar nativa do
+  // container fica presa no fim da página (só visível rolando verticalmente até lá).
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const mirrorRef = useRef<HTMLDivElement>(null)
+  const sincronizandoRef = useRef<'principal' | 'espelho' | null>(null)
+  const [medidas, setMedidas] = useState({ left: 0, width: 0, contentWidth: 0 })
+
+  useEffect(() => {
+    function atualizarMedidas() {
+      const el = scrollRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      setMedidas({ left: rect.left, width: rect.width, contentWidth: el.scrollWidth })
+    }
+    atualizarMedidas()
+    window.addEventListener('resize', atualizarMedidas)
+    return () => window.removeEventListener('resize', atualizarMedidas)
+  }, [colunas, itensPorColuna])
+
+  function handleScrollPrincipal() {
+    if (sincronizandoRef.current === 'espelho') {
+      sincronizandoRef.current = null
+      return
+    }
+    if (scrollRef.current && mirrorRef.current) {
+      sincronizandoRef.current = 'principal'
+      mirrorRef.current.scrollLeft = scrollRef.current.scrollLeft
+    }
+  }
+
+  function handleScrollEspelho() {
+    if (sincronizandoRef.current === 'principal') {
+      sincronizandoRef.current = null
+      return
+    }
+    if (scrollRef.current && mirrorRef.current) {
+      sincronizandoRef.current = 'espelho'
+      scrollRef.current.scrollLeft = mirrorRef.current.scrollLeft
+    }
+  }
+
+  const mostrarScrollbarFixa = medidas.contentWidth > medidas.width + 1
+
   function encontrarColunaDoItem(itemId: string): string | undefined {
     return colunas.find((c) => itensPorColuna[c.id]?.some((item) => getItemId(item) === itemId))?.id
   }
@@ -88,7 +131,11 @@ export function KanbanBoard<T>({
       {/* Desktop: colunas com DnD */}
       <div className="hidden md:block">
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="scroll-x-visible flex gap-3 overflow-x-auto pb-4">
+          <div
+            ref={scrollRef}
+            onScroll={handleScrollPrincipal}
+            className="scroll-x-visible flex gap-3 overflow-x-auto pb-4"
+          >
             {colunas.map((coluna) => {
               const estadoDrag = activeId
                 ? isColunaValidaParaDrag
@@ -123,6 +170,17 @@ export function KanbanBoard<T>({
           </div>
           <DragOverlay>{itemAtivo ? renderCard(itemAtivo, {}) : null}</DragOverlay>
         </DndContext>
+
+        {mostrarScrollbarFixa && (
+          <div
+            className="scroll-x-visible fixed bottom-0 z-30 overflow-x-auto overflow-y-hidden border-t border-border bg-bg"
+            style={{ left: medidas.left, width: medidas.width, height: 14 }}
+            ref={mirrorRef}
+            onScroll={handleScrollEspelho}
+          >
+            <div style={{ width: medidas.contentWidth, height: 1 }} />
+          </div>
+        )}
       </div>
 
       {/* Mobile: seletor de coluna + lista vertical */}
