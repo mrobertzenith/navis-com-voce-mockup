@@ -24,6 +24,7 @@ export const router = createBrowserRouter(
         { path: 'meus-imoveis', element: <MeusImoveisPage /> },
         { path: 'meus-clientes', element: <MeusClientesPage /> },
         { path: 'imoveis/novo', element: <CadastroImovelPage /> },
+        { path: 'imoveis/:id/editar', element: <CadastroImovelPage /> },
         { path: 'clientes/novo', element: <CadastroClientePage /> },
         { path: 'clientes/:id/editar', element: <CadastroClientePage /> },
         { path: 'todos-imoveis', element: <TodosImoveisPage /> },

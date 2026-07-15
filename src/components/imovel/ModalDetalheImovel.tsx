@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Copy, MessageCircle } from 'lucide-react'
+import { Copy, MessageCircle, Pencil } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { ChipTipoImovel } from '@/components/imovel/ChipTipoImovel'
 import { CarouselFotos } from '@/components/imovel/CarouselFotos'
 import {
@@ -60,9 +61,19 @@ export function ModalDetalheImovel({ imovel, meusLeads, onClose }: ModalDetalheI
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            {imovel.enderecoRua}, {imovel.enderecoNumero}
-          </DialogTitle>
+          <div className="flex items-start justify-between gap-2">
+            <DialogTitle>
+              {imovel.enderecoRua}, {imovel.enderecoNumero}
+            </DialogTitle>
+            {imovel.corretorResponsavelId === CORRETOR_LOGADO_ID && (
+              <Button variant="outline" size="sm" asChild>
+                <Link to={`/imoveis/${imovel.id}/editar`} onClick={onClose}>
+                  <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Editar
+                </Link>
+              </Button>
+            )}
+          </div>
           <DialogDescription>
             {imovel.bairro} · {imovel.cidade}/{imovel.estado}
           </DialogDescription>

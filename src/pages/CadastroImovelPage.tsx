@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import type { Imovel, TipoImovel } from '@/domain/types'
-import { useCriarImovel, useImoveis } from '@/hooks/useImoveis'
+import { useAtualizarImovel, useCriarImovel, useImoveis } from '@/hooks/useImoveis'
 import { CORRETOR_LOGADO_ID, nomeCorretor, CORRETORES } from '@/mocks/data/corretores'
 import { encontrarBairro } from '@/mocks/data/bairros'
 import { cn } from '@/lib/cn'
@@ -77,27 +77,77 @@ const CAMPOS_POR_PASSO: (keyof FormData)[][] = [
 ]
 
 export function CadastroImovelPage() {
+  const { id: imovelId } = useParams()
+  const editando = Boolean(imovelId)
+  const { data: imoveis = [], isLoading } = useImoveis()
+  const imovelExistente = editando ? imoveis.find((i) => i.id === imovelId) : undefined
+
+  // Só monta o formulário quando os dados já estão disponíveis: assim o useForm() computa
+  // defaultValues corretos desde o primeiro mount (nunca precisa de reset() depois), o que evita
+  // o Radix Select mostrar em branco por registrar o item depois do valor já ter sido setado.
+  if (editando && (isLoading || !imovelExistente)) {
+    return <div className="p-6 text-sm text-text-mut">Carregando imóvel…</div>
+  }
+
+  return <CadastroImovelForm imovelExistente={imovelExistente} imoveis={imoveis} />
+}
+
+function CadastroImovelForm({
+  imovelExistente,
+  imoveis,
+}: {
+  imovelExistente: Imovel | undefined
+  imoveis: Imovel[]
+}) {
+  const editando = Boolean(imovelExistente)
   const [passo, setPasso] = useState(1)
   const [erroCnm, setErroCnm] = useState<string | null>(null)
   const navigate = useNavigate()
   const { toast } = useToast()
-  const { data: imoveis = [] } = useImoveis()
   const criarImovel = useCriarImovel()
+  const atualizarImovel = useAtualizarImovel()
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      estado: '',
-      cidade: '',
-      bairro: '',
-      enderecoRua: '',
-      enderecoNumero: '',
-      quartos: 0,
-      suites: 0,
-      vagas: 0,
-      banheiros: 0,
-      fotos: [],
-    },
+    defaultValues: imovelExistente
+      ? {
+          estado: imovelExistente.estado,
+          cidade: imovelExistente.cidade,
+          bairro: imovelExistente.bairro,
+          cep: imovelExistente.cep,
+          enderecoRua: imovelExistente.enderecoRua,
+          enderecoNumero: imovelExistente.enderecoNumero,
+          tipo: imovelExistente.tipo,
+          quartos: imovelExistente.quartos,
+          suites: imovelExistente.suites,
+          vagas: imovelExistente.vagas,
+          banheiros: imovelExistente.banheiros,
+          area: imovelExistente.areaPrivativaM2 ?? imovelExistente.areaConstruidaM2,
+          areaTerreno: imovelExistente.areaTerrenoM2,
+          elevador: imovelExistente.elevador,
+          mobiliado: imovelExistente.mobiliado,
+          comArmarios: imovelExistente.comArmarios,
+          lazer: imovelExistente.lazer,
+          varanda: imovelExistente.varanda,
+          churrasqueira: imovelExistente.churrasqueira,
+          aceitaPet: imovelExistente.aceitaPet,
+          nomeCondominio: imovelExistente.nomeCondominio,
+          fotos: imovelExistente.fotos ?? [],
+          valorEstimado: imovelExistente.valorEstimado,
+          cnm: imovelExistente.cnm,
+        }
+      : {
+          estado: '',
+          cidade: '',
+          bairro: '',
+          enderecoRua: '',
+          enderecoNumero: '',
+          quartos: 0,
+          suites: 0,
+          vagas: 0,
+          banheiros: 0,
+          fotos: [],
+        },
   })
 
   const { watch, setValue, handleSubmit, trigger, formState } = form
@@ -128,7 +178,7 @@ export function CadastroImovelPage() {
 
   function onSubmit(dados: FormData) {
     if (dados.cnm) {
-      const existente = imoveis.find((i) => i.cnm === dados.cnm)
+      const existente = imoveis.find((i) => i.cnm === dados.cnm && i.id !== imovelExistente?.id)
       if (existente) {
         setErroCnm(existente.corretorResponsavelId)
         return
@@ -140,9 +190,7 @@ export function CadastroImovelPage() {
     const usaTerrenoSeparado = TIPOS_COM_TERRENO_SEPARADO.includes(dados.tipo)
     const apenasTerreno = TIPOS_APENAS_TERRENO.includes(dados.tipo)
 
-    const payload: Omit<Imovel, 'id' | 'criadoEm' | 'atualizadoEm'> = {
-      corretorResponsavelId: CORRETOR_LOGADO_ID,
-      etapa: 'a',
+    const camposComuns = {
       enderecoRua: dados.enderecoRua,
       enderecoNumero: dados.enderecoNumero,
       bairro: dados.bairro,
@@ -170,6 +218,25 @@ export function CadastroImovelPage() {
       aceitaPet: dados.aceitaPet,
       nomeCondominio: dados.nomeCondominio || undefined,
       fotos: dados.fotos && dados.fotos.length > 0 ? dados.fotos : undefined,
+    }
+
+    if (editando && imovelExistente) {
+      atualizarImovel.mutate(
+        { id: imovelExistente.id, patch: camposComuns },
+        {
+          onSuccess: () => {
+            toast({ title: 'Imóvel atualizado', description: 'As alterações foram salvas.' })
+            navigate('/meus-imoveis')
+          },
+        },
+      )
+      return
+    }
+
+    const payload: Omit<Imovel, 'id' | 'criadoEm' | 'atualizadoEm'> = {
+      ...camposComuns,
+      corretorResponsavelId: CORRETOR_LOGADO_ID,
+      etapa: 'a',
       emNegociacaoFlag: false,
     }
 
@@ -187,7 +254,7 @@ export function CadastroImovelPage() {
 
   return (
     <div className="mx-auto max-w-2xl p-6">
-      <h1 className="mb-1 text-xl font-bold">Cadastro de Imóvel</h1>
+      <h1 className="mb-1 text-xl font-bold">{editando ? 'Editar Imóvel' : 'Cadastro de Imóvel'}</h1>
       <p className="mb-6 text-sm text-text-mut">
         Passo {passo} de {PASSOS.length}
       </p>
@@ -376,8 +443,8 @@ export function CadastroImovelPage() {
               Próximo
             </Button>
           ) : (
-            <Button type="submit" disabled={criarImovel.isPending}>
-              Concluir cadastro
+            <Button type="submit" disabled={criarImovel.isPending || atualizarImovel.isPending}>
+              {editando ? 'Salvar alterações' : 'Concluir cadastro'}
             </Button>
           )}
         </div>
