@@ -81,7 +81,9 @@ Legenda: **[VOCÊ]** = ação do Mário (contas, painéis, testes) · **[EU]** =
       (opcional, com imagem padrão por tipo), trava no banco contra base64, custo zero.
       Se um dia quisermos upload próprio, o caminho é o Supabase Storage
 - [ ] **[EU]** Matching no servidor (Edge Function + tabela `matches`) — ponto crítico de desempenho
-- [ ] **[EU]** Sentry para capturar erros em produção
+- [x] **[EU]** Sentry capturando erros em produção (ambiente "producao", corretor logado
+      anexado aos eventos, tela amigável de erro) — evento de teste verificado no site
+      publicado em 04/08/2026. Matching no servidor fica para a próxima leva de melhorias
 - [ ] **[VOCÊ]** (opcional) Domínio próprio (ex.: naviscomvoce.com.br) apontado na Vercel
 
 ---
