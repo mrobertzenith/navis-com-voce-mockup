@@ -1,13 +1,16 @@
 import { Link } from 'react-router-dom'
-import { Bell, RotateCcw, User } from 'lucide-react'
+import { Bell, LogOut, RotateCcw, User } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { MobileNav } from '@/app/layout/MobileNav'
 import { Button } from '@/components/ui/button'
+import { supabaseHabilitado } from '@/lib/supabase'
+import { useAuthStore, sair } from '@/stores/authStore'
 import { useDemoStore } from '@/stores/demoStore'
 import { useNotificacoesStore } from '@/stores/notificacoesStore'
 
 export function Topbar() {
   const resetarDemo = useDemoStore((s) => s.resetarDemo)
+  const corretor = useAuthStore((s) => s.corretor)
   const naoLidas = useNotificacoesStore((s) => s.notificacoes.filter((n) => !n.lida).length)
 
   return (
@@ -52,9 +55,27 @@ export function Topbar() {
           <RotateCcw strokeWidth={1.5} />
           Resetar demo
         </Button>
-        <Button variant="ghost" size="icon" aria-label="Perfil">
-          <User strokeWidth={1.5} />
-        </Button>
+        {supabaseHabilitado && corretor ? (
+          <div className="flex items-center gap-1">
+            <span className="hidden items-center gap-1.5 text-sm text-text-mut md:flex">
+              <User className="h-4 w-4" strokeWidth={1.5} />
+              {corretor.nome}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={sair}
+              aria-label="Sair"
+              className="text-text-mut"
+            >
+              <LogOut strokeWidth={1.5} />
+            </Button>
+          </div>
+        ) : (
+          <Button variant="ghost" size="icon" aria-label="Perfil">
+            <User strokeWidth={1.5} />
+          </Button>
+        )}
       </div>
     </header>
   )

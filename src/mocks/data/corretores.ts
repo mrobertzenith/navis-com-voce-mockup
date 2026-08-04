@@ -1,7 +1,19 @@
 import type { Corretor } from '@/domain/types'
 
-// UUID determinístico (v5 de 'cor-ana-silva') — igual ao usado pelo seed do banco
-export const CORRETOR_LOGADO_ID = '0c7dc42a-18c1-5622-8c81-d19c79e89273'
+// UUID determinístico (v5 de 'cor-ana-silva') — igual ao usado pelo seed do banco.
+// No modo mock este valor fixo vale a sessão inteira (Ana Silva).
+// Com Supabase, o bootstrap de autenticação troca pelo corretor da sessão real
+// via definirCorretorLogado() antes do primeiro render.
+export let CORRETOR_LOGADO_ID = '0c7dc42a-18c1-5622-8c81-d19c79e89273'
+
+export function definirCorretorLogado(id: string) {
+  CORRETOR_LOGADO_ID = id
+}
+
+/** Substitui a lista estática pela lista real do banco (bootstrap com Supabase) */
+export function carregarCorretores(lista: Corretor[]) {
+  CORRETORES.splice(0, CORRETORES.length, ...lista)
+}
 
 export const CORRETORES: Corretor[] = [
   {

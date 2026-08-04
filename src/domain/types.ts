@@ -25,6 +25,8 @@ export type OrigemVinculo = 'sugerido_automatico' | 'manual_corretor' | 'visita'
 
 export interface Corretor {
   id: string
+  /** presente quando os corretores vêm do banco (Fase 3+) */
+  papel?: 'admin' | 'corretor'
   nome: string
   creci: string
   cidade: string

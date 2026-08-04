@@ -30,8 +30,14 @@ Legenda: **[VOCÊ]** = ação do Mário (contas, painéis, testes) · **[EU]** =
 
 ## Fase 3 — Login + administração (essencial: operador é pessoa de negócio)
 
-- [ ] **[EU]** Tela de login (Supabase Auth) + guarda de rota; fim do `CORRETOR_LOGADO_ID` fixo
-- [ ] **[EU]** RLS real: corretor só edita os próprios imóveis/clientes; admin vê a equipe toda
+- [x] **[EU]** Tela de login (Supabase Auth) + guarda de rota; fim do `CORRETOR_LOGADO_ID` fixo
+- [x] **[EU]** RLS real: acesso restrito à equipe (e-mail precisa existir em `corretores`);
+      escrita em `corretores` e deletes só admin. Aperto por dono fica pra Fase 4 (os fluxos
+      cross-corretor de negociação ainda escrevem em registros do outro corretor)
+- [ ] **[VOCÊ]** No painel Supabase: Authentication → Users → confirmar o usuário
+      `ana.silva@exemplo.com` (⋯ → Confirm email) — criado para teste do login
+- [ ] **[VOCÊ]** (recomendado) Authentication → Sign In / Providers → desativar novos signups
+      públicos ("Allow new users to sign up") — contas serão criadas pela tela Equipe
 - [ ] **[EU]** **Tela "Equipe" (só admin):** convidar corretor por e-mail, desativar corretor,
       reenviar redefinição de senha — tudo dentro do NAVIS, sem tocar no painel do Supabase
 - [ ] **[VOCÊ]** Testar com dois logins: corretor A não edita imóvel do corretor B

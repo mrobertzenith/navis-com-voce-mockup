@@ -1,5 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/app/layout/AppLayout'
+import { RequireAuth } from '@/app/RequireAuth'
+import { LoginPage } from '@/pages/LoginPage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { MeusImoveisPage } from '@/pages/MeusImoveisPage'
 import { MeusClientesPage } from '@/pages/MeusClientesPage'
@@ -17,7 +19,11 @@ export const router = createBrowserRouter(
   [
     {
       path: '/',
-      element: <AppLayout />,
+      element: (
+        <RequireAuth>
+          <AppLayout />
+        </RequireAuth>
+      ),
       children: [
         { index: true, element: <Navigate to="/dashboard" replace /> },
         { path: 'dashboard', element: <DashboardPage /> },
@@ -36,7 +42,7 @@ export const router = createBrowserRouter(
         { path: 'configuracoes/score', element: <ConfiguracoesScorePage /> },
       ],
     },
-    { path: '/login', element: <PlaceholderPage titulo="Login" /> },
+    { path: '/login', element: <LoginPage /> },
     { path: '/onboarding', element: <OnboardingPage /> },
   ],
   { basename: '/navis-com-voce-mockup/' },

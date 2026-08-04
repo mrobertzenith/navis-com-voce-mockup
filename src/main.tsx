@@ -23,7 +23,13 @@ async function enableMocking() {
   })
 }
 
-enableMocking().then(() => {
+async function bootstrap() {
+  await enableMocking()
+  const { inicializarAuth } = await import('@/stores/authStore')
+  await inicializarAuth()
+}
+
+bootstrap().then(() => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
