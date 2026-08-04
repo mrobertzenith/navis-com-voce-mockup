@@ -56,5 +56,6 @@ export const router = createBrowserRouter(
     { path: '/definir-senha', element: <DefinirSenhaPage /> },
     { path: '/onboarding', element: <OnboardingPage /> },
   ],
-  { basename: '/navis-com-voce-mockup/' },
+  // segue o `base` do Vite: '/' na Vercel, '/navis-com-voce-mockup/' no GitHub Pages
+  { basename: import.meta.env.BASE_URL },
 )
