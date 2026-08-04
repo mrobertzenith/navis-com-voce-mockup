@@ -34,10 +34,9 @@ Legenda: **[VOCÊ]** = ação do Mário (contas, painéis, testes) · **[EU]** =
 - [x] **[EU]** RLS real: acesso restrito à equipe (e-mail precisa existir em `corretores`);
       escrita em `corretores` e deletes só admin. Aperto por dono fica pra Fase 4 (os fluxos
       cross-corretor de negociação ainda escrevem em registros do outro corretor)
-- [ ] **[VOCÊ]** No painel Supabase: Authentication → Users → confirmar o usuário
-      `ana.silva@exemplo.com` (⋯ → Confirm email) — criado para teste do login
-- [ ] **[VOCÊ]** (recomendado) Authentication → Sign In / Providers → desativar novos signups
-      públicos ("Allow new users to sign up") — contas serão criadas pela tela Equipe
+- [x] **[VOCÊ]** Usuário `ana.silva@exemplo.com` confirmado (via SQL Editor) — login E2E
+      verificado na API e no navegador (Dashboard com sessão real, nome no topo, sair)
+- [x] **[VOCÊ]** Signups públicos desativados no painel
 - [ ] **[EU]** **Tela "Equipe" (só admin):** convidar corretor por e-mail, desativar corretor,
       reenviar redefinição de senha — tudo dentro do NAVIS, sem tocar no painel do Supabase
 - [ ] **[VOCÊ]** Testar com dois logins: corretor A não edita imóvel do corretor B
