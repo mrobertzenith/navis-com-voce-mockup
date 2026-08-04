@@ -37,10 +37,18 @@ Legenda: **[VOCÊ]** = ação do Mário (contas, painéis, testes) · **[EU]** =
 - [x] **[VOCÊ]** Usuário `ana.silva@exemplo.com` confirmado (via SQL Editor) — login E2E
       verificado na API e no navegador (Dashboard com sessão real, nome no topo, sair)
 - [x] **[VOCÊ]** Signups públicos desativados no painel
-- [ ] **[EU]** **Tela "Equipe" (só admin):** convidar corretor por e-mail, desativar corretor,
-      reenviar redefinição de senha — tudo dentro do NAVIS, sem tocar no painel do Supabase
-- [ ] **[VOCÊ]** Testar com dois logins: corretor A não edita imóvel do corretor B
-- [ ] **[VOCÊ]** Testar o fluxo admin: convidar um corretor de teste e ver o convite chegar
+- [x] **[EU]** **Tela "Equipe" (só admin):** convidar corretor por e-mail, desativar/reativar,
+      redefinir senha e excluir convite não usado — via Edge Function `equipe` (service role
+      no servidor; valida papel admin; auto-desativação bloqueada). Testado E2E: UI → função
+      → banco. Corretor suspenso é banido do login e perde acesso aos dados (migração 4)
+- [x] **[EU]** Página "Definir senha" (destino dos links de convite e de recuperação)
+- [ ] **[VOCÊ]** Painel → Authentication → URL Configuration → adicionar em **Redirect URLs**:
+      `http://localhost:5173/navis-com-voce-mockup/definir-senha` (e depois a URL da Vercel)
+- [ ] **[VOCÊ+EU]** ⚠️ **E-mails de convite de verdade exigem SMTP próprio** — o e-mail
+      embutido do Supabase tem limite baixíssimo (deu rate-limit no teste) e só entrega
+      para membros do projeto. Configurar Resend (grátis até 100/dia) ou similar antes de
+      convidar corretores reais
+- [ ] **[VOCÊ]** Testar o fluxo admin: convidar você mesmo (seu e-mail real) e ver o convite chegar
 
 ✅ Pronto quando: a pessoa de negócio gerencia a equipe sozinha, só pelo NAVIS.
 

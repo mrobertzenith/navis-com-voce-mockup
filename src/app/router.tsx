@@ -1,7 +1,9 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/app/layout/AppLayout'
-import { RequireAuth } from '@/app/RequireAuth'
+import { RequireAdmin, RequireAuth } from '@/app/RequireAuth'
 import { LoginPage } from '@/pages/LoginPage'
+import { DefinirSenhaPage } from '@/pages/DefinirSenhaPage'
+import { EquipePage } from '@/pages/EquipePage'
 import { PlaceholderPage } from '@/pages/PlaceholderPage'
 import { MeusImoveisPage } from '@/pages/MeusImoveisPage'
 import { MeusClientesPage } from '@/pages/MeusClientesPage'
@@ -36,6 +38,14 @@ export const router = createBrowserRouter(
         { path: 'todos-imoveis', element: <TodosImoveisPage /> },
         { path: 'todos-clientes', element: <TodosClientesPage /> },
         { path: 'ranking-corretores', element: <RankingCorretoresPage /> },
+        {
+          path: 'equipe',
+          element: (
+            <RequireAdmin>
+              <EquipePage />
+            </RequireAdmin>
+          ),
+        },
         { path: 'todos-corretores', element: <PlaceholderPage titulo="Todos os Corretores" /> },
         { path: 'imoveis-perdidos', element: <PlaceholderPage titulo="Imóveis Perdidos" /> },
         { path: 'notificacoes', element: <NotificacoesPage /> },
@@ -43,6 +53,7 @@ export const router = createBrowserRouter(
       ],
     },
     { path: '/login', element: <LoginPage /> },
+    { path: '/definir-senha', element: <DefinirSenhaPage /> },
     { path: '/onboarding', element: <OnboardingPage /> },
   ],
   { basename: '/navis-com-voce-mockup/' },

@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { Menu } from 'lucide-react'
-import { NAV_ITEMS } from '@/app/layout/Sidebar'
+import { useNavItems } from '@/app/layout/Sidebar'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/cn'
 
 export function MobileNav() {
   const [aberto, setAberto] = useState(false)
+  const navItems = useNavItems()
 
   return (
     <Sheet open={aberto} onOpenChange={setAberto}>
@@ -26,7 +27,7 @@ export function MobileNav() {
         </SheetHeader>
         <nav className="mt-2">
           <ul className="flex flex-col gap-1">
-            {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+            {navItems.map(({ to, label, icon: Icon }) => (
               <li key={to}>
                 <NavLink
                   to={to}

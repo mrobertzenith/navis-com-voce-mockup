@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Building2, Users, Bell, Settings, ListChecks, UsersRound, Trophy } from 'lucide-react'
+import { LayoutDashboard, Building2, Users, Bell, Settings, ListChecks, UsersRound, Trophy, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/cn'
+import { useAuthStore } from '@/stores/authStore'
 
 export const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -13,11 +14,23 @@ export const NAV_ITEMS = [
   { to: '/configuracoes/score', label: 'Configurações', icon: Settings },
 ]
 
+const ITEM_EQUIPE = { to: '/equipe', label: 'Equipe', icon: ShieldCheck }
+
+/** Itens de navegação do corretor logado — admins ganham a tela Equipe */
+export function useNavItems() {
+  const corretor = useAuthStore((s) => s.corretor)
+  if (corretor?.papel !== 'admin') return NAV_ITEMS
+  const itens = [...NAV_ITEMS]
+  itens.splice(6, 0, ITEM_EQUIPE) // depois do Ranking, antes de Notificações
+  return itens
+}
+
 export function Sidebar() {
+  const navItems = useNavItems()
   return (
     <nav className="hidden w-56 shrink-0 border-r border-border bg-surface p-4 md:block">
       <ul className="flex flex-col gap-1">
-        {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
+        {navItems.map(({ to, label, icon: Icon }) => (
           <li key={to}>
             <NavLink
               to={to}

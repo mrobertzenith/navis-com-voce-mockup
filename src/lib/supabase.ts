@@ -4,6 +4,16 @@ const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
 /**
+ * Tipo do link de autenticação presente na URL (convite ou recuperação de senha).
+ * Capturado ANTES do createClient, que processa e limpa o hash da URL.
+ * Quando presente, o app leva o usuário para a página "Definir senha".
+ */
+export const tipoLinkAuth: 'invite' | 'recovery' | null =
+  typeof window !== 'undefined'
+    ? ((/type=(invite|recovery)/.exec(window.location.hash)?.[1] as 'invite' | 'recovery') ?? null)
+    : null
+
+/**
  * Cliente Supabase, ou null quando as variáveis de ambiente não existem.
  * Sem .env.local o app segue 100% no mock (MSW + localStorage) — o que permite
  * rodar testes e desenvolvimento offline sem tocar no banco real.

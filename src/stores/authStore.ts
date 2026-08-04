@@ -83,8 +83,8 @@ export async function inicializarAuth(): Promise<void> {
   const eu = CORRETORES.find(
     (c) => c.email.toLowerCase() === session.user.email!.toLowerCase(),
   )
-  if (!eu) {
-    // logado no Auth mas sem cadastro de corretor — trata como não autorizado
+  if (!eu || eu.status === 'suspenso') {
+    // sem cadastro de corretor ou desativado — trata como não autorizado
     await supabase.auth.signOut()
     store.definirCorretor(null)
     return
