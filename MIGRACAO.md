@@ -76,7 +76,10 @@ Legenda: **[VOCÊ]** = ação do Mário (contas, painéis, testes) · **[EU]** =
 
 ## Fase 6 — Acabamento de produção
 
-- [ ] **[EU]** Upload real de fotos (Supabase Storage) com compressão e limite de tamanho
+- [x] **[EU]** ~~Upload real de fotos (Supabase Storage)~~ **Decisão de arquitetura (04/08/2026):
+      fotos são links do próprio anúncio, sem storage de imagens** — campo de URL no wizard
+      (opcional, com imagem padrão por tipo), trava no banco contra base64, custo zero.
+      Se um dia quisermos upload próprio, o caminho é o Supabase Storage
 - [ ] **[EU]** Matching no servidor (Edge Function + tabela `matches`) — ponto crítico de desempenho
 - [ ] **[EU]** Sentry para capturar erros em produção
 - [ ] **[VOCÊ]** (opcional) Domínio próprio (ex.: naviscomvoce.com.br) apontado na Vercel
