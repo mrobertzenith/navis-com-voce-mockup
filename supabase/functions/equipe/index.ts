@@ -167,6 +167,19 @@ Deno.serve(async (req) => {
       return resposta(200, { ok: true })
     }
 
+    if (acao === 'alterar_papel') {
+      const papel = corpo.papel as string
+      if (papel !== 'admin' && papel !== 'corretor') {
+        return resposta(400, { erro: 'Papel inválido' })
+      }
+      if (alvo.id === chamador.id && papel === 'corretor') {
+        // impede o sistema de ficar sem nenhum admin
+        return resposta(400, { erro: 'Você não pode remover o próprio papel de admin' })
+      }
+      await admin.from('corretores').update({ papel }).eq('id', alvo.id)
+      return resposta(200, { ok: true })
+    }
+
     if (acao === 'resetar_senha') {
       const { error } = await admin.auth.resetPasswordForEmail(
         alvo.email,

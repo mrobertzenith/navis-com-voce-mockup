@@ -31,8 +31,16 @@ async function fetchEquipe(): Promise<Corretor[]> {
 }
 
 interface AcaoEquipe {
-  acao: 'convidar' | 'criar_direto' | 'desativar' | 'reativar' | 'resetar_senha' | 'excluir'
+  acao:
+    | 'convidar'
+    | 'criar_direto'
+    | 'desativar'
+    | 'reativar'
+    | 'resetar_senha'
+    | 'excluir'
+    | 'alterar_papel'
   corretorId?: string
+  papel?: 'admin' | 'corretor'
   nome?: string
   email?: string
   telefoneWhatsapp?: string

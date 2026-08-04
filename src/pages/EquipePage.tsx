@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Copy, KeyRound, ShieldOff, ShieldCheck, Trash2, UserPlus } from 'lucide-react'
+import { Copy, Crown, KeyRound, ShieldOff, ShieldCheck, Trash2, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -111,6 +111,39 @@ export function EquipePage() {
                 </div>
 
                 <div className="flex shrink-0 items-center gap-1.5">
+                  {c.status !== 'suspenso' &&
+                    (c.papel === 'admin' ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={acao.isPending || souEu}
+                        title={souEu ? 'Você não pode remover o próprio papel de admin' : undefined}
+                        onClick={() =>
+                          executar(
+                            { acao: 'alterar_papel', corretorId: c.id, papel: 'corretor' },
+                            `${c.nome} não é mais admin`,
+                          )
+                        }
+                      >
+                        <Crown className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        Remover admin
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={acao.isPending}
+                        onClick={() =>
+                          executar(
+                            { acao: 'alterar_papel', corretorId: c.id, papel: 'admin' },
+                            `${c.nome} agora é admin`,
+                          )
+                        }
+                      >
+                        <Crown className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        Tornar admin
+                      </Button>
+                    ))}
                   <Button
                     variant="outline"
                     size="sm"
