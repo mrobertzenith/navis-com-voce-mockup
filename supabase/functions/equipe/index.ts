@@ -52,6 +52,54 @@ Deno.serve(async (req) => {
   const redirectTo = typeof corpo.redirectTo === 'string' ? corpo.redirectTo : undefined
 
   try {
+    // criar_direto: para a fase sem domínio de e-mail verificado — cria a conta
+    // já confirmada com senha provisória, que o admin repassa por WhatsApp
+    if (acao === 'criar_direto') {
+      const { nome, email, telefoneWhatsapp, creci, cidade, estado } = corpo
+      if (!nome || !email) return resposta(400, { erro: 'Nome e e-mail são obrigatórios' })
+      const emailNorm = String(email).trim().toLowerCase()
+
+      const { data: existente } = await admin
+        .from('corretores')
+        .select('id')
+        .eq('email', emailNorm)
+        .maybeSingle()
+      if (existente) return resposta(409, { erro: 'Já existe corretor com esse e-mail' })
+
+      const senhaProvisoria = 'Navis-' +
+        Array.from(crypto.getRandomValues(new Uint8Array(9)))
+          .map((b) => 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789'[b % 54])
+          .join('')
+
+      const { data: criado, error: erroCriar } = await admin.auth.admin.createUser({
+        email: emailNorm,
+        password: senhaProvisoria,
+        email_confirm: true,
+      })
+      if (erroCriar) return resposta(400, { erro: `Criação falhou: ${erroCriar.message}` })
+
+      const { data: corretor, error: erroInsert } = await admin
+        .from('corretores')
+        .insert({
+          auth_user_id: criado.user.id,
+          nome,
+          email: emailNorm,
+          telefone_whatsapp: telefoneWhatsapp ?? '',
+          creci: creci ?? '',
+          cidade: cidade ?? 'Ribeirão Preto',
+          estado: estado ?? 'SP',
+          status: 'ativo',
+          papel: 'corretor',
+        })
+        .select()
+        .single()
+      if (erroInsert) {
+        await admin.auth.admin.deleteUser(criado.user.id)
+        return resposta(400, { erro: 'Falha ao cadastrar corretor' })
+      }
+      return resposta(200, { ok: true, corretor, senhaProvisoria })
+    }
+
     if (acao === 'convidar') {
       const { nome, email, telefoneWhatsapp, creci, cidade, estado } = corpo
       if (!nome || !email) return resposta(400, { erro: 'Nome e e-mail são obrigatórios' })

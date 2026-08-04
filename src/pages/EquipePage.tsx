@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { KeyRound, ShieldOff, ShieldCheck, Trash2, UserPlus } from 'lucide-react'
+import { Copy, KeyRound, ShieldOff, ShieldCheck, Trash2, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -28,7 +28,9 @@ export function EquipePage() {
   const { toast } = useToast()
   const eu = useAuthStore((s) => s.corretor)
   const [convidando, setConvidando] = useState(false)
+  const [modo, setModo] = useState<'convidar' | 'criar_direto'>('convidar')
   const [form, setForm] = useState({ nome: '', email: '', telefoneWhatsapp: '', creci: '' })
+  const [senhaGerada, setSenhaGerada] = useState<{ nome: string; email: string; senha: string } | null>(null)
 
   function executar(payload: Parameters<typeof acao.mutate>[0], sucesso: string) {
     acao.mutate(payload, {
@@ -40,13 +42,17 @@ export function EquipePage() {
   function convidar(e: React.FormEvent) {
     e.preventDefault()
     acao.mutate(
-      { acao: 'convidar', ...form },
+      { acao: modo, ...form },
       {
-        onSuccess: () => {
-          toast({
-            title: 'Convite enviado',
-            description: `${form.nome} vai receber um e-mail para criar a senha.`,
-          })
+        onSuccess: (resultado) => {
+          if (modo === 'criar_direto' && resultado.senhaProvisoria) {
+            setSenhaGerada({ nome: form.nome, email: form.email, senha: resultado.senhaProvisoria })
+          } else {
+            toast({
+              title: 'Convite enviado',
+              description: `${form.nome} vai receber um e-mail para criar a senha.`,
+            })
+          }
           setConvidando(false)
           setForm({ nome: '', email: '', telefoneWhatsapp: '', creci: '' })
         },
@@ -169,11 +175,33 @@ export function EquipePage() {
       <Dialog open={convidando} onOpenChange={setConvidando}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Convidar corretor</DialogTitle>
+            <DialogTitle>Adicionar corretor</DialogTitle>
             <DialogDescription>
-              A pessoa recebe um e-mail com um link para criar a própria senha.
+              {modo === 'convidar'
+                ? 'A pessoa recebe um e-mail com um link para criar a própria senha.'
+                : 'O sistema gera uma senha provisória para você enviar por WhatsApp.'}
             </DialogDescription>
           </DialogHeader>
+          <div className="flex gap-1 rounded-card border border-border p-1">
+            <button
+              type="button"
+              onClick={() => setModo('convidar')}
+              className={`flex-1 rounded-card px-3 py-1.5 text-sm font-medium transition-colors ${
+                modo === 'convidar' ? 'bg-primary text-white' : 'text-text-mut hover:text-ink'
+              }`}
+            >
+              Convite por e-mail
+            </button>
+            <button
+              type="button"
+              onClick={() => setModo('criar_direto')}
+              className={`flex-1 rounded-card px-3 py-1.5 text-sm font-medium transition-colors ${
+                modo === 'criar_direto' ? 'bg-primary text-white' : 'text-text-mut hover:text-ink'
+              }`}
+            >
+              Senha provisória
+            </button>
+          </div>
           <form onSubmit={convidar} className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="eq-nome">Nome</Label>
@@ -215,9 +243,50 @@ export function EquipePage() {
               </div>
             </div>
             <Button type="submit" disabled={acao.isPending} className="mt-1">
-              {acao.isPending ? 'Enviando…' : 'Enviar convite'}
+              {acao.isPending
+                ? 'Processando…'
+                : modo === 'convidar'
+                  ? 'Enviar convite'
+                  : 'Criar acesso'}
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={senhaGerada !== null} onOpenChange={(open) => !open && setSenhaGerada(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Acesso criado para {senhaGerada?.nome}</DialogTitle>
+            <DialogDescription>
+              Envie estes dados por WhatsApp. A senha aparece <strong>só esta vez</strong> —
+              depois de fechar, use "Redefinir senha" se precisar de outra.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 rounded-card border border-border bg-bg p-4 font-mono text-sm">
+            <p>
+              <span className="text-text-soft">site: </span>
+              {window.location.origin}
+            </p>
+            <p>
+              <span className="text-text-soft">e-mail: </span>
+              {senhaGerada?.email}
+            </p>
+            <p>
+              <span className="text-text-soft">senha: </span>
+              <strong>{senhaGerada?.senha}</strong>
+            </p>
+          </div>
+          <Button
+            onClick={() => {
+              navigator.clipboard.writeText(
+                `Seu acesso ao NAVIS COM VOCÊ:\n${window.location.origin}\ne-mail: ${senhaGerada?.email}\nsenha: ${senhaGerada?.senha}`,
+              )
+              toast({ title: 'Copiado', description: 'Cole no WhatsApp do corretor.' })
+            }}
+          >
+            <Copy className="h-4 w-4" strokeWidth={1.5} />
+            Copiar tudo
+          </Button>
         </DialogContent>
       </Dialog>
     </div>

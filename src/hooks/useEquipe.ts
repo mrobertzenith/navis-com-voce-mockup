@@ -31,7 +31,7 @@ async function fetchEquipe(): Promise<Corretor[]> {
 }
 
 interface AcaoEquipe {
-  acao: 'convidar' | 'desativar' | 'reativar' | 'resetar_senha' | 'excluir'
+  acao: 'convidar' | 'criar_direto' | 'desativar' | 'reativar' | 'resetar_senha' | 'excluir'
   corretorId?: string
   nome?: string
   email?: string
@@ -41,7 +41,13 @@ interface AcaoEquipe {
   estado?: string
 }
 
-async function executarAcao(payload: AcaoEquipe): Promise<void> {
+interface RespostaEquipe {
+  ok?: boolean
+  /** presente só na resposta de criar_direto — exibida uma única vez ao admin */
+  senhaProvisoria?: string
+}
+
+async function executarAcao(payload: AcaoEquipe): Promise<RespostaEquipe> {
   // getSession renova o token se tiver expirado (Safari iOS às vezes não
   // renova em segundo plano); com a sessão garantida, mandamos o token explícito
   const {
@@ -62,6 +68,7 @@ async function executarAcao(payload: AcaoEquipe): Promise<void> {
     throw new Error('A operação falhou. Tente novamente.')
   }
   if (data?.erro) throw new Error(data.erro)
+  return (data ?? {}) as RespostaEquipe
 }
 
 export function useEquipe() {
