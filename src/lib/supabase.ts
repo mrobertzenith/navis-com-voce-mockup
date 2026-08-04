@@ -6,12 +6,22 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 /**
  * Tipo do link de autenticação presente na URL (convite ou recuperação de senha).
  * Capturado ANTES do createClient, que processa e limpa o hash da URL.
- * Quando presente, o app leva o usuário para a página "Definir senha".
+ * Enquanto pendente, o app leva o usuário para a página "Definir senha";
+ * depois de salvar a senha, consumirLinkAuth() libera a navegação normal
+ * (sem isso, o guarda de rota devolveria o usuário pra lá em loop).
  */
-export const tipoLinkAuth: 'invite' | 'recovery' | null =
+let linkAuthPendente: 'invite' | 'recovery' | null =
   typeof window !== 'undefined'
     ? ((/type=(invite|recovery)/.exec(window.location.hash)?.[1] as 'invite' | 'recovery') ?? null)
     : null
+
+export function tipoLinkAuthPendente() {
+  return linkAuthPendente
+}
+
+export function consumirLinkAuth() {
+  linkAuthPendente = null
+}
 
 /**
  * Cliente Supabase, ou null quando as variáveis de ambiente não existem.

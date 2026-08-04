@@ -4,7 +4,7 @@ import { Anchor } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { supabase } from '@/lib/supabase'
+import { consumirLinkAuth, supabase } from '@/lib/supabase'
 import { inicializarAuth, useAuthStore } from '@/stores/authStore'
 
 /**
@@ -43,6 +43,7 @@ export function DefinirSenhaPage() {
       setSalvando(false)
       return
     }
+    consumirLinkAuth()
     await inicializarAuth()
     navigate('/dashboard', { replace: true })
   }
