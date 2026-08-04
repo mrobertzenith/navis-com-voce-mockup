@@ -42,8 +42,15 @@ interface AcaoEquipe {
 }
 
 async function executarAcao(payload: AcaoEquipe): Promise<void> {
+  // getSession renova o token se tiver expirado (Safari iOS às vezes não
+  // renova em segundo plano); com a sessão garantida, mandamos o token explícito
+  const {
+    data: { session },
+  } = await supabase!.auth.getSession()
+  if (!session) throw new Error('Sua sessão expirou. Recarregue a página e entre de novo.')
   const { data, error } = await supabase!.functions.invoke('equipe', {
     body: { ...payload, redirectTo: urlDefinirSenha() },
+    headers: { Authorization: `Bearer ${session.access_token}` },
   })
   if (error) {
     // o corpo da resposta de erro da função traz a mensagem amigável
