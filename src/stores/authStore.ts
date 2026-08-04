@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Corretor } from '@/domain/types'
+import { sentryDefinirUsuario } from '@/lib/sentry'
 import { supabase } from '@/lib/supabase'
 import {
   CORRETOR_LOGADO_ID,
@@ -24,7 +25,10 @@ export const useAuthStore = create<AuthState>()(
       corretor: null,
       sessaoCarregada: false,
       onboardingConcluido: false,
-      definirCorretor: (corretor) => set({ corretor, sessaoCarregada: true }),
+      definirCorretor: (corretor) => {
+        sentryDefinirUsuario(corretor)
+        set({ corretor, sessaoCarregada: true })
+      },
       concluirOnboarding: () => set({ onboardingConcluido: true }),
     }),
     {
