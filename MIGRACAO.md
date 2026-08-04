@@ -10,11 +10,12 @@ Legenda: **[VOCÊ]** = ação do Mário (contas, painéis, testes) · **[EU]** =
 - [x] **[EU]** Supabase CLI instalado como devDependency + `supabase init`
 - [x] **[EU]** Schema traduzido de `domain/types.ts` → `supabase/migrations/20260727000001_schema_inicial.sql`
       (14 tabelas, 9 enums, papel `admin`/`corretor` desde já, RLS habilitado com política transitória)
-- [ ] **[VOCÊ]** Criar conta gratuita em supabase.com (pode entrar com GitHub)
-- [ ] **[VOCÊ]** Criar projeto `navis-crm`, região **South America (São Paulo)**
-- [ ] **[VOCÊ]** Anotar em Settings → API: `Project URL`, `anon key` e a senha do banco
-- [ ] **[EU+VOCÊ]** Vincular o repo ao projeto (`npx supabase link`) e aplicar o schema (`npx supabase db push`)
+- [x] **[VOCÊ]** Criar conta gratuita em supabase.com (pode entrar com GitHub)
+- [x] **[VOCÊ]** Criar projeto `navis-crm` (ref `spwndsircpzncbinalcs`)
+- [x] **[VOCÊ]** Anotar em Settings → API: `Project URL`, `anon key` e a senha do banco
+- [x] **[EU+VOCÊ]** Vincular o repo ao projeto (`npx supabase link`) e aplicar o schema (`npx supabase db push`)
 - [ ] **[VOCÊ]** Conferir no painel do Supabase (Table Editor) que as 14 tabelas apareceram
+- [ ] **[VOCÊ]** (segurança) Reset database password no painel — a senha atual apareceu em print
 
 ✅ Pronto quando: tabelas visíveis no painel; o app continua funcionando igual (ainda no mock).
 
