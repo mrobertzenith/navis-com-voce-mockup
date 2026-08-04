@@ -37,24 +37,28 @@ export function Topbar() {
             )}
           </Link>
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={resetarDemo}
-          className="text-text-mut sm:hidden"
-          aria-label="Resetar demo"
-        >
-          <RotateCcw strokeWidth={1.5} />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={resetarDemo}
-          className="hidden text-text-mut sm:inline-flex"
-        >
-          <RotateCcw strokeWidth={1.5} />
-          Resetar demo
-        </Button>
+        {!supabaseHabilitado && (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={resetarDemo}
+              className="text-text-mut sm:hidden"
+              aria-label="Resetar demo"
+            >
+              <RotateCcw strokeWidth={1.5} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={resetarDemo}
+              className="hidden text-text-mut sm:inline-flex"
+            >
+              <RotateCcw strokeWidth={1.5} />
+              Resetar demo
+            </Button>
+          </>
+        )}
         {supabaseHabilitado && corretor ? (
           <div className="flex items-center gap-1">
             <span className="hidden items-center gap-1.5 text-sm text-text-mut md:flex">
