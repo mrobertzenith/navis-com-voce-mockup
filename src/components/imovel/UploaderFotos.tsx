@@ -1,5 +1,7 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { ImagePlus, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/cn'
 
 interface UploaderFotosProps {
@@ -9,27 +11,29 @@ interface UploaderFotosProps {
   className?: string
 }
 
-function arquivoParaBase64(arquivo: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const leitor = new FileReader()
-    leitor.onload = () => resolve(leitor.result as string)
-    leitor.onerror = reject
-    leitor.readAsDataURL(arquivo)
-  })
-}
-
+/**
+ * Fotos por link (decisão de arquitetura: sem storage de imagens).
+ * O corretor cola a URL da foto do anúncio — custo zero de armazenamento;
+ * sem foto, os cards usam a imagem padrão do tipo de imóvel.
+ */
 export function UploaderFotos({ fotos, onChange, max = 4, className }: UploaderFotosProps) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [arrastando, setArrastando] = useState(false)
+  const [url, setUrl] = useState('')
+  const [erro, setErro] = useState<string | null>(null)
 
-  async function adicionarArquivos(arquivos: FileList | File[]) {
-    const restante = max - fotos.length
-    if (restante <= 0) return
-    const selecionados = Array.from(arquivos)
-      .filter((a) => a.type.startsWith('image/'))
-      .slice(0, restante)
-    const base64s = await Promise.all(selecionados.map(arquivoParaBase64))
-    onChange([...fotos, ...base64s])
+  function adicionar() {
+    const limpa = url.trim()
+    if (!limpa) return
+    if (!/^https?:\/\/.+/i.test(limpa)) {
+      setErro('Cole um link completo, começando com http:// ou https://')
+      return
+    }
+    if (fotos.includes(limpa)) {
+      setErro('Essa foto já foi adicionada.')
+      return
+    }
+    setErro(null)
+    onChange([...fotos, limpa])
+    setUrl('')
   }
 
   function removerFoto(indice: number) {
@@ -42,7 +46,15 @@ export function UploaderFotos({ fotos, onChange, max = 4, className }: UploaderF
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {fotos.map((foto, i) => (
             <div key={i} className="relative overflow-hidden rounded-card border border-border">
-              <img src={foto} alt="" className="h-24 w-full object-cover" />
+              <img
+                src={foto}
+                alt=""
+                className="h-24 w-full bg-bg object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.opacity = '0.35'
+                  e.currentTarget.alt = 'link inválido'
+                }}
+              />
               <button
                 type="button"
                 onClick={() => removerFoto(i)}
@@ -57,43 +69,35 @@ export function UploaderFotos({ fotos, onChange, max = 4, className }: UploaderF
       )}
 
       {fotos.length < max && (
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          onDragOver={(e) => {
-            e.preventDefault()
-            setArrastando(true)
-          }}
-          onDragLeave={() => setArrastando(false)}
-          onDrop={(e) => {
-            e.preventDefault()
-            setArrastando(false)
-            if (e.dataTransfer.files.length > 0) void adicionarArquivos(e.dataTransfer.files)
-          }}
-          className={cn(
-            'flex flex-col items-center justify-center gap-2 rounded-card border border-dashed p-6 text-sm text-text-mut transition-colors',
-            arrastando ? 'border-primary bg-primary/5' : 'border-border hover:bg-bg',
+        <div className="flex flex-col gap-1.5">
+          <div className="flex gap-2">
+            <Input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  adicionar()
+                }
+              }}
+              placeholder="Cole o link de uma foto do anúncio"
+              inputMode="url"
+            />
+            <Button type="button" variant="outline" onClick={adicionar} className="shrink-0">
+              <ImagePlus className="h-4 w-4" strokeWidth={1.5} />
+              Adicionar
+            </Button>
+          </div>
+          {erro ? (
+            <p className="text-xs text-danger">{erro}</p>
+          ) : (
+            <p className="text-xs text-text-soft">
+              {fotos.length}/{max} fotos · opcional — sem foto, usamos uma imagem padrão do tipo de
+              imóvel
+            </p>
           )}
-        >
-          <ImagePlus className="h-5 w-5" strokeWidth={1.5} />
-          Arraste fotos aqui ou clique para selecionar
-          <span className="text-xs text-text-soft">
-            {fotos.length}/{max} fotos · se nenhuma for enviada, usaremos uma foto padrão do tipo de imóvel
-          </span>
-        </button>
+        </div>
       )}
-
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        className="hidden"
-        onChange={(e) => {
-          if (e.target.files && e.target.files.length > 0) void adicionarArquivos(e.target.files)
-          e.target.value = ''
-        }}
-      />
     </div>
   )
 }

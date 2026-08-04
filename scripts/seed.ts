@@ -72,10 +72,14 @@ async function main() {
   console.log(`✓ ${rowsCorretores.length} corretores (Ana Silva como admin)`)
 
   // ---------- imóveis ----------
+  // fotos do mock são caminhos relativos; no banco vão como URL absoluta
+  // do site publicado (regra: fotos somente por URL, sem storage)
+  const absolutizarFoto = (f: string) =>
+    f.startsWith('/') ? 'https://navis-crm.vercel.app' + f.replace('/navis-com-voce-mockup', '') : f
   const rowsImoveis = IMOVEIS_SEED.map((i) => ({
     ...imovelParaRow(i),
     id: uuidDeterministico(i.id),
-    fotos: i.fotos ?? [],
+    fotos: (i.fotos ?? []).map(absolutizarFoto),
   }))
   const { error: errImoveis } = await supabase.from('imoveis').upsert(rowsImoveis)
   if (errImoveis) throw new Error(`imoveis: ${errImoveis.message}`)
