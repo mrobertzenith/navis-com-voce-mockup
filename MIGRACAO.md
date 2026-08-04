@@ -54,10 +54,18 @@ Legenda: **[VOCÊ]** = ação do Mário (contas, painéis, testes) · **[EU]** =
 
 ## Fase 4 — Publicar na internet
 
-- [ ] **[VOCÊ]** Criar conta na vercel.com (entrar com GitHub) e importar o repositório
-- [ ] **[VOCÊ]** Colar as 2 variáveis de ambiente (URL + anon key) na configuração da Vercel
-- [ ] **[EU]** Ajustar build: remover basename do GitHub Pages, configurar SPA fallback
-- [ ] **[VOCÊ]** Deploy e teste da URL pública no celular
+- [x] **[VOCÊ]** Conta Vercel criada, repositório importado como projeto `navis-crm`
+- [x] **[VOCÊ]** Variáveis de ambiente configuradas (anon key veio truncada no 1º deploy —
+      diagnóstico via bundle publicado; corrigida + redeploy)
+- [x] **[EU]** Build ajustado: base `/` na Vercel, SPA fallback via vercel.json
+- [x] **[EU]** **No ar: https://navis-crm.vercel.app** — login da Ana + Dashboard com dados
+      reais verificados no site publicado
+- [ ] **[VOCÊ]** Testar a URL pública no celular
+- [ ] **[VOCÊ]** Supabase → Authentication → URL Configuration: **Site URL** =
+      `https://navis-crm.vercel.app` e adicionar `https://navis-crm.vercel.app/definir-senha`
+      em Redirect URLs (pros e-mails de convite/recuperação apontarem pro site publicado)
+- [ ] **[EU]** Remover o banner "Ambiente de demonstração" (o texto não é mais verdade:
+      os dados agora persistem no servidor)
 
 ✅ Pronto quando: a corretora abre o link no celular e usa com login próprio.
 
