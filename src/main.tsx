@@ -13,6 +13,9 @@ const queryClient = new QueryClient({
 })
 
 async function enableMocking() {
+  // Com Supabase configurado (.env.local), os hooks falam com o banco real — MSW nem sobe
+  const { supabaseHabilitado } = await import('@/lib/supabase')
+  if (supabaseHabilitado) return
   const { worker } = await import('@/mocks/browser')
   return worker.start({
     onUnhandledRequest: 'bypass',

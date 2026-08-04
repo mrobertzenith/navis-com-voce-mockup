@@ -91,7 +91,7 @@ function construir(seed: ClienteSeed): Lead {
 }
 
 const ANA = CORRETOR_LOGADO_ID
-const OUTROS = ['cor-2', 'cor-3', 'cor-4', 'cor-5', 'cor-6', 'cor-7', 'cor-8', 'cor-9', 'cor-10']
+const OUTROS = ['f0d40439-29cc-551b-916c-d95420db46dd', 'df02932d-3419-52e6-bc58-beb6331173d2', 'b8ca15bb-befd-5301-9905-05937dd4036d', '1f60ab01-9a52-5d62-8fc0-4813c85330d2', '1490c396-a4e3-5694-80bb-156e3185f6fa', '5a8ee2db-6e43-5547-9df8-6a0983252fa7', '6aa7212c-59f5-504e-a651-8fb47eb93ec1', '99e9b3f9-a03b-5667-9e50-420eab22d6f3', '6ef5adcd-bf58-5da1-bcbd-dd31567b3f1c']
 
 // Imóveis em negociação (etapa e) do dataset de imoveis.ts, usados para negociacoesAtivas:
 // im-024 (apto Ribeirânia), im-025 (casa Taquaral/Campinas), im-026 (apto Alto da Boa Vista), im-027 (apto Jardim Paulistano/São Carlos)

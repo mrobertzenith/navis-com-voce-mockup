@@ -1,6 +1,7 @@
 import type { Corretor } from '@/domain/types'
 
-export const CORRETOR_LOGADO_ID = 'cor-ana-silva'
+// UUID determinístico (v5 de 'cor-ana-silva') — igual ao usado pelo seed do banco
+export const CORRETOR_LOGADO_ID = '0c7dc42a-18c1-5622-8c81-d19c79e89273'
 
 export const CORRETORES: Corretor[] = [
   {
@@ -15,7 +16,7 @@ export const CORRETORES: Corretor[] = [
     criadoEm: '2025-02-10T10:00:00.000Z',
   },
   {
-    id: 'cor-2',
+    id: 'f0d40439-29cc-551b-916c-d95420db46dd',
     nome: 'Bruno Costa',
     creci: '52190-F/SP',
     cidade: 'Ribeirão Preto',
@@ -26,7 +27,7 @@ export const CORRETORES: Corretor[] = [
     criadoEm: '2025-01-15T10:00:00.000Z',
   },
   {
-    id: 'cor-3',
+    id: 'df02932d-3419-52e6-bc58-beb6331173d2',
     nome: 'Camila Ferreira',
     creci: '38471-F/SP',
     cidade: 'Campinas',
@@ -37,7 +38,7 @@ export const CORRETORES: Corretor[] = [
     criadoEm: '2024-11-20T10:00:00.000Z',
   },
   {
-    id: 'cor-4',
+    id: 'b8ca15bb-befd-5301-9905-05937dd4036d',
     nome: 'Diego Santos',
     creci: '61024-F/SP',
     cidade: 'São Paulo',
@@ -48,7 +49,7 @@ export const CORRETORES: Corretor[] = [
     criadoEm: '2025-03-05T10:00:00.000Z',
   },
   {
-    id: 'cor-5',
+    id: '1f60ab01-9a52-5d62-8fc0-4813c85330d2',
     nome: 'Elaine Rodrigues',
     creci: '29385-F/SP',
     cidade: 'São Carlos',
@@ -59,7 +60,7 @@ export const CORRETORES: Corretor[] = [
     criadoEm: '2024-09-12T10:00:00.000Z',
   },
   {
-    id: 'cor-6',
+    id: '1490c396-a4e3-5694-80bb-156e3185f6fa',
     nome: 'Fábio Oliveira',
     creci: '47632-F/SP',
     cidade: 'Franca',
@@ -70,7 +71,7 @@ export const CORRETORES: Corretor[] = [
     criadoEm: '2025-04-18T10:00:00.000Z',
   },
   {
-    id: 'cor-7',
+    id: '5a8ee2db-6e43-5547-9df8-6a0983252fa7',
     nome: 'Gabriela Almeida',
     creci: '55210-F/SP',
     cidade: 'Ribeirão Preto',
@@ -81,7 +82,7 @@ export const CORRETORES: Corretor[] = [
     criadoEm: '2025-01-30T10:00:00.000Z',
   },
   {
-    id: 'cor-8',
+    id: '6aa7212c-59f5-504e-a651-8fb47eb93ec1',
     nome: 'Henrique Souza',
     creci: '33874-F/SP',
     cidade: 'Campinas',
@@ -92,7 +93,7 @@ export const CORRETORES: Corretor[] = [
     criadoEm: '2024-12-08T10:00:00.000Z',
   },
   {
-    id: 'cor-9',
+    id: '99e9b3f9-a03b-5667-9e50-420eab22d6f3',
     nome: 'Isabela Martins',
     creci: '60125-F/SP',
     cidade: 'São Paulo',
@@ -103,7 +104,7 @@ export const CORRETORES: Corretor[] = [
     criadoEm: '2025-05-02T10:00:00.000Z',
   },
   {
-    id: 'cor-10',
+    id: '6ef5adcd-bf58-5da1-bcbd-dd31567b3f1c',
     nome: 'João Pereira',
     creci: '41290-F/SP',
     cidade: 'Ribeirão Preto',
@@ -114,7 +115,7 @@ export const CORRETORES: Corretor[] = [
     criadoEm: '2024-10-25T10:00:00.000Z',
   },
   {
-    id: 'cor-11',
+    id: 'd3084005-e7f6-51fb-a6bf-8f88633a05bb',
     nome: 'Larissa Carvalho',
     creci: '58347-F/SP',
     cidade: 'São Carlos',
@@ -125,7 +126,7 @@ export const CORRETORES: Corretor[] = [
     criadoEm: '2025-02-27T10:00:00.000Z',
   },
   {
-    id: 'cor-12',
+    id: '0c46d488-00ac-56e5-8ca8-f25a142258e2',
     nome: 'Marcelo Ribeiro',
     creci: '36842-F/SP',
     cidade: 'Franca',
@@ -136,7 +137,7 @@ export const CORRETORES: Corretor[] = [
     criadoEm: '2024-08-14T10:00:00.000Z',
   },
   {
-    id: 'cor-13',
+    id: '38bc977a-bee8-551f-b12d-84797b62de26',
     nome: 'Natália Barbosa',
     creci: '62918-F/SP',
     cidade: 'Campinas',
@@ -147,7 +148,7 @@ export const CORRETORES: Corretor[] = [
     criadoEm: '2025-06-01T10:00:00.000Z',
   },
   {
-    id: 'cor-14',
+    id: 'f7e2e941-ea34-5a2f-a692-eec35b573efe',
     nome: 'Otávio Lima',
     creci: '45671-F/SP',
     cidade: 'Ribeirão Preto',
@@ -158,7 +159,7 @@ export const CORRETORES: Corretor[] = [
     criadoEm: '2024-07-22T10:00:00.000Z',
   },
   {
-    id: 'cor-15',
+    id: '946cf01d-1d7c-5d23-9d92-e5a444ed799b',
     nome: 'Patrícia Nunes',
     creci: '39456-F/SP',
     cidade: 'São Paulo',
