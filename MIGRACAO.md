@@ -21,8 +21,9 @@ Legenda: **[VOCÊ]** = ação do Mário (contas, painéis, testes) · **[EU]** =
 
 ## Fase 2 — Dados reais no lugar do mock
 
-- [ ] **[EU]** Script de seed: carga dos dados de demonstração (imóveis de Ribeirão Preto, leads, corretores)
-- [ ] **[EU]** Trocar o miolo dos hooks (`useImoveis`, `useLeads`...) do MSW pelo cliente Supabase
+- [x] **[EU]** Script de seed: carga dos dados de demonstração (15 corretores/Ana admin, 35 imóveis, 25 leads)
+- [x] **[EU]** Trocar o miolo dos hooks (`useImoveis`, `useLeads`...) do MSW pelo cliente Supabase
+- [x] **[EU]** QA contra o banco real: leitura, edição via UI com verificação no Postgres, matching, joins
 - [ ] **[VOCÊ]** Testar o app local: Kanban, cadastro, edição, matching — igual, mas persistindo de verdade
 
 ✅ Pronto quando: cadastra um imóvel, fecha o navegador, abre em outra máquina — ele está lá.
