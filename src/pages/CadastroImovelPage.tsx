@@ -34,43 +34,57 @@ const TIPOS_COM_TERRENO_SEPARADO: TipoImovel[] = ['casa_rua', 'casa_condominio',
 const TIPOS_APENAS_TERRENO: TipoImovel[] = ['terreno_rua', 'terreno_condominio', 'terreno_comercial']
 const TIPOS_COM_ARMARIOS: TipoImovel[] = ['apartamento', 'casa_rua', 'casa_condominio', 'casa_comercial']
 
-const schema = z.object({
-  estado: z.string().min(1, 'Obrigatório'),
-  cidade: z.string().min(1, 'Obrigatório'),
-  bairro: z.string().min(1, 'Obrigatório'),
-  cep: z.string().optional(),
-  enderecoRua: z.string().min(1, 'Obrigatório'),
-  enderecoNumero: z.string().min(1, 'Obrigatório'),
+/** número opcional: vazio vale como "não informado"; se informado, precisa ser > 0 */
+const numeroOpcionalPositivo = z.preprocess(
+  (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? undefined : Number(v)),
+  z.number().positive('Deve ser maior que zero').optional(),
+)
 
-  tipo: z.enum(TIPOS as [TipoImovel, ...TipoImovel[]], { required_error: 'Selecione um tipo' }),
-  quartos: z.coerce.number().min(0).default(0),
-  suites: z.coerce.number().min(0).default(0),
-  vagas: z.coerce.number().min(0).default(0),
-  banheiros: z.coerce.number().min(0).default(0),
-  area: z.coerce.number().min(0).optional(),
-  areaTerreno: z.coerce.number().min(0).optional(),
+const schema = z
+  .object({
+    estado: z.string().min(1, 'Obrigatório'),
+    cidade: z.string().min(1, 'Obrigatório'),
+    bairro: z.string().min(1, 'Obrigatório'),
+    cep: z
+      .string()
+      .optional()
+      .refine((v) => !v || /^\d{5}-?\d{3}$/.test(v), 'CEP inválido — use o formato 00000-000'),
+    enderecoRua: z.string().min(1, 'Obrigatório'),
+    enderecoNumero: z.string().min(1, 'Obrigatório'),
 
-  elevador: z.boolean().optional(),
-  mobiliado: z.boolean().optional(),
-  comArmarios: z.boolean().optional(),
-  lazer: z.boolean().optional(),
-  varanda: z.boolean().optional(),
-  churrasqueira: z.boolean().optional(),
-  aceitaPet: z.boolean().optional(),
-  nomeCondominio: z.string().optional(),
+    tipo: z.enum(TIPOS as [TipoImovel, ...TipoImovel[]], { required_error: 'Selecione um tipo' }),
+    quartos: z.coerce.number().min(0, 'Não pode ser negativo').default(0),
+    suites: z.coerce.number().min(0, 'Não pode ser negativo').default(0),
+    vagas: z.coerce.number().min(0, 'Não pode ser negativo').default(0),
+    banheiros: z.coerce.number().min(0, 'Não pode ser negativo').default(0),
+    area: numeroOpcionalPositivo,
+    areaTerreno: numeroOpcionalPositivo,
 
-  fotos: z.array(z.string()).optional(),
+    elevador: z.boolean().optional(),
+    mobiliado: z.boolean().optional(),
+    comArmarios: z.boolean().optional(),
+    lazer: z.boolean().optional(),
+    varanda: z.boolean().optional(),
+    churrasqueira: z.boolean().optional(),
+    aceitaPet: z.boolean().optional(),
+    nomeCondominio: z.string().optional(),
 
-  valorEstimado: z.coerce.number().min(0).optional(),
-  cnm: z.string().optional(),
-})
+    fotos: z.array(z.string()).optional(),
+
+    valorEstimado: numeroOpcionalPositivo,
+    cnm: z.string().optional(),
+  })
+  .refine((d) => d.suites <= d.quartos || TIPOS_APENAS_TERRENO.includes(d.tipo), {
+    message: 'Suítes não podem exceder o nº de quartos',
+    path: ['suites'],
+  })
 
 type FormData = z.infer<typeof schema>
 
 const PASSOS = ['Localização', 'Características', 'Diferenciais', 'Fotos', 'Valor e CNM']
 const CAMPOS_POR_PASSO: (keyof FormData)[][] = [
-  ['estado', 'cidade', 'bairro', 'enderecoRua', 'enderecoNumero'],
-  ['tipo', 'quartos', 'suites', 'vagas', 'banheiros', 'area'],
+  ['estado', 'cidade', 'bairro', 'enderecoRua', 'enderecoNumero', 'cep'],
+  ['tipo', 'quartos', 'suites', 'vagas', 'banheiros', 'area', 'areaTerreno'],
   [],
   [],
   [],
@@ -156,7 +170,16 @@ function CadastroImovelForm({
   async function avancar() {
     const campos = CAMPOS_POR_PASSO[passo - 1]
     const valido = campos.length === 0 || (await trigger(campos))
-    if (valido) setPasso((p) => Math.min(p + 1, PASSOS.length))
+    if (valido) {
+      setPasso((p) => Math.min(p + 1, PASSOS.length))
+      return
+    }
+    // sem isso, um valor inválido deixaria o Próximo "mudo" — o usuário ficaria travado
+    toast({
+      title: 'Verifique os campos destacados',
+      description: 'Há valores inválidos ou faltando neste passo.',
+      variant: 'destructive',
+    })
   }
 
   function voltar() {
@@ -196,7 +219,7 @@ function CadastroImovelForm({
       bairro: dados.bairro,
       cidade: dados.cidade,
       estado: dados.estado,
-      cep: dados.cep ?? '00000-000',
+      cep: dados.cep ?? '',
       lat: coords?.lat ?? -21.17,
       lng: coords?.lng ?? -47.81,
       tipo: dados.tipo,
@@ -217,7 +240,8 @@ function CadastroImovelForm({
       churrasqueira: dados.churrasqueira,
       aceitaPet: dados.aceitaPet,
       nomeCondominio: dados.nomeCondominio || undefined,
-      fotos: dados.fotos && dados.fotos.length > 0 ? dados.fotos : undefined,
+      // sempre lista (o banco exige não-nulo); vazia = app usa a foto padrão do tipo
+      fotos: dados.fotos ?? [],
     }
 
     if (editando && imovelExistente) {
@@ -227,6 +251,13 @@ function CadastroImovelForm({
           onSuccess: () => {
             toast({ title: 'Imóvel atualizado', description: 'As alterações foram salvas.' })
             navigate('/meus-imoveis')
+          },
+          onError: (e) => {
+            toast({
+              title: 'Não foi possível salvar',
+              description: e instanceof Error ? e.message : 'Tente novamente.',
+              variant: 'destructive',
+            })
           },
         },
       )
@@ -244,6 +275,13 @@ function CadastroImovelForm({
       onSuccess: () => {
         toast({ title: 'Imóvel cadastrado', description: 'Já está disponível em Meus Imóveis, etapa Novo.' })
         navigate('/meus-imoveis')
+      },
+      onError: (e) => {
+        toast({
+          title: 'Não foi possível cadastrar',
+          description: e instanceof Error ? e.message : 'Tente novamente.',
+          variant: 'destructive',
+        })
       },
     })
   }
@@ -295,6 +333,9 @@ function CadastroImovelForm({
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="cep">CEP (opcional)</Label>
               <Input id="cep" {...form.register('cep')} placeholder="00000-000" />
+              {formState.errors.cep && (
+                <p className="text-sm text-danger">{formState.errors.cep.message}</p>
+              )}
             </div>
           </>
         )}
@@ -326,18 +367,30 @@ function CadastroImovelForm({
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="quartos">Quartos</Label>
                   <Input id="quartos" type="number" min={0} {...form.register('quartos')} />
+                  {formState.errors.quartos && (
+                    <p className="text-sm text-danger">{formState.errors.quartos.message}</p>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="suites">Suítes</Label>
                   <Input id="suites" type="number" min={0} {...form.register('suites')} />
+                  {formState.errors.suites && (
+                    <p className="text-sm text-danger">{formState.errors.suites.message}</p>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="vagas">Vagas</Label>
                   <Input id="vagas" type="number" min={0} {...form.register('vagas')} />
+                  {formState.errors.vagas && (
+                    <p className="text-sm text-danger">{formState.errors.vagas.message}</p>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="banheiros">Banheiros</Label>
                   <Input id="banheiros" type="number" min={0} {...form.register('banheiros')} />
+                  {formState.errors.banheiros && (
+                    <p className="text-sm text-danger">{formState.errors.banheiros.message}</p>
+                  )}
                 </div>
               </div>
             )}
@@ -349,12 +402,18 @@ function CadastroImovelForm({
                     {usaTerrenoSeparado ? 'Área construída (m²)' : 'Área privativa (m²)'}
                   </Label>
                   <Input id="area" type="number" min={0} {...form.register('area')} />
+                  {formState.errors.area && (
+                    <p className="text-sm text-danger">{formState.errors.area.message}</p>
+                  )}
                 </div>
               )}
               {(usaTerrenoSeparado || apenasTerreno) && (
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="areaTerreno">Área do terreno (m²)</Label>
                   <Input id="areaTerreno" type="number" min={0} {...form.register('areaTerreno')} />
+                  {formState.errors.areaTerreno && (
+                    <p className="text-sm text-danger">{formState.errors.areaTerreno.message}</p>
+                  )}
                 </div>
               )}
             </div>
