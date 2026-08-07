@@ -14,11 +14,23 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.asin(Math.sqrt(a))
 }
 
+/** Compara nomes digitados livremente: ignora caixa, acentos e espaços nas pontas */
+function normalizar(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+}
+
 /**
- * Sem geocoding real de CEP no mockup: o "centro de busca" do lead é aproximado
- * pela média das coordenadas dos bairros que ele selecionou na mesma cidade.
+ * Centro do raio de busca do cliente: coordenadas do CEP de referência quando
+ * informadas; senão, aproximação pela média dos bairros conhecidos da tabela local.
  */
 function centroDeBusca(perfil: PerfilBusca): { lat: number; lng: number } | undefined {
+  if (perfil.lat != null && perfil.lng != null && (perfil.lat !== 0 || perfil.lng !== 0)) {
+    return { lat: perfil.lat, lng: perfil.lng }
+  }
   const coords = perfil.bairros
     .map((b) => encontrarBairro(perfil.cidade, b))
     .filter((b): b is NonNullable<typeof b> => Boolean(b))
@@ -34,9 +46,11 @@ interface ResultadoGate {
 }
 
 function avaliarGateLocalizacao(imovel: Imovel, perfil: PerfilBusca): ResultadoGate {
-  if (imovel.cidade !== perfil.cidade) return { passou: false, bairroExato: false }
+  if (normalizar(imovel.cidade) !== normalizar(perfil.cidade)) {
+    return { passou: false, bairroExato: false }
+  }
 
-  const bairroExato = perfil.bairros.includes(imovel.bairro)
+  const bairroExato = perfil.bairros.some((b) => normalizar(b) === normalizar(imovel.bairro))
   if (bairroExato) return { passou: true, bairroExato: true }
 
   const centro = centroDeBusca(perfil)

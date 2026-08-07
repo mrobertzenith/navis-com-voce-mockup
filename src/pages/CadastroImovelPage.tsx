@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { WizardSteps } from '@/components/shared/WizardSteps'
 import { SelectorCascadeUnico } from '@/components/shared/SelectorCascade'
+import { buscarCep } from '@/lib/localizacao'
 import { ChipBoolean } from '@/components/shared/ChipBoolean'
 import { ChipTipoImovel } from '@/components/imovel/ChipTipoImovel'
 import { UploaderFotos } from '@/components/imovel/UploaderFotos'
@@ -73,6 +74,10 @@ const schema = z
 
     valorEstimado: numeroOpcionalPositivo,
     cnm: z.string().optional(),
+
+    // coordenadas vindas do CEP (invisíveis pro usuário; alimentam o matching por raio)
+    lat: z.number().optional(),
+    lng: z.number().optional(),
   })
   .refine((d) => d.suites <= d.quartos || TIPOS_APENAS_TERRENO.includes(d.tipo), {
     message: 'Suítes não podem exceder o nº de quartos',
@@ -129,6 +134,8 @@ function CadastroImovelForm({
           cidade: imovelExistente.cidade,
           bairro: imovelExistente.bairro,
           cep: imovelExistente.cep,
+          lat: imovelExistente.lat || undefined,
+          lng: imovelExistente.lng || undefined,
           enderecoRua: imovelExistente.enderecoRua,
           enderecoNumero: imovelExistente.enderecoNumero,
           tipo: imovelExistente.tipo,
@@ -166,6 +173,29 @@ function CadastroImovelForm({
 
   const { watch, setValue, handleSubmit, trigger, formState } = form
   const valores = watch()
+
+  async function preencherPeloCep(valor: string) {
+    if (valor.replace(/\D/g, '').length !== 8) return
+    const endereco = await buscarCep(valor)
+    if (!endereco) {
+      toast({
+        title: 'CEP não encontrado',
+        description: 'Confira o número ou preencha o endereço manualmente.',
+        variant: 'destructive',
+      })
+      return
+    }
+    if (endereco.estado) setValue('estado', endereco.estado, { shouldValidate: true })
+    if (endereco.cidade) setValue('cidade', endereco.cidade, { shouldValidate: true })
+    if (endereco.bairro) setValue('bairro', endereco.bairro, { shouldValidate: true })
+    if (endereco.rua) setValue('enderecoRua', endereco.rua, { shouldValidate: true })
+    setValue('lat', endereco.lat)
+    setValue('lng', endereco.lng)
+    toast({
+      title: 'Endereço preenchido pelo CEP',
+      description: 'Confira os campos e complete o número.',
+    })
+  }
 
   async function avancar() {
     const campos = CAMPOS_POR_PASSO[passo - 1]
@@ -209,7 +239,7 @@ function CadastroImovelForm({
     }
     setErroCnm(null)
 
-    const coords = encontrarBairro(dados.cidade, dados.bairro)
+    const coordsBairro = encontrarBairro(dados.cidade, dados.bairro)
     const usaTerrenoSeparado = TIPOS_COM_TERRENO_SEPARADO.includes(dados.tipo)
     const apenasTerreno = TIPOS_APENAS_TERRENO.includes(dados.tipo)
 
@@ -220,8 +250,9 @@ function CadastroImovelForm({
       cidade: dados.cidade,
       estado: dados.estado,
       cep: dados.cep ?? '',
-      lat: coords?.lat ?? -21.17,
-      lng: coords?.lng ?? -47.81,
+      // prioridade: coordenadas do CEP; senão bairro conhecido; senão desconhecidas (0)
+      lat: dados.lat ?? coordsBairro?.lat ?? 0,
+      lng: dados.lng ?? coordsBairro?.lng ?? 0,
       tipo: dados.tipo,
       cnm: dados.cnm || undefined,
       valorEstimado: dados.valorEstimado,
@@ -301,6 +332,20 @@ function CadastroImovelForm({
       <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="flex flex-col gap-5">
         {passo === 1 && (
           <>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cep">CEP — preenche o endereço automaticamente (opcional)</Label>
+              <Input
+                id="cep"
+                placeholder="00000-000"
+                inputMode="numeric"
+                {...form.register('cep', {
+                  onChange: (e) => void preencherPeloCep(e.target.value),
+                })}
+              />
+              {formState.errors.cep && (
+                <p className="text-sm text-danger">{formState.errors.cep.message}</p>
+              )}
+            </div>
             <SelectorCascadeUnico
               estado={valores.estado}
               cidade={valores.cidade}
@@ -312,7 +357,7 @@ function CadastroImovelForm({
               }}
             />
             {(formState.errors.estado || formState.errors.cidade || formState.errors.bairro) && (
-              <p className="text-sm text-danger">Selecione estado, cidade e bairro.</p>
+              <p className="text-sm text-danger">Informe estado, cidade e bairro.</p>
             )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="flex flex-col gap-1.5 sm:col-span-2">
@@ -329,13 +374,6 @@ function CadastroImovelForm({
                   <p className="text-sm text-danger">{formState.errors.enderecoNumero.message}</p>
                 )}
               </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="cep">CEP (opcional)</Label>
-              <Input id="cep" {...form.register('cep')} placeholder="00000-000" />
-              {formState.errors.cep && (
-                <p className="text-sm text-danger">{formState.errors.cep.message}</p>
-              )}
             </div>
           </>
         )}

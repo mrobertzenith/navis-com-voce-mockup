@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { WizardSteps } from '@/components/shared/WizardSteps'
 import { SelectorCascadeMultiplo } from '@/components/shared/SelectorCascade'
+import { buscarCep } from '@/lib/localizacao'
 import { ChipBoolean } from '@/components/shared/ChipBoolean'
 import { ChipTipoImovel } from '@/components/imovel/ChipTipoImovel'
 import { Button } from '@/components/ui/button'
@@ -54,6 +55,13 @@ const schema = z
     cidade: z.string().min(1, 'Obrigatório'),
     bairros: z.array(z.string()).min(1, 'Selecione ao menos um bairro'),
     raioKm: z.coerce.number().min(2).max(10),
+    cepReferencia: z
+      .string()
+      .optional()
+      .refine((v) => !v || /^\d{5}-?\d{3}$/.test(v), 'CEP inválido — use o formato 00000-000'),
+    // centro do raio de busca, vindo do CEP de referência
+    lat: z.number().optional(),
+    lng: z.number().optional(),
     valorDe: numeroOpcional(),
     valorAte: numeroOpcional(),
 
@@ -154,6 +162,9 @@ export function CadastroClientePage() {
       cidade: clienteExistente.perfilBusca.cidade,
       bairros: clienteExistente.perfilBusca.bairros,
       raioKm: clienteExistente.perfilBusca.raioKm ?? 5,
+      cepReferencia: clienteExistente.perfilBusca.cep,
+      lat: clienteExistente.perfilBusca.lat,
+      lng: clienteExistente.perfilBusca.lng,
       valorDe: clienteExistente.perfilBusca.valorDe ?? undefined,
       valorAte: clienteExistente.perfilBusca.valorAte ?? undefined,
       quartosMin: clienteExistente.perfilBusca.quartosMin,
@@ -202,6 +213,9 @@ export function CadastroClientePage() {
       cidade: dados.cidade,
       bairros: dados.bairros,
       raioKm: dados.raioKm,
+      cep: dados.cepReferencia || undefined,
+      lat: dados.lat,
+      lng: dados.lng,
       tipos: dados.tipos,
       valorDe: dados.valorDe ?? null,
       valorAte: dados.valorAte ?? null,
@@ -338,6 +352,37 @@ export function CadastroClientePage() {
               {formState.errors.tipos && <p className="text-sm text-danger">{formState.errors.tipos.message}</p>}
             </div>
 
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cepReferencia">
+                CEP de referência — centro do raio de busca (opcional)
+              </Label>
+              <Input
+                id="cepReferencia"
+                placeholder="00000-000"
+                inputMode="numeric"
+                {...form.register('cepReferencia', {
+                  onChange: async (e) => {
+                    const valor = String(e.target.value)
+                    if (valor.replace(/\D/g, '').length !== 8) return
+                    const endereco = await buscarCep(valor)
+                    if (!endereco) return
+                    if (endereco.estado) setValue('estado', endereco.estado, { shouldValidate: true })
+                    if (endereco.cidade) setValue('cidade', endereco.cidade, { shouldValidate: true })
+                    setValue('lat', endereco.lat)
+                    setValue('lng', endereco.lng)
+                    if (endereco.bairro) {
+                      const atuais = valores.bairros ?? []
+                      if (!atuais.some((b) => b.toLowerCase() === endereco.bairro.toLowerCase())) {
+                        setValue('bairros', [...atuais, endereco.bairro], { shouldValidate: true })
+                      }
+                    }
+                  },
+                })}
+              />
+              {formState.errors.cepReferencia && (
+                <p className="text-sm text-danger">{formState.errors.cepReferencia.message}</p>
+              )}
+            </div>
             <SelectorCascadeMultiplo
               estado={valores.estado}
               cidade={valores.cidade}

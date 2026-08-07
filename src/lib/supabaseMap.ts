@@ -87,6 +87,8 @@ const PERFIL_CAMPOS: Record<keyof Omit<PerfilBusca, 'id' | 'leadId'>, string> = 
   bairros: 'bairros',
   cep: 'cep',
   raioKm: 'raio_km',
+  lat: 'lat',
+  lng: 'lng',
   tipos: 'tipos',
   valorDe: 'valor_de',
   valorAte: 'valor_ate',

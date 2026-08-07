@@ -1,7 +1,16 @@
+import { useState } from 'react'
+import { X } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { BAIRROS_BASE } from '@/mocks/data/bairros'
+import { UFS } from '@/lib/localizacao'
 import { cn } from '@/lib/cn'
+
+/**
+ * Localização livre — sem cerca geográfica: UF completa (27 estados),
+ * cidade e bairro como texto. O CEP (nas páginas) preenche tudo sozinho.
+ */
 
 interface SelectorCascadeUnicoProps {
   estado: string
@@ -11,23 +20,20 @@ interface SelectorCascadeUnicoProps {
   className?: string
 }
 
-/** Estado > Cidade > Bairro com seleção única de bairro — usado no cadastro de imóvel. */
+/** UF > Cidade > Bairro com bairro único — usado no cadastro de imóvel. */
 export function SelectorCascadeUnico({ estado, cidade, bairro, onChange, className }: SelectorCascadeUnicoProps) {
-  const cidades = BAIRROS_BASE.find((e) => e.sigla === estado)?.cidades ?? []
-  const bairros = cidades.find((c) => c.nome === cidade)?.bairros ?? []
-
   return (
     <div className={cn('grid grid-cols-1 gap-3 sm:grid-cols-3', className)}>
       <div className="flex flex-col gap-1.5">
         <Label>Estado</Label>
-        <Select value={estado} onValueChange={(v) => onChange({ estado: v, cidade: '', bairro: '' })}>
+        <Select value={estado} onValueChange={(v) => onChange({ estado: v, cidade, bairro })}>
           <SelectTrigger>
-            <SelectValue placeholder="Selecione" />
+            <SelectValue placeholder="UF" />
           </SelectTrigger>
           <SelectContent>
-            {BAIRROS_BASE.map((e) => (
+            {UFS.map((e) => (
               <SelectItem key={e.sigla} value={e.sigla}>
-                {e.nome}
+                {e.sigla} — {e.nome}
               </SelectItem>
             ))}
           </SelectContent>
@@ -35,39 +41,23 @@ export function SelectorCascadeUnico({ estado, cidade, bairro, onChange, classNa
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label>Cidade</Label>
-        <Select
+        <Label htmlFor="loc-cidade">Cidade</Label>
+        <Input
+          id="loc-cidade"
           value={cidade}
-          onValueChange={(v) => onChange({ estado, cidade: v, bairro: '' })}
-          disabled={!estado}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione" />
-          </SelectTrigger>
-          <SelectContent>
-            {cidades.map((c) => (
-              <SelectItem key={c.nome} value={c.nome}>
-                {c.nome}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          onChange={(e) => onChange({ estado, cidade: e.target.value, bairro })}
+          placeholder="Ex.: Ribeirão Preto"
+        />
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label>Bairro</Label>
-        <Select value={bairro} onValueChange={(v) => onChange({ estado, cidade, bairro: v })} disabled={!cidade}>
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione" />
-          </SelectTrigger>
-          <SelectContent>
-            {bairros.map((b) => (
-              <SelectItem key={b.nome} value={b.nome}>
-                {b.nome}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Label htmlFor="loc-bairro">Bairro</Label>
+        <Input
+          id="loc-bairro"
+          value={bairro}
+          onChange={(e) => onChange({ estado, cidade, bairro: e.target.value })}
+          placeholder="Ex.: Centro"
+        />
       </div>
     </div>
   )
@@ -82,7 +72,7 @@ interface SelectorCascadeMultiploProps {
   className?: string
 }
 
-/** Estado > Cidade > Bairros (multi-seleção via chips) — usado no perfil de busca do lead. */
+/** UF > Cidade > Bairros múltiplos (tags) — usado no perfil de busca do cliente. */
 export function SelectorCascadeMultiplo({
   estado,
   cidade,
@@ -91,22 +81,30 @@ export function SelectorCascadeMultiplo({
   onToggleBairro,
   className,
 }: SelectorCascadeMultiploProps) {
-  const cidades = BAIRROS_BASE.find((e) => e.sigla === estado)?.cidades ?? []
-  const bairrosDisponiveis = cidades.find((c) => c.nome === cidade)?.bairros ?? []
+  const [novoBairro, setNovoBairro] = useState('')
+
+  function adicionarBairro() {
+    const limpo = novoBairro.trim()
+    if (!limpo) return
+    if (!bairros.some((b) => b.toLowerCase() === limpo.toLowerCase())) {
+      onToggleBairro(limpo)
+    }
+    setNovoBairro('')
+  }
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label>Estado</Label>
-          <Select value={estado} onValueChange={(v) => onChangeLocalizacao({ estado: v, cidade: '' })}>
+          <Select value={estado} onValueChange={(v) => onChangeLocalizacao({ estado: v, cidade })}>
             <SelectTrigger>
-              <SelectValue placeholder="Selecione" />
+              <SelectValue placeholder="UF" />
             </SelectTrigger>
             <SelectContent>
-              {BAIRROS_BASE.map((e) => (
+              {UFS.map((e) => (
                 <SelectItem key={e.sigla} value={e.sigla}>
-                  {e.nome}
+                  {e.sigla} — {e.nome}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -114,47 +112,52 @@ export function SelectorCascadeMultiplo({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label>Cidade</Label>
-          <Select value={cidade} onValueChange={(v) => onChangeLocalizacao({ estado, cidade: v })} disabled={!estado}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione" />
-            </SelectTrigger>
-            <SelectContent>
-              {cidades.map((c) => (
-                <SelectItem key={c.nome} value={c.nome}>
-                  {c.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="loc-cidade-multi">Cidade</Label>
+          <Input
+            id="loc-cidade-multi"
+            value={cidade}
+            onChange={(e) => onChangeLocalizacao({ estado, cidade: e.target.value })}
+            placeholder="Ex.: Ribeirão Preto"
+          />
         </div>
       </div>
 
-      {cidade && (
-        <div className="flex flex-col gap-1.5">
-          <Label>Bairros (selecione um ou mais)</Label>
-          <div className="flex flex-wrap gap-2">
-            {bairrosDisponiveis.map((b) => {
-              const selecionado = bairros.includes(b.nome)
-              return (
-                <button
-                  key={b.nome}
-                  type="button"
-                  onClick={() => onToggleBairro(b.nome)}
-                  className={cn(
-                    'rounded-chip border px-3 py-1.5 text-sm font-body transition-colors',
-                    selecionado
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-surface text-text-mut hover:bg-bg',
-                  )}
-                >
-                  {b.nome}
-                </button>
-              )
-            })}
-          </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="loc-novo-bairro">Bairros de interesse (um ou mais)</Label>
+        <div className="flex gap-2">
+          <Input
+            id="loc-novo-bairro"
+            value={novoBairro}
+            onChange={(e) => setNovoBairro(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                adicionarBairro()
+              }
+            }}
+            placeholder="Digite o bairro e pressione Enter"
+          />
+          <Button type="button" variant="outline" onClick={adicionarBairro} className="shrink-0">
+            Adicionar
+          </Button>
         </div>
-      )}
+        {bairros.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {bairros.map((b) => (
+              <button
+                key={b}
+                type="button"
+                onClick={() => onToggleBairro(b)}
+                className="flex items-center gap-1 rounded-chip border border-primary bg-primary/5 px-2.5 py-1 text-sm text-ink"
+                aria-label={`Remover ${b}`}
+              >
+                {b}
+                <X className="h-3 w-3" strokeWidth={1.5} />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

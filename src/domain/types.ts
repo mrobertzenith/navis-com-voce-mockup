@@ -133,6 +133,9 @@ export interface PerfilBusca {
   bairros: string[]
   cep?: string
   raioKm: number
+  /** coordenadas do CEP de referência — centro do raio de busca (opcional) */
+  lat?: number
+  lng?: number
 
   tipos: TipoImovel[]
   valorDe: number | null
