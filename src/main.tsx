@@ -4,10 +4,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from 'react-router-dom'
 import { router } from '@/app/router'
 import { Toaster } from '@/components/ui/toaster'
+import { inject } from '@vercel/analytics'
 import { Sentry, inicializarSentry, sentryHabilitado } from '@/lib/sentry'
 import '@/styles/globals.css'
 
 inicializarSentry()
+// Vercel Web Analytics — só conta acessos em produção (nada roda em dev/mock)
+if (import.meta.env.PROD) inject()
 
 const queryClient = new QueryClient({
   defaultOptions: {
