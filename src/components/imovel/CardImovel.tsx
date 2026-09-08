@@ -38,6 +38,7 @@ export function CardImovel({
 
   return (
     <motion.div
+      data-testid="card-imovel"
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}

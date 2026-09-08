@@ -601,15 +601,28 @@ export function CadastroClientePage() {
           <Button type="button" variant="outline" onClick={voltar} disabled={passo === 1}>
             Voltar
           </Button>
-          {passo < PASSOS.length ? (
-            <Button type="button" onClick={avancar}>
-              Próximo
-            </Button>
-          ) : (
-            <Button type="submit" disabled={criarLead.isPending || atualizarLead.isPending}>
-              {editando ? 'Salvar alterações' : 'Concluir cadastro'}
-            </Button>
-          )}
+          {/*
+            Propositalmente UM botão só, sempre type="button", nunca type="submit":
+            quando o rótulo trocava de "Próximo" para "Concluir cadastro" (dois
+            elementos diferentes, um deles type="submit"), um clique físico real
+            (mousedown e mouseup como dois eventos separados, com um intervalo real
+            entre eles — é por isso que cliques sintéticos síncronos nunca
+            reproduziam o problema) podia terminar de avançar de passo bem no meio
+            desse intervalo. O navegador então mostrava o botão "Concluir cadastro"
+            debaixo do mouse já no mouseup, e o MESMO clique acabava submetendo o
+            formulário sem o usuário nunca ver o último passo. Mantendo o mesmo nó
+            do DOM o tempo todo (só o onClick muda), o clique sempre recai sobre o
+            mesmo elemento — e como handleSubmit roda a validação completa do
+            schema de qualquer forma, então não há caminho para salvar dado
+            incompleto por essa via.
+          */}
+          <Button
+            type="button"
+            onClick={passo < PASSOS.length ? avancar : handleSubmit(onSubmit, onInvalid)}
+            disabled={passo === PASSOS.length && (criarLead.isPending || atualizarLead.isPending)}
+          >
+            {passo < PASSOS.length ? 'Próximo' : editando ? 'Salvar alterações' : 'Concluir cadastro'}
+          </Button>
         </div>
       </form>
     </div>

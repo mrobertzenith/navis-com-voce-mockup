@@ -15,3 +15,9 @@ pnpm-debug.log*
 *.tsbuildinfo
 
 .claude/settings.local.json
+
+# Playwright — saída de execução (as imagens de referência em
+# e2e/**/*-snapshots NÃO entram aqui, são versionadas de propósito)
+test-results/
+playwright-report/
+blob-report/

@@ -34,6 +34,7 @@ export function Tarja({ variant, dias = 0, horasRestantes, className }: TarjaPro
   if (variant === 'em_negociacao' || variant === 'vendido_aguardando_aceite' || variant === 'vendido_confirmado') {
     return (
       <div
+        data-testid="tarja-ribbon"
         className={cn(
           'pointer-events-none absolute right-[-6px] top-[20px] w-[88px] rotate-45 py-0.5 text-center text-[8px] font-semibold font-body uppercase tracking-wide text-white shadow-sm',
           RIBBON_COLOR[variant],

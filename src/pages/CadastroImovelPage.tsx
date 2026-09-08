@@ -542,15 +542,17 @@ function CadastroImovelForm({
           <Button type="button" variant="outline" onClick={voltar} disabled={passo === 1}>
             Voltar
           </Button>
-          {passo < PASSOS.length ? (
-            <Button type="button" onClick={avancar}>
-              Próximo
-            </Button>
-          ) : (
-            <Button type="submit" disabled={criarImovel.isPending || atualizarImovel.isPending}>
-              {editando ? 'Salvar alterações' : 'Concluir cadastro'}
-            </Button>
-          )}
+          {/* ver o comentário equivalente em CadastroClientePage.tsx: um botão só,
+              sempre type="button", pra não deixar um clique físico real (mousedown
+              e mouseup como eventos separados) acertar por baixo um botão
+              type="submit" recém-trocado no mesmo lugar da tela */}
+          <Button
+            type="button"
+            onClick={passo < PASSOS.length ? avancar : handleSubmit(onSubmit, onInvalid)}
+            disabled={passo === PASSOS.length && (criarImovel.isPending || atualizarImovel.isPending)}
+          >
+            {passo < PASSOS.length ? 'Próximo' : editando ? 'Salvar alterações' : 'Concluir cadastro'}
+          </Button>
         </div>
       </form>
     </div>

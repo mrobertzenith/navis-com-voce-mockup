@@ -10,7 +10,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:fluxos": "vite-node scripts/teste-fluxos.ts",
-    "test:fluxos-cross": "vite-node scripts/teste-fluxos-cross-corretor.ts"
+    "test:fluxos-cross": "vite-node scripts/teste-fluxos-cross-corretor.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:update-snapshots": "playwright test --update-snapshots"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
@@ -42,6 +44,7 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",

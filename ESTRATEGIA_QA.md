@@ -264,18 +264,21 @@ prática nesta sessão mas precisa sobreviver a quem não tem esse contexto:
 | P1 | Testes de componente dos dois wizards, com `user-event` e timing realista, incluindo o teste de regressão da trava de submit prematuro | médio | §1.2 + §1.4 — a trava desta sessão não tem nenhum teste que a proteja de ser removida | ✅ feito |
 | P1 | Testes de hook para o payload das notificações e vínculos (contrato, não só "funciona") | baixo–médio | §1.2 — classe de bug do destinatário errado | ✅ feito |
 | P1 | Suíte de dois corretores simultâneos (extensão de `teste-fluxos.ts`) | médio | §1.3 — única forma de fechar de vez a dúvida do bug #4 e prevenir a próxima | ✅ feito (13 testes, `test:fluxos-cross`) |
-| P2 | Playwright: fluxos críticos + snapshot visual em 2 viewports | médio–alto | §1.2 + camada visual, hoje 100% manual | pendente |
+| P2 | Playwright: fluxos críticos + snapshot visual em 2 viewports | médio–alto | §1.2 + camada visual, hoje 100% manual | ✅ feito — e achou um bug ao vivo (ver §5.4) |
 | P2 | Revisão formal de Sentry/Analytics (DSN em prod, cadência de revisão) | baixo | §1.5 | pendente |
 | P3 | Mover `teste-fluxos.ts` e `teste-fluxos-cross-corretor.ts` para rodar em CI (hoje são manuais — exigem segredo de login no ambiente do CI) | baixo | consolida §1.2/§1.3 no gate automático | pendente |
+| P3 | Gerar as referências visuais (`e2e/**/*-snapshots`) a partir do runner Linux do CI, pra poder rodar os testes `@visual` no gate automático | baixo | hoje esses 2 testes só rodam localmente (macOS) — ver nota no `ci.yml` | pendente |
 
-O P0 e o P1 estão concluídos (ver §5, abaixo, para o que cada item entregou de
-fato). O que resta é a camada de navegador automatizado (P2) — a única forma
-de fechar bugs puramente visuais como os das tarjas e do drawer sem depender
-de alguém olhar manualmente — e mover as duas suítes contra o banco real para
-dentro do CI, hoje limitadas por precisarem de credenciais que não devem virar
-segredo de repositório sem mais cuidado (ver §5.3).
+O P0, o P1 e o P2 estão concluídos (ver §5, abaixo, para o que cada item
+entregou de fato — a §5.4 em particular registra um bug real que o P2 achou em
+produção, ainda ativo apesar do que a rodada anterior de correções acreditava
+ter fechado). O que resta é o P3: mover as três suítes que hoje só rodam
+localmente (`teste-fluxos.ts`, `teste-fluxos-cross-corretor.ts` e os testes
+`@visual` do Playwright) para dentro do CI — as duas primeiras exigem decidir
+onde a credencial de teste mora com segurança, e a terceira exige gerar as
+referências visuais a partir do próprio runner Linux do CI.
 
-## 5. O que o P1 entregou, concretamente
+## 5. O que cada prioridade entregou, concretamente
 
 Registro do que foi implementado, para não ficar só na intenção do roteiro
 acima — e para quem for mexer nessas áreas depois saber que proteção já existe.
@@ -349,3 +352,85 @@ Não está em CI ainda (por isso o P3 acima) — rodar contra o banco de produç
 real a cada push exige decidir onde as credenciais de teste vivem com a
 segurança adequada, o que é uma decisão deliberada a se tomar, não um detalhe
 de implementação.
+
+### 5.4 Playwright (P2) — e um bug real que ele achou, ainda vivo em produção
+
+Instalado com dois projetos (`desktop` 1280×800, `mobile` 375×812), rodando
+100% no modo mock do app (`.env.e2e` força `VITE_SUPABASE_URL`/`ANON_KEY`
+vazios — ver o arquivo — então nunca toca o Supabase real; cada worker começa
+com `localStorage` limpo, então os testes são isolados por natureza e não
+precisam de credencial nenhuma). `npm run test:e2e` roda tudo; o CI roda só os
+funcionais (ver nota abaixo sobre os `@visual`).
+
+**O que existe:**
+- `e2e/smoke.spec.ts` — o app carrega no modo mock sem cair em `/login`.
+- `e2e/cadastro-cliente.spec.ts` e `cadastro-imovel.spec.ts` — os dois wizards
+  do início ao fim, num navegador de verdade, com clique físico real (não
+  simulado) nos dois viewports.
+- `e2e/visual-tarja-negociacao.spec.ts` e `visual-drawer-matches.spec.ts` —
+  regressão visual (screenshot comparado a uma referência aprovada) dos bugs
+  #6 e #3 da rodada 08/09, marcados com a tag `@visual`.
+
+**O achado importante — a trava de submit prematuro da sessão anterior não
+fechava o bug de verdade.** Ao escrever `cadastro-cliente.spec.ts` com clique
+físico real (Playwright, como um usuário de verdade), o wizard de cliente
+**reproduziu o bug #1/#2/#5 outra vez**, ao vivo: clicar "Próximo" no passo 2
+terminava direto no cliente salvo em "Meus Clientes", sem o passo 3 nunca
+aparecer na tela — exatamente o sintoma original relatado por Rodrigo e Julia.
+
+Investigando com um listener de `submit` na página (`SubmitEvent.submitter`,
+que denuncia qual elemento causou a submissão), a causa raiz ficou clara pela
+primeira vez: os botões "Próximo" (`type="button"`) e "Concluir cadastro"
+(`type="submit"`) eram **dois elementos diferentes ocupando a mesma posição
+na tela**, um substituindo o outro assim que o passo avançava. Um clique
+físico real dispara `mousedown` e `mouseup` como dois eventos separados, com
+um intervalo real entre eles (é exatamente por isso que testes com clique
+sintético/síncrono — inclusive os testes de componente do RTL escritos no
+P1 — nunca reproduziam isto: `fireEvent.click` dispara um único evento
+atômico, sem essa janela). Se `avancar()` terminava de trocar o passo bem
+nesse intervalo, o navegador refazia o hit-test no `mouseup` e encontrava o
+NOVO botão "Concluir cadastro" embaixo do cursor — e o mesmo clique físico
+acabava submetendo o formulário, sem o usuário nunca ver o passo 3.
+
+A trava adicionada na rodada anterior (`if (passo !== PASSOS.length) {...}`
+dentro do `onSubmit`) não pegava esse caso porque, no momento em que o
+`onSubmit` rodava, `passo` **já estava genuinamente em 3** — o próprio
+`avancar()` da mesma corrida já tinha atualizado o estado antes do clique
+terminar de disparar o submit. A trava funcionava exatamente como desenhada;
+só que o cenário real não era "submeter com o estado desatualizado", era
+"avançar e submeter no mesmo clique físico, antes do usuário ver a tela nova".
+
+**Correção de raiz** (`CadastroClientePage.tsx` e `CadastroImovelPage.tsx`):
+os dois botões viraram **um só elemento do DOM**, sempre `type="button"`,
+nunca `type="submit"` — o `onClick` decide se chama `avancar()` ou
+`handleSubmit(onSubmit, onInvalid)()` dependendo do passo atual. Sem troca de
+elemento na mesma posição, não existe mais janela de `mousedown`/`mouseup`
+para o navegador confundir. E como o caminho de submissão continua passando
+por `handleSubmit` (validação completa do schema), não há como essa via
+persistir dado incompleto — na pior hipótese, o mesmo clique avança E
+submete, mas só quando os dados já são válidos para submissão de qualquer forma.
+
+**Verificado adversarialmente da forma mais rigorosa desta sessão**: com o
+código antigo (dois botões) restaurado temporariamente, `cadastro-cliente.spec.ts`
+falhou **8 de 8 vezes** rodando em sequência (`--repeat-each=8`); com a
+correção, passou **16 de 16** (8 desktop + 8 mobile). O mesmo teste, mesmo
+procedimento, foi repetido para `cadastro-imovel.spec.ts` (5 de 5 falhas antes,
+10 de 10 sucessos depois). Isso não é uma suposição sobre a causa — é uma
+taxa de reprodução de 100% em ambos os sentidos.
+
+**A lição para a estratégia como um todo**: nenhuma das camadas de teste
+anteriores — unitária, contrato de hook, componente com RTL, nem a
+reprodução manual ao vivo da sessão passada — foi capaz de expor que a
+correção anterior não fechava a causa raiz. Só um navegador real, com timing
+de clique real, expôs isso. É a confirmação mais concreta possível da tese
+central deste documento (§1.4): para essa classe de bug, a camada de
+navegador automatizado não é opcional.
+
+**Nota sobre os testes `@visual` e CI**: as duas referências de screenshot
+foram geradas neste Mac (sufixo `-darwin` no nome do arquivo, que o próprio
+Playwright adiciona). O runner do GitHub Actions é Linux, e comparação de
+pixel entre plataformas diferentes é instável mesmo sem regressão nenhuma
+(anti-aliasing, hinting de fonte). Por isso o job de CI roda só os testes
+funcionais (`--grep-invert "@visual"`) por enquanto — rodar os visuais em CI
+exige gerar as referências a partir do próprio runner Linux primeiro (item
+P3 no roteiro). Localmente, `npm run test:e2e` continua cobrindo os dois.
