@@ -7,8 +7,8 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import type { TipoEvento } from '@/domain/types'
 import { useAtualizarImovel } from '@/hooks/useImoveis'
 import { useAtualizarLead, useLeads } from '@/hooks/useLeads'
+import { useAtualizarNotificacao, useNotificacoes } from '@/hooks/useNotificacoes'
 import { formatData } from '@/lib/format'
-import { useNotificacoesStore } from '@/stores/notificacoesStore'
 import { cn } from '@/lib/cn'
 
 const ICONE_POR_TIPO: Partial<Record<TipoEvento, typeof Bell>> = {
@@ -21,10 +21,8 @@ const ICONE_POR_TIPO: Partial<Record<TipoEvento, typeof Bell>> = {
 type Filtro = 'todas' | 'nao_lidas' | TipoEvento
 
 export function NotificacoesPage() {
-  const notificacoes = useNotificacoesStore((s) => s.notificacoes)
-  const marcarComoLida = useNotificacoesStore((s) => s.marcarComoLida)
-  const marcarComoNaoLida = useNotificacoesStore((s) => s.marcarComoNaoLida)
-  const resolverNotificacao = useNotificacoesStore((s) => s.resolverNotificacao)
+  const { data: notificacoes = [], isLoading } = useNotificacoes()
+  const atualizarNotificacao = useAtualizarNotificacao()
   const { data: leads = [] } = useLeads()
   const atualizarImovel = useAtualizarImovel()
   const atualizarLead = useAtualizarLead()
@@ -42,7 +40,7 @@ export function NotificacoesPage() {
         patch: { pendenteAprovacaoImoveis: pendenteRestante },
       })
     }
-    resolverNotificacao(notificacaoId)
+    atualizarNotificacao.mutate({ id: notificacaoId, patch: { resolvida: true, lida: true } })
     toast({ title: 'Negociação aprovada', description: 'O imóvel foi movido para "Em negociação".' })
   }
 
@@ -85,7 +83,9 @@ export function NotificacoesPage() {
         </Select>
       </div>
 
-      {filtradas.length === 0 ? (
+      {isLoading ? (
+        <p className="text-sm text-text-mut">Carregando notificações…</p>
+      ) : filtradas.length === 0 ? (
         <EmptyState icon={Bell} title="Nenhuma notificação" description="Não há notificações para este filtro." />
       ) : (
         <ul className="flex flex-col gap-2">
@@ -94,7 +94,7 @@ export function NotificacoesPage() {
             return (
               <li
                 key={n.id}
-                onClick={() => !n.lida && marcarComoLida(n.id)}
+                onClick={() => !n.lida && atualizarNotificacao.mutate({ id: n.id, patch: { lida: true } })}
                 className={cn(
                   'flex cursor-pointer items-start gap-3 rounded-card border border-border bg-surface p-4 shadow-card',
                   !n.lida && 'border-primary/30 bg-primary/5',
@@ -130,7 +130,7 @@ export function NotificacoesPage() {
                       className="mt-1 h-7 px-2 text-xs text-text-mut"
                       onClick={(e) => {
                         e.stopPropagation()
-                        marcarComoNaoLida(n.id)
+                        atualizarNotificacao.mutate({ id: n.id, patch: { lida: false } })
                       }}
                     >
                       <BellOff className="h-3 w-3" strokeWidth={1.5} />

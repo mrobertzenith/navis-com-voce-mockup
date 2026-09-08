@@ -16,6 +16,7 @@ import { useToast } from '@/components/ui/use-toast'
 import type { Imovel, TipoImovel } from '@/domain/types'
 import { useAtualizarImovel, useCriarImovel, useImoveis } from '@/hooks/useImoveis'
 import { CORRETOR_LOGADO_ID, nomeCorretor, CORRETORES } from '@/mocks/data/corretores'
+import { useCriarNotificacao } from '@/hooks/useNotificacoes'
 import { encontrarBairro } from '@/mocks/data/bairros'
 import { cn } from '@/lib/cn'
 
@@ -122,6 +123,7 @@ function CadastroImovelForm({
   const [erroCnm, setErroCnm] = useState<string | null>(null)
   const navigate = useNavigate()
   const { toast } = useToast()
+  const criarNotificacao = useCriarNotificacao()
   const criarImovel = useCriarImovel()
   const atualizarImovel = useAtualizarImovel()
 
@@ -229,10 +231,32 @@ function CadastroImovelForm({
   }
 
   function onSubmit(dados: FormData) {
+    // rede de segurança: o formulário só pode ser salvo a partir do último passo.
+    // Se por qualquer motivo um submit chegar aqui mais cedo (ex.: Enter em um campo,
+    // corrida entre eventos), barra aqui em vez de gravar o cadastro incompleto.
+    if (passo !== PASSOS.length) {
+      setPasso(PASSOS.length)
+      toast({
+        title: 'Cadastro incompleto',
+        description: 'Revise o valor e o CNM do imóvel antes de concluir o cadastro.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     if (dados.cnm) {
       const existente = imoveis.find((i) => i.cnm === dados.cnm && i.id !== imovelExistente?.id)
       if (existente) {
         setErroCnm(existente.corretorResponsavelId)
+        // o dono do CNM precisa saber que alguém tentou cadastrar o imóvel dele de novo
+        if (existente.corretorResponsavelId !== CORRETOR_LOGADO_ID) {
+          criarNotificacao.mutate({
+            destinatarioCorretorId: existente.corretorResponsavelId,
+            tipoEvento: 'E16',
+            titulo: 'Tentativa de CNM duplicado',
+            corpo: `${nomeCorretor(CORRETOR_LOGADO_ID)} tentou cadastrar um imóvel com o CNM "${dados.cnm}", que já está registrado por você.`,
+          })
+        }
         return
       }
     }

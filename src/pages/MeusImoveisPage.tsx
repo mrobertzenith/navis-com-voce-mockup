@@ -19,7 +19,7 @@ import { useMatches } from '@/hooks/useMatches'
 import { CORRETORES, CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 import { formatDiasDesde, formatPreco } from '@/lib/format'
 import { useDismissStore } from '@/stores/dismissStore'
-import { useNotificacoesStore } from '@/stores/notificacoesStore'
+import { useCriarNotificacao } from '@/hooks/useNotificacoes'
 import { useScoreStore } from '@/stores/scoreStore'
 import { useUIStore } from '@/stores/uiStore'
 
@@ -40,7 +40,7 @@ export function MeusImoveisPage() {
   const { data: leads = [] } = useLeads()
   const atualizarImovel = useAtualizarImovel()
   const atualizarLead = useAtualizarLead()
-  const adicionarNotificacao = useNotificacoesStore((s) => s.adicionarNotificacao)
+  const criarNotificacao = useCriarNotificacao()
   const { contadorPorImovel } = useMatches()
   const pesos = useScoreStore((s) => s.pesos)
   const descartados = useDismissStore((s) => s.descartados)
@@ -198,11 +198,12 @@ export function MeusImoveisPage() {
             if (mesmoCorretor) {
               toast({ title: 'Imóvel e cliente movidos', description: 'Ambos agora em "Em negociação".' })
             } else {
-              adicionarNotificacao({
-                destinatarioCorretorId: CORRETOR_LOGADO_ID,
+              // vai para quem PRECISA aprovar (dono do cliente) — não para quem pediu
+              criarNotificacao.mutate({
+                destinatarioCorretorId: lead.corretorResponsavelId,
                 tipoEvento: 'E16',
                 titulo: 'Aprovação pendente',
-                corpo: `Você vinculou "${imovel.enderecoRua}, ${imovel.enderecoNumero}" ao cliente "${lead.codigo}" de ${nomeCorretor(lead.corretorResponsavelId)}. Aprove para confirmar a negociação.`,
+                corpo: `${nomeCorretor(CORRETOR_LOGADO_ID)} quer vincular o imóvel "${imovel.enderecoRua}, ${imovel.enderecoNumero}" ao seu cliente "${lead.codigo}". Aprove para confirmar a negociação.`,
                 acaoPendente: { leadId: lead.id, imovelId: imovel.id },
               })
               toast({ title: 'Imóvel movido', description: 'Cliente pendente de aprovação do corretor responsável.' })

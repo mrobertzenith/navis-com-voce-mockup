@@ -16,6 +16,7 @@ export function AppLayout() {
   const { data: imoveis = [] } = useImoveis()
   const { data: leads = [] } = useLeads()
   const modalImovelId = useUIStore((s) => s.modalImovelId)
+  const modalImovelContextoLeadId = useUIStore((s) => s.modalImovelContextoLeadId)
   const modalLeadId = useUIStore((s) => s.modalLeadId)
   const fecharModais = useUIStore((s) => s.fecharModais)
 
@@ -27,10 +28,15 @@ export function AppLayout() {
     () => leads.find((l) => l.id === modalLeadId) ?? null,
     [leads, modalLeadId],
   )
-  const meusLeads = useMemo(
-    () => leads.filter((l) => l.corretorResponsavelId === CORRETOR_LOGADO_ID && [1, 2, 3].includes(l.etapa)),
-    [leads],
-  )
+  const meusLeads = useMemo(() => {
+    const base = leads.filter((l) => l.corretorResponsavelId === CORRETOR_LOGADO_ID && [1, 2, 3].includes(l.etapa))
+    // o cliente de onde veio o drill-down de match sempre aparece, mesmo fora das etapas 1-3
+    if (modalImovelContextoLeadId && !base.some((l) => l.id === modalImovelContextoLeadId)) {
+      const contexto = leads.find((l) => l.id === modalImovelContextoLeadId)
+      if (contexto) return [contexto, ...base]
+    }
+    return base
+  }, [leads, modalImovelContextoLeadId])
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -54,7 +60,12 @@ export function AppLayout() {
       </div>
 
       {imovelSelecionado && (
-        <ModalDetalheImovel imovel={imovelSelecionado} meusLeads={meusLeads} onClose={fecharModais} />
+        <ModalDetalheImovel
+          imovel={imovelSelecionado}
+          meusLeads={meusLeads}
+          leadContextoId={modalImovelContextoLeadId}
+          onClose={fecharModais}
+        />
       )}
       {leadSelecionado && <ModalDetalheCliente lead={leadSelecionado} onClose={fecharModais} />}
     </div>

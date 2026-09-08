@@ -13,7 +13,7 @@ interface DrillDownMatchProps {
 export function DrillDownMatch({ aberto, titulo, matches, onFechar, onAbrir, onDismiss }: DrillDownMatchProps) {
   return (
     <Sheet open={aberto} onOpenChange={(open) => !open && onFechar()}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>{titulo}</SheetTitle>
         </SheetHeader>

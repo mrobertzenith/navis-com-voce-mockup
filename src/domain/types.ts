@@ -176,8 +176,9 @@ export interface Lead {
 
   dataCadastro: string
   ttlAtual?: string
-  /** pode haver mais de uma visita agendada, cada uma com seu próprio imóvel e data */
-  visitasAgendadas?: { imovelId: string; data: string }[]
+  /** pode haver mais de uma visita agendada, cada uma com seu próprio imóvel e data.
+   * `imovelId` fica vazio quando é um imóvel fora da base — nesse caso `enderecoLivre` descreve o imóvel. */
+  visitasAgendadas?: { imovelId: string; data: string; enderecoLivre?: string }[]
   /** ids de imóveis vinculados ao entrar em negociação, separados por vírgula (campo transiente do gate) */
   imovelNegociacaoId?: string
   motivoStandby?: string

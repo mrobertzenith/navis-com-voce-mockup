@@ -19,7 +19,7 @@ import { useMatches } from '@/hooks/useMatches'
 import { CORRETORES, CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 import { formatPreco } from '@/lib/format'
 import { useDismissStore } from '@/stores/dismissStore'
-import { useNotificacoesStore } from '@/stores/notificacoesStore'
+import { useCriarNotificacao } from '@/hooks/useNotificacoes'
 import { useScoreStore } from '@/stores/scoreStore'
 import { useUIStore } from '@/stores/uiStore'
 
@@ -40,7 +40,7 @@ export function MeusClientesPage() {
   const { data: imoveis = [] } = useImoveis()
   const atualizarLead = useAtualizarLead()
   const atualizarImovel = useAtualizarImovel()
-  const adicionarNotificacao = useNotificacoesStore((s) => s.adicionarNotificacao)
+  const criarNotificacao = useCriarNotificacao()
   const { contadorPorLead } = useMatches()
   const pesos = useScoreStore((s) => s.pesos)
   const descartados = useDismissStore((s) => s.descartados)
@@ -219,11 +219,12 @@ export function MeusClientesPage() {
               atualizarImovel.mutate({ id: imovel.id, patch: { etapa: 'e', emNegociacaoFlag: true } })
             })
             deOutros.forEach((imovel) => {
-              adicionarNotificacao({
-                destinatarioCorretorId: CORRETOR_LOGADO_ID,
+              // vai para quem PRECISA aprovar (dono do imóvel) — não para quem pediu
+              criarNotificacao.mutate({
+                destinatarioCorretorId: imovel.corretorResponsavelId,
                 tipoEvento: 'E16',
                 titulo: 'Aprovação pendente',
-                corpo: `"${lead.codigo}" quer negociar "${imovel.enderecoRua}, ${imovel.enderecoNumero}" com ${nomeCorretor(imovel.corretorResponsavelId)}. Aprove para confirmar a negociação.`,
+                corpo: `"${lead.codigo}" (de ${nomeCorretor(lead.corretorResponsavelId)}) quer negociar seu imóvel "${imovel.enderecoRua}, ${imovel.enderecoNumero}". Aprove para confirmar a negociação.`,
                 acaoPendente: { leadId: lead.id, imovelId: imovel.id },
               })
             })
@@ -293,7 +294,7 @@ export function MeusClientesPage() {
             visao="propria"
             contadorMatches={contadorPorLead[lead.id]}
             negociacoesAtivas={resolverNegociacoes(lead)}
-            onAbrirImovelNegociacao={(imovelId) => abrirModalImovel(imovelId)}
+            onAbrirImovelNegociacao={(imovelId) => abrirModalImovel(imovelId, lead.id)}
             onClick={() => abrirModalLead(lead.id)}
             onClickContador={() => setDrillDownLeadId(lead.id)}
             onMover={onMover}
@@ -318,7 +319,7 @@ export function MeusClientesPage() {
         matches={matchesDrillDown}
         onFechar={() => setDrillDownLeadId(null)}
         onAbrir={(imovelId) => {
-          abrirModalImovel(imovelId)
+          abrirModalImovel(imovelId, drillDownLeadId ?? undefined)
           setDrillDownLeadId(null)
         }}
         onDismiss={(imovelId) => {

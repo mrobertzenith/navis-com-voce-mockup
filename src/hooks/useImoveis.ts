@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Imovel } from '@/domain/types'
 import { supabase } from '@/lib/supabase'
 import { imovelParaDominio, imovelParaRow } from '@/lib/supabaseMap'
+import { CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 
 const IMOVEIS_KEY = ['imoveis'] as const
 
@@ -48,6 +49,26 @@ async function criarImovel(dados: Omit<Imovel, 'id' | 'criadoEm' | 'atualizadoEm
       .single()
     if (error) {
       // CNM duplicado é validado no app antes do submit; aqui é a rede de segurança do banco
+      // para uma corrida (dois cadastros do mesmo CNM quase simultâneos)
+      if (error.code === '23505' && dados.cnm) {
+        const { data: existente } = await supabase
+          .from('imoveis')
+          .select('corretor_responsavel_id')
+          .eq('cnm', dados.cnm)
+          .maybeSingle()
+        const donoId = existente?.corretor_responsavel_id as string | undefined
+        if (donoId) {
+          if (donoId !== CORRETOR_LOGADO_ID) {
+            await supabase.from('notificacoes').insert({
+              destinatario_corretor_id: donoId,
+              tipo_evento: 'E16',
+              titulo: 'Tentativa de CNM duplicado',
+              corpo: `${nomeCorretor(CORRETOR_LOGADO_ID)} tentou cadastrar um imóvel com o CNM "${dados.cnm}", que já está registrado por você.`,
+            })
+          }
+          throw new Error(`CNM já cadastrado por ${nomeCorretor(donoId)}`)
+        }
+      }
       throw new Error(error.code === '23505' ? 'CNM já cadastrado' : 'Falha ao criar imóvel')
     }
     return imovelParaDominio(data)

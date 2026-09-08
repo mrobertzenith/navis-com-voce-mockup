@@ -39,6 +39,7 @@ export function ModalGateCliente({
   const [valores, setValores] = useState<Record<string, string>>({})
   const [checks, setChecks] = useState<Record<string, boolean>>({})
   const [visitasSelecionadas, setVisitasSelecionadas] = useState<Record<string, string>>({})
+  const [enderecoForaDaBase, setEnderecoForaDaBase] = useState('')
   const [imoveisNegociacao, setImoveisNegociacao] = useState<string[]>([])
   const { data: imoveis = [] } = useImoveis()
   const pesos = useScoreStore((s) => s.pesos)
@@ -50,6 +51,8 @@ export function ModalGateCliente({
   const imoveisNegociacaoCompativeis = lead
     ? imoveis.filter((i) => calcularMatch(i, lead, pesos) != null)
     : []
+  /** visita pode ser marcada em qualquer imóvel do match, mesmo de outro corretor */
+  const imoveisVisitaCompativeis = imoveisNegociacaoCompativeis
 
   if (!lead || !destino) return null
 
@@ -58,7 +61,12 @@ export function ModalGateCliente({
     if (config.tipo === 'checkbox') return checks[campo]
     if (config.tipo === 'visitas') {
       const entradas = Object.entries(visitasSelecionadas)
-      return entradas.length > 0 && entradas.every(([, data]) => data.trim())
+      return (
+        entradas.length > 0 &&
+        entradas.every(
+          ([id, data]) => data.trim() && (id !== 'fora-da-base' || enderecoForaDaBase.trim()),
+        )
+      )
     }
     if (config.tipo === 'imovel-multi') return imoveisNegociacao.length > 0
     return valores[campo]?.trim()
@@ -68,7 +76,11 @@ export function ModalGateCliente({
     const patch: Partial<Lead> = {}
     if (valores.observacoes) patch.observacoes = valores.observacoes
     if (Object.keys(visitasSelecionadas).length > 0) {
-      patch.visitasAgendadas = Object.entries(visitasSelecionadas).map(([imovelId, data]) => ({ imovelId, data }))
+      patch.visitasAgendadas = Object.entries(visitasSelecionadas).map(([id, data]) =>
+        id === 'fora-da-base'
+          ? { imovelId: '', data, enderecoLivre: enderecoForaDaBase.trim() }
+          : { imovelId: id, data },
+      )
     }
     if (imoveisNegociacao.length > 0) patch.imovelNegociacaoId = imoveisNegociacao.join(',')
     if (valores.imovelFechadoId) patch.imovelFechadoId = valores.imovelFechadoId
@@ -81,6 +93,7 @@ export function ModalGateCliente({
     setValores({})
     setChecks({})
     setVisitasSelecionadas({})
+    setEnderecoForaDaBase('')
     setImoveisNegociacao([])
   }
 
@@ -201,7 +214,7 @@ export function ModalGateCliente({
                 {config.tipo === 'visitas' && (
                   <>
                     <div className="flex flex-col gap-2">
-                      {imoveisCompativeis.map((i) => {
+                      {imoveisVisitaCompativeis.map((i) => {
                         const selecionado = i.id in visitasSelecionadas
                         return (
                           <div
@@ -215,7 +228,8 @@ export function ModalGateCliente({
                                 onChange={() =>
                                   setVisitasSelecionadas((atual) => {
                                     if (selecionado) {
-                                      const { [i.id]: _remover, ...resto } = atual
+                                      const resto = { ...atual }
+                                      delete resto[i.id]
                                       return resto
                                     }
                                     return { ...atual, [i.id]: '' }
@@ -224,6 +238,9 @@ export function ModalGateCliente({
                                 className="h-4 w-4 rounded border-border"
                               />
                               {i.enderecoRua}, {i.enderecoNumero} · {i.bairro}
+                              {i.corretorResponsavelId !== CORRETOR_LOGADO_ID
+                                ? ` — imóvel de ${nomeCorretor(i.corretorResponsavelId)}`
+                                : ''}
                             </label>
                             {selecionado && (
                               <Input
@@ -238,10 +255,47 @@ export function ModalGateCliente({
                           </div>
                         )
                       })}
+                      <label className="flex items-center gap-2 text-sm text-text-mut">
+                        <input
+                          type="checkbox"
+                          checked={'fora-da-base' in visitasSelecionadas}
+                          onChange={() =>
+                            setVisitasSelecionadas((atual) => {
+                              if ('fora-da-base' in atual) {
+                                const resto = { ...atual }
+                                delete resto['fora-da-base']
+                                return resto
+                              }
+                              return { ...atual, 'fora-da-base': '' }
+                            })
+                          }
+                          className="h-4 w-4 rounded border-border"
+                        />
+                        Imóvel fora da base
+                      </label>
+                      {'fora-da-base' in visitasSelecionadas && (
+                        <div className="flex flex-col gap-2 rounded-card border border-border p-3 sm:flex-row sm:items-center">
+                          <Input
+                            placeholder="Endereço do imóvel"
+                            value={enderecoForaDaBase}
+                            onChange={(e) => setEnderecoForaDaBase(e.target.value)}
+                            className="flex-1"
+                          />
+                          <Input
+                            type="date"
+                            value={visitasSelecionadas['fora-da-base']}
+                            onChange={(e) =>
+                              setVisitasSelecionadas((atual) => ({ ...atual, 'fora-da-base': e.target.value }))
+                            }
+                            className="sm:w-44"
+                          />
+                        </div>
+                      )}
                     </div>
-                    {imoveisCompativeis.length === 0 && (
+                    {imoveisVisitaCompativeis.length === 0 && (
                       <p className="text-xs text-text-soft">
-                        Nenhum dos seus imóveis tem perfil compatível com este cliente no momento.
+                        Nenhum imóvel (seu ou de outro corretor) tem perfil compatível com este cliente no momento —
+                        use "Imóvel fora da base" para registrar a visita mesmo assim.
                       </p>
                     )}
                   </>

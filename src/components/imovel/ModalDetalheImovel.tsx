@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Copy, MessageCircle, Pencil } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ChipTipoImovel } from '@/components/imovel/ChipTipoImovel'
@@ -13,12 +13,15 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
 import type { Imovel, Lead } from '@/domain/types'
+import { useCriarVinculo } from '@/hooks/useVinculos'
 import { formatM2, formatPreco } from '@/lib/format'
 import { CORRETORES, CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 
 interface ModalDetalheImovelProps {
   imovel: Imovel | null
   meusLeads: Lead[]
+  /** presente quando o modal foi aberto a partir do match de um cliente específico */
+  leadContextoId?: string | null
   onClose: () => void
 }
 
@@ -26,9 +29,15 @@ function areaPrincipal(imovel: Imovel): number | undefined {
   return imovel.areaPrivativaM2 ?? imovel.areaConstruidaM2 ?? imovel.areaTerrenoM2
 }
 
-export function ModalDetalheImovel({ imovel, meusLeads, onClose }: ModalDetalheImovelProps) {
+export function ModalDetalheImovel({ imovel, meusLeads, leadContextoId, onClose }: ModalDetalheImovelProps) {
   const { toast } = useToast()
+  const criarVinculo = useCriarVinculo()
   const [leadSelecionado, setLeadSelecionado] = useState<string>('')
+
+  // ao abrir vindo do match de um cliente específico, já vem selecionado — é o que a pessoa veio fazer
+  useEffect(() => {
+    setLeadSelecionado(leadContextoId ?? '')
+  }, [leadContextoId, imovel?.id])
 
   if (!imovel) return null
 
@@ -51,8 +60,21 @@ export function ModalDetalheImovel({ imovel, meusLeads, onClose }: ModalDetalheI
 
   function adicionarACliente() {
     if (!leadSelecionado) return
-    toast({ title: 'Vínculo registrado', description: 'Imóvel adicionado ao perfil do cliente selecionado.' })
-    setLeadSelecionado('')
+    criarVinculo.mutate(
+      { imovelId: imovel!.id, leadId: leadSelecionado, origem: 'manual_corretor' },
+      {
+        onSuccess: () => {
+          toast({ title: 'Vínculo registrado', description: 'Imóvel adicionado ao perfil do cliente selecionado.' })
+          setLeadSelecionado('')
+        },
+        onError: (e) =>
+          toast({
+            title: 'Não foi possível vincular',
+            description: e instanceof Error ? e.message : 'Tente novamente.',
+            variant: 'destructive',
+          }),
+      },
+    )
   }
 
   return (
@@ -145,24 +167,34 @@ export function ModalDetalheImovel({ imovel, meusLeads, onClose }: ModalDetalheI
           </div>
 
           {meusLeads.length > 0 && (
-            <div className="flex items-end gap-2 border-t border-border pt-3">
-              <div className="flex-1">
-                <Select value={leadSelecionado} onValueChange={setLeadSelecionado}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Adicionar a um cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {meusLeads.map((lead) => (
-                      <SelectItem key={lead.id} value={lead.id}>
-                        {lead.codigo}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="flex flex-col gap-1.5 border-t border-border pt-3">
+              <p className="text-sm font-medium text-ink">
+                {leadContextoId ? 'Vincular oficialmente a este cliente' : 'Adicionar a um cliente'}
+              </p>
+              <p className="text-xs text-text-soft">
+                {leadContextoId
+                  ? 'Este imóvel apareceu como sugestão de match — vincular registra oficialmente o interesse no perfil do cliente.'
+                  : 'Registra este imóvel no perfil de busca do cliente selecionado.'}
+              </p>
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <Select value={leadSelecionado} onValueChange={setLeadSelecionado}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o cliente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {meusLeads.map((lead) => (
+                        <SelectItem key={lead.id} value={lead.id}>
+                          {lead.codigo}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={adicionarACliente} disabled={!leadSelecionado || criarVinculo.isPending}>
+                  {leadContextoId ? 'Vincular' : 'Adicionar'}
+                </Button>
               </div>
-              <Button onClick={adicionarACliente} disabled={!leadSelecionado}>
-                Adicionar
-              </Button>
             </div>
           )}
         </div>

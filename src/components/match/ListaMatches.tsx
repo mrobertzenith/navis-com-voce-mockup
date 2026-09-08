@@ -36,25 +36,23 @@ export function ListaMatches({ matches, onAbrir, onDismiss }: ListaMatchesProps)
               <p className="text-xs text-text-soft">Corretor responsável: {m.corretorNome}</p>
             </div>
           </div>
-          <div className="mt-2 flex justify-end gap-2">
+          <div className="mt-2 flex flex-wrap justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={() => onDismiss(m.id)}>
               <X className="h-3.5 w-3.5" strokeWidth={1.5} />
               Não interessou
             </Button>
-            {m.ehProprio ? (
-              <Button variant="outline" size="sm" onClick={() => onAbrir(m.id)}>
-                Abrir
+            {!m.ehProprio && m.corretorWhatsapp && (
+              <Button variant="outline" size="sm" asChild>
+                <a href={`https://wa.me/55${m.corretorWhatsapp}`} target="_blank" rel="noreferrer">
+                  <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Falar com o corretor
+                </a>
               </Button>
-            ) : (
-              m.corretorWhatsapp && (
-                <Button variant="outline" size="sm" asChild>
-                  <a href={`https://wa.me/55${m.corretorWhatsapp}`} target="_blank" rel="noreferrer">
-                    <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.5} />
-                    Falar com o corretor
-                  </a>
-                </Button>
-              )
             )}
+            {/* imóvel de outro corretor também pode ser aberto — é possível agendar visita nele */}
+            <Button variant="outline" size="sm" onClick={() => onAbrir(m.id)}>
+              Abrir
+            </Button>
           </div>
         </li>
       ))}

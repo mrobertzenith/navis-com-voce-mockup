@@ -35,7 +35,7 @@ export function Tarja({ variant, dias = 0, horasRestantes, className }: TarjaPro
     return (
       <div
         className={cn(
-          'pointer-events-none absolute right-[-32px] top-[14px] w-[140px] rotate-45 py-1 text-center text-[11px] font-semibold font-body uppercase tracking-wide text-white shadow-sm',
+          'pointer-events-none absolute right-[-6px] top-[20px] w-[88px] rotate-45 py-0.5 text-center text-[8px] font-semibold font-body uppercase tracking-wide text-white shadow-sm',
           RIBBON_COLOR[variant],
           className,
         )}

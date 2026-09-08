@@ -54,7 +54,9 @@ export function TodosImoveisPage() {
       return imoveis.filter(
         (i) => i.etapa === 'd' && i.dataPublicacao && diasEntre(i.dataPublicacao, agora) > 365,
       )
-    return imoveis.filter((i) => i.etapa === 'd')
+    // imóveis em negociação (etapa 'e') continuam aparecendo aqui — o corretor precisa
+    // conseguir monitorá-los; o sinal visual abaixo é que os distingue dos publicados
+    return imoveis.filter((i) => i.etapa === 'd' || i.etapa === 'e')
   }, [imoveis, visao])
 
   const cidades = useMemo(
@@ -226,7 +228,18 @@ export function TodosImoveisPage() {
                       }}
                       className="cursor-pointer border-t border-border hover:bg-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
-                      <td className="px-4 py-3">{TIPO_IMOVEL_LABEL[imovel.tipo]}</td>
+                      <td className="px-4 py-3">
+                        <span className="inline-flex items-center gap-1.5">
+                          {imovel.etapa === 'e' && (
+                            <span
+                              className="h-2 w-2 shrink-0 rounded-full bg-danger"
+                              title="Em negociação"
+                              aria-label="Em negociação"
+                            />
+                          )}
+                          {TIPO_IMOVEL_LABEL[imovel.tipo]}
+                        </span>
+                      </td>
                       <td className="px-4 py-3">{imovel.bairro}</td>
                       <td className="px-4 py-3">{imovel.cidade}</td>
                       <td className="px-4 py-3 font-mono">{formatPreco(imovel.valorAnuncio)}</td>

@@ -17,7 +17,7 @@ import type { EtapaLead, Lead, OrigemLead, TipoImovel } from '@/domain/types'
 import { passaGates } from '@/domain/matching'
 import { useAtualizarLead, useCriarLead, useLeads } from '@/hooks/useLeads'
 import { useImoveis } from '@/hooks/useImoveis'
-import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
+import { CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 
 const numeroOpcional = () =>
   z.preprocess((v) => (v === '' || v == null ? undefined : v), z.coerce.number().min(0).optional())
@@ -134,8 +134,9 @@ export function CadastroClientePage() {
   const { watch, setValue, handleSubmit, trigger, formState, reset } = form
   const valores = watch()
 
+  // visita pode ser marcada em qualquer imóvel compatível, mesmo de outro corretor
   const imoveisDisponiveis = imoveis.filter((i) => {
-    if (i.corretorResponsavelId !== CORRETOR_LOGADO_ID || i.etapa !== 'd') return false
+    if (i.etapa !== 'd') return false
     if (!valores.tipos?.length || !valores.cidade || !valores.bairros?.length) return false
     return passaGates(i, {
       id: '',
@@ -215,6 +216,19 @@ export function CadastroClientePage() {
   }
 
   function onSubmit(dados: FormData) {
+    // rede de segurança: o formulário só pode ser salvo a partir do último passo.
+    // Se por qualquer motivo um submit chegar aqui mais cedo (ex.: Enter em um campo,
+    // corrida entre eventos), barra aqui em vez de gravar o cadastro incompleto.
+    if (passo !== PASSOS.length) {
+      setPasso(PASSOS.length)
+      toast({
+        title: 'Cadastro incompleto',
+        description: 'Revise a etapa de características do imóvel antes de concluir o cadastro.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     const perfilBusca = {
       id: '',
       leadId: '',
@@ -521,7 +535,8 @@ export function CadastroClientePage() {
                     <Label>Imóveis e datas de visita (pode selecionar mais de um)</Label>
                     {imoveisDisponiveis.length === 0 && (
                       <p className="text-xs text-text-soft">
-                        Nenhum dos seus imóveis publicados tem perfil compatível com este cliente no momento.
+                        Nenhum imóvel publicado (seu ou de outro corretor) tem perfil compatível com este cliente no
+                        momento.
                       </p>
                     )}
                     <div className="flex flex-col gap-2">
@@ -552,6 +567,9 @@ export function CadastroClientePage() {
                                 className="h-4 w-4 rounded border-border"
                               />
                               {i.enderecoRua}, {i.enderecoNumero} · {i.bairro}
+                              {i.corretorResponsavelId !== CORRETOR_LOGADO_ID
+                                ? ` — imóvel de ${nomeCorretor(i.corretorResponsavelId)}`
+                                : ''}
                             </label>
                             {selecionado && (
                               <Input

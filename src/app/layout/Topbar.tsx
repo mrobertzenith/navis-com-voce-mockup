@@ -6,12 +6,13 @@ import { Button } from '@/components/ui/button'
 import { supabaseHabilitado } from '@/lib/supabase'
 import { useAuthStore, sair } from '@/stores/authStore'
 import { useDemoStore } from '@/stores/demoStore'
-import { useNotificacoesStore } from '@/stores/notificacoesStore'
+import { useNotificacoes } from '@/hooks/useNotificacoes'
 
 export function Topbar() {
   const resetarDemo = useDemoStore((s) => s.resetarDemo)
   const corretor = useAuthStore((s) => s.corretor)
-  const naoLidas = useNotificacoesStore((s) => s.notificacoes.filter((n) => !n.lida).length)
+  const { data: notificacoes = [] } = useNotificacoes()
+  const naoLidas = notificacoes.filter((n) => !n.lida).length
 
   return (
     <header className="flex h-16 items-center justify-between gap-2 border-b border-border bg-surface px-3 sm:px-6">
