@@ -257,12 +257,6 @@ export function CadastroClientePage() {
             toast({ title: 'Cliente atualizado', description: 'As alterações foram salvas.' })
             navigate('/meus-clientes')
           },
-          onError: (e) =>
-            toast({
-              title: 'Não foi possível salvar',
-              description: e instanceof Error ? e.message : 'Tente novamente.',
-              variant: 'destructive',
-            }),
         },
       )
       return
@@ -285,12 +279,6 @@ export function CadastroClientePage() {
         toast({ title: 'Cliente cadastrado', description: `${lead.codigo} criado com sucesso.` })
         navigate('/meus-clientes')
       },
-      onError: (e) =>
-        toast({
-          title: 'Não foi possível cadastrar',
-          description: e instanceof Error ? e.message : 'Tente novamente.',
-          variant: 'destructive',
-        }),
     })
   }
 

@@ -1,9 +1,10 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { RouterProvider } from 'react-router-dom'
 import { router } from '@/app/router'
 import { Toaster } from '@/components/ui/toaster'
+import { toast } from '@/components/ui/use-toast'
 import { inject } from '@vercel/analytics'
 import { Sentry, inicializarSentry, sentryHabilitado } from '@/lib/sentry'
 import '@/styles/globals.css'
@@ -12,10 +13,36 @@ inicializarSentry()
 // Vercel Web Analytics — só conta acessos em produção (nada roda em dev/mock)
 if (import.meta.env.PROD) inject()
 
+/**
+ * Rede de segurança contra falha silenciosa: qualquer gravação ou leitura que
+ * falhe avisa o corretor. Sem isso, um erro do banco faz o botão "não fazer
+ * nada" e a lista aparecer vazia — foi assim que o cadastro de cliente ficou
+ * quebrado sem ninguém saber o motivo.
+ */
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: { retry: false, refetchOnWindowFocus: false },
   },
+  mutationCache: new MutationCache({
+    onError: (erro, _vars, _ctx, mutation) => {
+      // telas com mensagem própria (ex.: Equipe) se marcam para não avisar duas vezes
+      if (mutation.meta?.erroTratadoNaTela) return
+      toast({
+        title: 'Não foi possível salvar',
+        description: erro instanceof Error ? erro.message : 'Tente de novo em instantes.',
+        variant: 'destructive',
+      })
+    },
+  }),
+  queryCache: new QueryCache({
+    onError: () => {
+      toast({
+        title: 'Não foi possível carregar os dados',
+        description: 'Verifique sua conexão e recarregue a página.',
+        variant: 'destructive',
+      })
+    },
+  }),
 })
 
 async function enableMocking() {

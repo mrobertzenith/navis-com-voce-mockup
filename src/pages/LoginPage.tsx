@@ -23,11 +23,24 @@ export function LoginPage() {
     setErro(null)
     const { error } = await supabase.auth.signInWithPassword({ email, password: senha })
     if (error) {
-      setErro(
-        error.message.includes('Invalid login credentials')
-          ? 'E-mail ou senha incorretos.'
-          : 'Não foi possível entrar. Tente novamente.',
-      )
+      // separar "senha errada" de "sistema fora do ar" evita a equipe achar que
+      // esqueceu a senha quando o problema é indisponibilidade do servidor
+      const semConexao =
+        error.name === 'AuthRetryableFetchError' ||
+        error.message.toLowerCase().includes('fetch') ||
+        (error.status ?? 0) >= 500
+      if (semConexao) {
+        setErro(
+          'O sistema está temporariamente indisponível — não é problema com sua senha. ' +
+            'Tente de novo em alguns minutos; se continuar, avise o responsável.',
+        )
+      } else {
+        setErro(
+          error.message.includes('Invalid login credentials')
+            ? 'E-mail ou senha incorretos.'
+            : 'Não foi possível entrar. Tente novamente.',
+        )
+      }
       setEnviando(false)
       return
     }

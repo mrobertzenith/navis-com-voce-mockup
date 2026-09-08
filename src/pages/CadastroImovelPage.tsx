@@ -281,13 +281,6 @@ function CadastroImovelForm({
             toast({ title: 'Imóvel atualizado', description: 'As alterações foram salvas.' })
             navigate('/meus-imoveis')
           },
-          onError: (e) => {
-            toast({
-              title: 'Não foi possível salvar',
-              description: e instanceof Error ? e.message : 'Tente novamente.',
-              variant: 'destructive',
-            })
-          },
         },
       )
       return
@@ -304,13 +297,6 @@ function CadastroImovelForm({
       onSuccess: () => {
         toast({ title: 'Imóvel cadastrado', description: 'Já está disponível em Meus Imóveis, etapa Novo.' })
         navigate('/meus-imoveis')
-      },
-      onError: (e) => {
-        toast({
-          title: 'Não foi possível cadastrar',
-          description: e instanceof Error ? e.message : 'Tente novamente.',
-          variant: 'destructive',
-        })
       },
     })
   }

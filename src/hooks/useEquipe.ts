@@ -86,6 +86,8 @@ export function useEquipe() {
 export function useAcaoEquipe() {
   const queryClient = useQueryClient()
   return useMutation({
+    // a tela Equipe mostra a mensagem específica da função (ex.: e-mail duplicado)
+    meta: { erroTratadoNaTela: true },
     mutationFn: executarAcao,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: EQUIPE_KEY })
