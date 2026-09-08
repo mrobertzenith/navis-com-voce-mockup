@@ -257,17 +257,95 @@ prática nesta sessão mas precisa sobreviver a quem não tem esse contexto:
 
 ## 4. Roteiro priorizado
 
-| Prioridade | Ação | Esforço | Fecha a lacuna de |
-|---|---|---|---|
-| P0 | CI no GitHub Actions: `tsc` + `vitest` + `eslint` + `build` bloqueando `main` | baixo | §1.1 — hoje não há nenhum gate automático |
-| P0 | Testes unitários completos de `gatesLead.ts` e `gatesImovel.ts` | baixo | §1.2 — zero cobertura na área de maior densidade de bugs |
-| P1 | Testes de componente dos dois wizards, com `user-event` e timing realista, incluindo o teste de regressão da trava de submit prematuro | médio | §1.2 + §1.4 — a trava desta sessão não tem nenhum teste que a proteja de ser removida |
-| P1 | Testes de hook para o payload das notificações e vínculos (contrato, não só "funciona") | baixo–médio | §1.2 — classe de bug do destinatário errado |
-| P1 | Suíte de dois corretores simultâneos (extensão de `teste-fluxos.ts`) | médio | §1.3 — única forma de fechar de vez a dúvida do bug #4 e prevenir a próxima |
-| P2 | Playwright: fluxos críticos + snapshot visual em 2 viewports | médio–alto | §1.2 + camada visual, hoje 100% manual |
-| P2 | Revisão formal de Sentry/Analytics (DSN em prod, cadência de revisão) | baixo | §1.5 |
-| P3 | Mover `teste-fluxos.ts` para rodar em CI (hoje é manual) | baixo | consolida §1.2 no gate automático |
+| Prioridade | Ação | Esforço | Fecha a lacuna de | Status |
+|---|---|---|---|---|
+| P0 | CI no GitHub Actions: `tsc` + `vitest` + `eslint` + `build` bloqueando `main` | baixo | §1.1 — hoje não há nenhum gate automático | ✅ feito |
+| P0 | Testes unitários completos de `gatesLead.ts` e `gatesImovel.ts` | baixo | §1.2 — zero cobertura na área de maior densidade de bugs | ✅ feito (39 testes) |
+| P1 | Testes de componente dos dois wizards, com `user-event` e timing realista, incluindo o teste de regressão da trava de submit prematuro | médio | §1.2 + §1.4 — a trava desta sessão não tem nenhum teste que a proteja de ser removida | ✅ feito |
+| P1 | Testes de hook para o payload das notificações e vínculos (contrato, não só "funciona") | baixo–médio | §1.2 — classe de bug do destinatário errado | ✅ feito |
+| P1 | Suíte de dois corretores simultâneos (extensão de `teste-fluxos.ts`) | médio | §1.3 — única forma de fechar de vez a dúvida do bug #4 e prevenir a próxima | ✅ feito (13 testes, `test:fluxos-cross`) |
+| P2 | Playwright: fluxos críticos + snapshot visual em 2 viewports | médio–alto | §1.2 + camada visual, hoje 100% manual | pendente |
+| P2 | Revisão formal de Sentry/Analytics (DSN em prod, cadência de revisão) | baixo | §1.5 | pendente |
+| P3 | Mover `teste-fluxos.ts` e `teste-fluxos-cross-corretor.ts` para rodar em CI (hoje são manuais — exigem segredo de login no ambiente do CI) | baixo | consolida §1.2/§1.3 no gate automático | pendente |
 
-O P0 e o primeiro P1 (gates + testes de wizard) são as duas ações que, sozinhas,
-teriam pego a maioria dos bugs relatados nas duas últimas rodadas de uso real —
-e custam pouco. É onde eu começaria.
+O P0 e o P1 estão concluídos (ver §5, abaixo, para o que cada item entregou de
+fato). O que resta é a camada de navegador automatizado (P2) — a única forma
+de fechar bugs puramente visuais como os das tarjas e do drawer sem depender
+de alguém olhar manualmente — e mover as duas suítes contra o banco real para
+dentro do CI, hoje limitadas por precisarem de credenciais que não devem virar
+segredo de repositório sem mais cuidado (ver §5.3).
+
+## 5. O que o P1 entregou, concretamente
+
+Registro do que foi implementado, para não ficar só na intenção do roteiro
+acima — e para quem for mexer nessas áreas depois saber que proteção já existe.
+
+### 5.1 Testes de componente dos wizards
+
+`src/pages/CadastroClientePage.test.tsx` e `CadastroImovelPage.test.tsx`, com
+`@testing-library/react` + `@testing-library/user-event` (jsdom, configurado em
+`vitest.config.ts` + `src/test/setup.ts`, incluindo os polyfills que o Radix UI
+exige em ambiente de teste). Cada arquivo tem dois testes: o caminho feliz
+completo (preenche os 3–4 passos, conclui, confirma o payload) e a regressão
+específica do bug desta rodada — um `fireEvent.submit()` disparado direto no
+`<form>` enquanto o wizard ainda está num passo intermediário, simulando
+exatamente a condição de corrida original, sem depender de reproduzi-la de
+verdade.
+
+**Os dois testes de regressão foram verificados de forma adversarial**: a
+trava (`if (passo !== PASSOS.length) {...}`) foi temporariamente desativada em
+ambos os arquivos, os testes rodaram e falharam exatamente como esperado
+(`criarLeadMock`/`criarImovelMock` chamados com o cadastro incompleto), e só
+então a trava foi restaurada. Isso confirma que o teste protege algo de
+verdade — não é só um teste que passa.
+
+### 5.2 Testes de contrato dos hooks
+
+`src/hooks/useNotificacoes.test.tsx` e `useVinculos.test.tsx`, com um duplo de
+teste do cliente Supabase (`src/test/supabaseFake.ts`) que grava o payload
+exato de cada `insert`/`update` em vez de simular sucesso genérico. A asserção
+central é literalmente "o campo `destinatario_corretor_id` gravado é igual ao
+que foi passado, nunca ao corretor logado" — o tipo de teste que teria
+detectado o bug do destinatário errado sem precisar de duas sessões reais.
+
+Também verificado adversarialmente: o `criarVinculo` de `useVinculos.ts` foi
+temporariamente trocado por uma versão que só retorna sem gravar nada (a
+versão fake que existia antes desta rodada de correções) e os testes
+falharam corretamente antes de o código real ser restaurado.
+
+### 5.3 Suíte de dois corretores simultâneos
+
+`scripts/teste-fluxos-cross-corretor.ts` (`npm run test:fluxos-cross`), com
+duas sessões reais e independentes: a admin já usada em `teste-fluxos.ts`
+(corretor A) e um fixture novo, "ZZ Teste Fluxo B", criado uma única vez via a
+própria função administrativa de gestão de equipe (`equipe`, ação
+`criar_direto`) — não é dado de corretor real. As credenciais desse fixture
+ficam em `.env.local` (fora do controle de versão) em
+`TESTE_FLUXO_CORRETOR_B_EMAIL`/`_SENHA`; **a conta não pode ser recriada a
+cada execução** porque a Edge Function só permite excluir um convite que nunca
+fez login, e este precisa logar para o teste funcionar — por isso é reaproveitada
+entre execuções, e o script limpa apenas os dados que cria (imóvel, cliente,
+vínculo, notificação), nunca a conta em si.
+
+13 verificações, todas passando contra o banco de produção real:
+- **Visibilidade**: confirma que o RLS realmente libera leitura para toda a
+  equipe (documentado, não é bug) e que o filtro "meus imóveis" do lado do
+  cliente exclui corretamente o imóvel de outro corretor — a fronteira real
+  hoje é essa, não o banco.
+- **Notificações**: A cria uma notificação para B; B a enxerga usando a MESMA
+  consulta que `fetchNotificacoes` usa no app; A não vê essa notificação na
+  própria caixa. Esta é a verificação que nunca foi possível antes desta
+  sessão — precisa de duas sessões reais para sequer fazer sentido.
+- **Vínculo cross-corretor**: B (não-admin) vincula o próprio cliente a um
+  imóvel de A, prova que a escrita cross-corretor funciona de ponta a ponta
+  entre duas contas reais, não só em mock.
+- **Segurança com sessão genuinamente não-admin** (a lacuna mais séria do
+  teste de segurança anterior, que só testava o caminho permitido a partir da
+  conta admin): B tenta se auto-promover a admin via update direto na tabela
+  → bloqueado pelo RLS; B tenta chamar a função `equipe` → 403; B tenta
+  apagar um registro → bloqueado (delete é admin-only).
+
+Não está em CI ainda (por isso o P3 acima) — rodar contra o banco de produção
+real a cada push exige decidir onde as credenciais de teste vivem com a
+segurança adequada, o que é uma decisão deliberada a se tomar, não um detalhe
+de implementação.

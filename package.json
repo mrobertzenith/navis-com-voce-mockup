@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:fluxos": "vite-node scripts/teste-fluxos.ts"
+    "test:fluxos": "vite-node scripts/teste-fluxos.ts",
+    "test:fluxos-cross": "vite-node scripts/teste-fluxos-cross-corretor.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
@@ -41,6 +42,9 @@
     "zustand": "^4.5.5"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
     "@types/node": "^22.7.4",
     "@types/react": "^18.3.9",
     "@types/react-dom": "^18.3.0",
@@ -51,6 +55,7 @@
     "eslint": "^8.57.1",
     "eslint-plugin-react-hooks": "^4.6.2",
     "eslint-plugin-react-refresh": "^0.4.12",
+    "jsdom": "^29.1.1",
     "msw": "^2.4.9",
     "postcss": "^8.4.47",
     "supabase": "^2.110.0",
