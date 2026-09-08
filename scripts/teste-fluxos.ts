@@ -323,6 +323,30 @@ async function main() {
     exigir(!error, 'admin deveria conseguir gerenciar papéis: ' + error?.message)
   })
 
+  // regressão: um imóvel já apareceu de verdade em negociacoes_ativas de dois
+  // clientes diferentes ao mesmo tempo (a única checagem existia no front-end).
+  // Migração 20260908000008 travou isso no banco — este teste garante que
+  // continua travado mesmo que a trava seja removida ou alterada por engano.
+  await checar('banco recusa um imóvel em negociação ativa com dois clientes ao mesmo tempo', async () => {
+    const outroLeadId = await criarCliente(3, {
+      visitasAgendadas: [{ imovelId, data: new Date().toISOString() }],
+    } as Partial<Lead>)
+
+    const { error: erroPrimeiro } = await supabase
+      .from('leads')
+      .update({ negociacoes_ativas: [{ imovelId, dataInicio: new Date().toISOString() }] })
+      .eq('id', leadId)
+    exigir(!erroPrimeiro, 'primeiro cliente deveria conseguir entrar em negociação: ' + erroPrimeiro?.message)
+
+    const { error: erroSegundo } = await supabase
+      .from('leads')
+      .update({ negociacoes_ativas: [{ imovelId, dataInicio: new Date().toISOString() }] })
+      .eq('id', outroLeadId)
+    exigir(erroSegundo?.code === '23505', 'o banco deveria recusar o mesmo imóvel para o segundo cliente')
+
+    await supabase.from('leads').update({ negociacoes_ativas: [] }).eq('id', leadId)
+  })
+
   // ---------- LIMPEZA ----------
   console.log('\nLIMPEZA')
   await checar('remover todos os dados de teste', async () => {

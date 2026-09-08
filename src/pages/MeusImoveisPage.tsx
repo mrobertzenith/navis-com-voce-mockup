@@ -141,9 +141,18 @@ export function MeusImoveisPage() {
     }
     if (destino === 'f') patchFinal.dataVenda = new Date().toISOString()
 
-    // Reversão saindo de "Em negociação": desfaz o vínculo do(s) cliente(s) e devolve para a etapa anterior
-    if (origem === 'e' && destino === 'd') {
-      const leadsVinculados = leads.filter((l) => l.negociacoesAtivas?.some((n) => n.imovelId === imovel.id))
+    // Reversão pra "Publicado" (vindo de "Em negociação" OU direto de "Vendido"):
+    // desfaz o vínculo de TODO cliente que ainda referencia este imóvel — tanto
+    // quem só tinha ele em negociação quanto quem já tinha fechado negócio com
+    // ele (imovelFechadoId). Sem isso, pular "Vendido" → "Publicado" direto
+    // (sem passar por "Em negociação") deixava o cliente com dado órfão: card
+    // preso em "Em negociação"/"Negócio Fechado" apontando pra um imóvel que já
+    // tinha voltado a ser um imóvel qualquer, disponível pra qualquer um — foi
+    // exatamente o que aconteceu de verdade com um cliente de teste.
+    if ((origem === 'e' || origem === 'f') && destino === 'd') {
+      const leadsVinculados = leads.filter(
+        (l) => l.negociacoesAtivas?.some((n) => n.imovelId === imovel.id) || l.imovelFechadoId === imovel.id,
+      )
 
       atualizarImovel.mutate(
         { id: imovel.id, patch: patchFinal },
@@ -152,13 +161,17 @@ export function MeusImoveisPage() {
             leadsVinculados.forEach((lead) => {
               const negociacoesRestantes = (lead.negociacoesAtivas ?? []).filter((n) => n.imovelId !== imovel.id)
               const pendenteRestante = (lead.pendenteAprovacaoImoveis ?? []).filter((id) => id !== imovel.id)
+              const tinhaFechadoComEste = lead.imovelFechadoId === imovel.id
               atualizarLead.mutate({
                 id: lead.id,
                 patch: {
                   negociacoesAtivas: negociacoesRestantes,
                   // usar [] em vez de undefined: o patch é serializado com JSON.stringify, que descarta chaves undefined
                   pendenteAprovacaoImoveis: pendenteRestante,
-                  ...(negociacoesRestantes.length === 0 && lead.etapa === 4 ? { etapa: 3 } : {}),
+                  ...(tinhaFechadoComEste ? { imovelFechadoId: undefined, valorNegociado: undefined } : {}),
+                  ...(negociacoesRestantes.length === 0 && (lead.etapa === 4 || (tinhaFechadoComEste && (lead.etapa === 5 || lead.etapa === 6)))
+                    ? { etapa: 3 }
+                    : {}),
                 },
               })
             })
