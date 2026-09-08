@@ -1,0 +1,37 @@
+name: CI
+
+# Gate obrigatório antes de qualquer coisa chegar em produção. Até este workflow
+# existir, nada impedia um push quebrado de ir direto para o Vercel — ver
+# ESTRATEGIA_QA.md, seção 1.1.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verificacao:
+    name: Verificação (tipos, testes, lint, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Verificação de tipos (tsc)
+        run: npx tsc -b
+
+      - name: Testes unitários (vitest)
+        run: npx vitest run
+
+      - name: Qualidade de código (eslint)
+        run: npm run lint
+
+      - name: Build de produção
+        run: npm run build
