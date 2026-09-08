@@ -44,8 +44,13 @@ flowchart LR
 Decisões de arquitetura registradas em [MIGRACAO.md](MIGRACAO.md) (histórico da migração
 mockup → produção). Destaques:
 
-- **Fotos por link, sem storage**: o corretor cola a URL da foto do anúncio; o banco tem
-  trava (`fotos_somente_url`) que rejeita imagens embutidas. Custo de storage: zero.
+- **Sem fotos**: o produto não guarda nem exibe imagens de imóvel (decisão de usabilidade,
+  set/2026) — a divulgação visual fica no anúncio externo. Cards e detalhe são só texto,
+  e o custo de armazenamento é zero.
+- **Endereço digitado livremente, comparado com tolerância**: `domain/normalizacao.ts`
+  reconhece o mesmo bairro escrito de formas diferentes ("Jardim Botânico" = "Jd. Botanico"
+  = "jd botanico"; "Olhos d'Água" = "Olhos dagua"). Os cadastros ainda sugerem os nomes já
+  usados pela equipe, para a base não se encher de variações.
 - **Segurança no banco, não só na tela**: RLS restringe todo acesso a e-mails cadastrados
   na tabela `corretores`; escrita em `corretores` e exclusões são exclusivas de admin;
   corretor suspenso é banido do login e perde acesso aos dados.
@@ -91,6 +96,10 @@ flowchart LR
 As transições têm **gates** (validações por etapa em `src/domain/gatesImovel.ts` e
 `gatesLead.ts`). O **matching** (`src/domain/matching.ts`) cruza o perfil de busca de cada
 cliente com os imóveis e calcula um score 0–100 com pesos configuráveis por corretor.
+
+Os **diferenciais** têm duas naturezas: a lista padrão (elevador, mobiliado, lazer…) pesa no
+score; os **diferenciais livres**, escritos pelo corretor, não entram no cálculo — cada um usa
+seus próprios termos — mas aparecem no detalhe do imóvel e são sugeridos aos colegas.
 
 ## Rodando local
 

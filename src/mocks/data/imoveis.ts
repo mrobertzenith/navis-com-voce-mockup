@@ -1,7 +1,6 @@
 import type { EtapaImovel, Imovel, TipoImovel } from '@/domain/types'
 import { encontrarBairro } from '@/mocks/data/bairros'
 import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
-import { fotosParaImovel } from '@/mocks/data/fotosImoveis'
 
 let seq = 0
 function proximoId(): string {
@@ -44,7 +43,6 @@ interface ImovelSeed {
   dataPublicacao?: string
   dataVenda?: string
   diasParado?: number
-  qtdFotos?: number
 }
 
 function construir(seed: ImovelSeed): Imovel {
@@ -92,7 +90,6 @@ function construir(seed: ImovelSeed): Imovel {
     emNegociacaoFlag: seed.emNegociacaoFlag ?? seed.etapa === 'e',
     observacoes: seed.observacoes,
     ttlAtual,
-    fotos: fotosParaImovel(seed.tipo, seq, seed.qtdFotos ?? (seed.etapa === 'a' ? 1 : 2)),
     criadoEm: seed.criadoEm,
     dataPublicacao: seed.dataPublicacao,
     dataVenda: seed.dataVenda,

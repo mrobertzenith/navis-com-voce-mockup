@@ -5,7 +5,20 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { UFS } from '@/lib/localizacao'
+import { encontrarEquivalente } from '@/domain/normalizacao'
+import { useLocaisConhecidos } from '@/hooks/useLocaisConhecidos'
 import { cn } from '@/lib/cn'
+
+/** Sugestões de digitação a partir do que a equipe já cadastrou */
+function Sugestoes({ id, itens }: { id: string; itens: string[] }) {
+  return (
+    <datalist id={id}>
+      {itens.map((item) => (
+        <option key={item} value={item} />
+      ))}
+    </datalist>
+  )
+}
 
 /**
  * Localização livre — sem cerca geográfica: UF completa (27 estados),
@@ -22,6 +35,7 @@ interface SelectorCascadeUnicoProps {
 
 /** UF > Cidade > Bairro com bairro único — usado no cadastro de imóvel. */
 export function SelectorCascadeUnico({ estado, cidade, bairro, onChange, className }: SelectorCascadeUnicoProps) {
+  const conhecidos = useLocaisConhecidos()
   return (
     <div className={cn('grid grid-cols-1 gap-3 sm:grid-cols-3', className)}>
       <div className="flex flex-col gap-1.5">
@@ -44,20 +58,31 @@ export function SelectorCascadeUnico({ estado, cidade, bairro, onChange, classNa
         <Label htmlFor="loc-cidade">Cidade</Label>
         <Input
           id="loc-cidade"
+          list="sug-cidades"
           value={cidade}
           onChange={(e) => onChange({ estado, cidade: e.target.value, bairro })}
           placeholder="Ex.: Ribeirão Preto"
         />
+        <Sugestoes id="sug-cidades" itens={conhecidos.cidades} />
       </div>
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="loc-bairro">Bairro</Label>
         <Input
           id="loc-bairro"
+          list="sug-bairros"
           value={bairro}
           onChange={(e) => onChange({ estado, cidade, bairro: e.target.value })}
+          // ao sair do campo, adota a grafia já usada pela equipe para o mesmo bairro
+          onBlur={(e) => {
+            const equivalente = encontrarEquivalente(e.target.value, conhecidos.bairros)
+            if (equivalente && equivalente !== e.target.value) {
+              onChange({ estado, cidade, bairro: equivalente })
+            }
+          }}
           placeholder="Ex.: Centro"
         />
+        <Sugestoes id="sug-bairros" itens={conhecidos.bairros} />
       </div>
     </div>
   )
@@ -82,13 +107,18 @@ export function SelectorCascadeMultiplo({
   className,
 }: SelectorCascadeMultiploProps) {
   const [novoBairro, setNovoBairro] = useState('')
+  const conhecidos = useLocaisConhecidos()
 
   function adicionarBairro() {
     const limpo = novoBairro.trim()
     if (!limpo) return
-    if (!bairros.some((b) => b.toLowerCase() === limpo.toLowerCase())) {
-      onToggleBairro(limpo)
+    // já está na lista deste cliente (mesmo escrito de outro jeito)? não duplica
+    if (encontrarEquivalente(limpo, bairros)) {
+      setNovoBairro('')
+      return
     }
+    // a equipe já usa uma grafia para este bairro? adota ela
+    onToggleBairro(encontrarEquivalente(limpo, conhecidos.bairros) ?? limpo)
     setNovoBairro('')
   }
 
@@ -115,10 +145,12 @@ export function SelectorCascadeMultiplo({
           <Label htmlFor="loc-cidade-multi">Cidade</Label>
           <Input
             id="loc-cidade-multi"
+            list="sug-cidades-multi"
             value={cidade}
             onChange={(e) => onChangeLocalizacao({ estado, cidade: e.target.value })}
             placeholder="Ex.: Ribeirão Preto"
           />
+          <Sugestoes id="sug-cidades-multi" itens={conhecidos.cidades} />
         </div>
       </div>
 
@@ -127,6 +159,7 @@ export function SelectorCascadeMultiplo({
         <div className="flex gap-2">
           <Input
             id="loc-novo-bairro"
+            list="sug-bairros-multi"
             value={novoBairro}
             onChange={(e) => setNovoBairro(e.target.value)}
             onKeyDown={(e) => {
@@ -140,6 +173,7 @@ export function SelectorCascadeMultiplo({
           <Button type="button" variant="outline" onClick={adicionarBairro} className="shrink-0">
             Adicionar
           </Button>
+          <Sugestoes id="sug-bairros-multi" itens={conhecidos.bairros} />
         </div>
         {bairros.length > 0 && (
           <div className="flex flex-wrap gap-2 pt-1">

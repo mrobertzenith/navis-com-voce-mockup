@@ -82,7 +82,8 @@ export interface Imovel {
   linkAnuncioUrl?: string
   linkQuebrado?: boolean
   nomeCondominio?: string
-  fotos?: string[]
+  /** diferenciais escritos livremente pelo corretor — não entram no matching */
+  diferenciaisExtras?: string[]
 
   valorEstimado?: number
   valorAnuncio?: number

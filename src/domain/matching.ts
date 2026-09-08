@@ -1,6 +1,7 @@
 import { PESO_ETAPA_LEAD } from '@/domain/constants'
 import type { Imovel, Lead, MatchResult, PerfilBusca, PesosScore } from '@/domain/types'
 import { encontrarBairro } from '@/mocks/data/bairros'
+import { normalizarLocal } from '@/domain/normalizacao'
 
 const TOLERANCIA_PRECO = 0.05
 
@@ -14,14 +15,12 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.asin(Math.sqrt(a))
 }
 
-/** Compara nomes digitados livremente: ignora caixa, acentos e espaços nas pontas */
-function normalizar(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-}
+/**
+ * Compara nomes digitados livremente. Trata acentos, caixa, pontuação,
+ * abreviações ("Jd." = "Jardim") e apóstrofos ("d'Água" = "dagua") — ver
+ * domain/normalizacao.ts.
+ */
+const normalizar = normalizarLocal
 
 /**
  * Centro do raio de busca do cliente: coordenadas do CEP de referência quando

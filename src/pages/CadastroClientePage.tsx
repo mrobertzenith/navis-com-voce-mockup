@@ -185,7 +185,16 @@ export function CadastroClientePage() {
   async function avancar() {
     const campos = CAMPOS_POR_PASSO[passo - 1]
     const valido = await trigger(campos)
-    if (valido) setPasso((p) => Math.min(p + 1, PASSOS.length))
+    if (valido) {
+      setPasso((p) => Math.min(p + 1, PASSOS.length))
+      return
+    }
+    // sem isso, o botão "Próximo" fica mudo quando há campo inválido
+    toast({
+      title: 'Verifique os campos destacados',
+      description: 'Há valores inválidos ou faltando neste passo.',
+      variant: 'destructive',
+    })
   }
 
   function voltar() {
@@ -248,6 +257,12 @@ export function CadastroClientePage() {
             toast({ title: 'Cliente atualizado', description: 'As alterações foram salvas.' })
             navigate('/meus-clientes')
           },
+          onError: (e) =>
+            toast({
+              title: 'Não foi possível salvar',
+              description: e instanceof Error ? e.message : 'Tente novamente.',
+              variant: 'destructive',
+            }),
         },
       )
       return
@@ -270,6 +285,12 @@ export function CadastroClientePage() {
         toast({ title: 'Cliente cadastrado', description: `${lead.codigo} criado com sucesso.` })
         navigate('/meus-clientes')
       },
+      onError: (e) =>
+        toast({
+          title: 'Não foi possível cadastrar',
+          description: e instanceof Error ? e.message : 'Tente novamente.',
+          variant: 'destructive',
+        }),
     })
   }
 

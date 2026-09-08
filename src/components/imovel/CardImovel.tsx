@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import type { Imovel } from '@/domain/types'
 import { cn } from '@/lib/cn'
 import { formatM2, formatPreco } from '@/lib/format'
-import { fotoPadrao } from '@/mocks/data/fotosImoveis'
 
 interface CardImovelProps {
   imovel: Imovel
@@ -36,7 +35,6 @@ export function CardImovel({
   const mostrarTarjaNegociacao = imovel.etapa === 'e'
   const mostrarTarjaVendido = imovel.etapa === 'f'
   const mostrarParado = ['a', 'b', 'c'].includes(imovel.etapa) && diasParado != null && diasParado >= 15
-  const capa = imovel.fotos?.[0] ?? fotoPadrao(imovel.tipo)
 
   return (
     <motion.div
@@ -65,7 +63,6 @@ export function CardImovel({
       {mostrarTarjaNegociacao && <Tarja variant="em_negociacao" />}
       {mostrarTarjaVendido && <Tarja variant="vendido_aguardando_aceite" />}
 
-      <img src={capa} alt="" className="h-32 w-full object-cover" loading="lazy" />
 
       <div className="p-3">
         <div className="mb-2 flex items-start justify-between gap-2">

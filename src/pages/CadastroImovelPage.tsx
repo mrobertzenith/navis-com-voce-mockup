@@ -8,7 +8,7 @@ import { SelectorCascadeUnico } from '@/components/shared/SelectorCascade'
 import { buscarCep } from '@/lib/localizacao'
 import { ChipBoolean } from '@/components/shared/ChipBoolean'
 import { ChipTipoImovel } from '@/components/imovel/ChipTipoImovel'
-import { UploaderFotos } from '@/components/imovel/UploaderFotos'
+import { DiferenciaisExtras } from '@/components/imovel/DiferenciaisExtras'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -70,7 +70,7 @@ const schema = z
     aceitaPet: z.boolean().optional(),
     nomeCondominio: z.string().optional(),
 
-    fotos: z.array(z.string()).optional(),
+    diferenciaisExtras: z.array(z.string()).optional(),
 
     valorEstimado: numeroOpcionalPositivo,
     cnm: z.string().optional(),
@@ -86,11 +86,10 @@ const schema = z
 
 type FormData = z.infer<typeof schema>
 
-const PASSOS = ['Localização', 'Características', 'Diferenciais', 'Fotos', 'Valor e CNM']
+const PASSOS = ['Localização', 'Características', 'Diferenciais', 'Valor e CNM']
 const CAMPOS_POR_PASSO: (keyof FormData)[][] = [
   ['estado', 'cidade', 'bairro', 'enderecoRua', 'enderecoNumero', 'cep'],
   ['tipo', 'quartos', 'suites', 'vagas', 'banheiros', 'area', 'areaTerreno'],
-  [],
   [],
   [],
 ]
@@ -153,7 +152,7 @@ function CadastroImovelForm({
           churrasqueira: imovelExistente.churrasqueira,
           aceitaPet: imovelExistente.aceitaPet,
           nomeCondominio: imovelExistente.nomeCondominio,
-          fotos: imovelExistente.fotos ?? [],
+          diferenciaisExtras: imovelExistente.diferenciaisExtras ?? [],
           valorEstimado: imovelExistente.valorEstimado,
           cnm: imovelExistente.cnm,
         }
@@ -167,7 +166,7 @@ function CadastroImovelForm({
           suites: 0,
           vagas: 0,
           banheiros: 0,
-          fotos: [],
+          diferenciaisExtras: [],
         },
   })
 
@@ -271,8 +270,7 @@ function CadastroImovelForm({
       churrasqueira: dados.churrasqueira,
       aceitaPet: dados.aceitaPet,
       nomeCondominio: dados.nomeCondominio || undefined,
-      // sempre lista (o banco exige não-nulo); vazia = app usa a foto padrão do tipo
-      fotos: dados.fotos ?? [],
+      diferenciaisExtras: dados.diferenciaisExtras ?? [],
     }
 
     if (editando && imovelExistente) {
@@ -475,6 +473,17 @@ function CadastroImovelForm({
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
+              <Label>Outros diferenciais (opcional)</Label>
+              <DiferenciaisExtras
+                itens={valores.diferenciaisExtras ?? []}
+                onChange={(itens) => setValue('diferenciaisExtras', itens)}
+              />
+              <p className="text-xs text-text-soft">
+                Ficam visíveis no card do imóvel. Não entram no cálculo de match — cada corretor
+                usa os próprios termos.
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="nomeCondominio">Nome do condomínio (opcional)</Label>
               <Input id="nomeCondominio" {...form.register('nomeCondominio')} />
             </div>
@@ -482,18 +491,6 @@ function CadastroImovelForm({
         )}
 
         {passo === 4 && (
-          <>
-            <div className="flex flex-col gap-1.5">
-              <Label>Fotos (opcional)</Label>
-              <UploaderFotos
-                fotos={valores.fotos ?? []}
-                onChange={(fotos) => setValue('fotos', fotos)}
-              />
-            </div>
-          </>
-        )}
-
-        {passo === 5 && (
           <>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="valorEstimado">Valor estimado (opcional nesta etapa)</Label>

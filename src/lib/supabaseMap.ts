@@ -25,7 +25,7 @@ const IMOVEL_CAMPOS: Record<keyof Omit<Imovel, 'id'>, string> = {
   linkAnuncioUrl: 'link_anuncio_url',
   linkQuebrado: 'link_quebrado',
   nomeCondominio: 'nome_condominio',
-  fotos: 'fotos',
+  diferenciaisExtras: 'diferenciais_extras',
   valorEstimado: 'valor_estimado',
   valorAnuncio: 'valor_anuncio',
   valorVenda: 'valor_venda',
@@ -132,10 +132,28 @@ function paraDominio<T>(row: Row, campos: Record<string, string>, manterNull: Se
   return out as T
 }
 
+/**
+ * Colunas NOT NULL com default no banco. Escrever null nelas quebra o insert
+ * (foi a causa do "Concluir cadastro" mudo no cadastro de cliente): quando o
+ * valor não vem, a chave é omitida e o default do banco assume.
+ */
+const COLUNAS_NAO_NULAS = new Set([
+  'diferenciais_extras',
+  'visitas_agendadas',
+  'negociacoes_ativas',
+  'pendente_aprovacao_imoveis',
+  'em_negociacao_flag',
+  'bairros',
+  'tipos',
+])
+
 function paraRow(patch: Row, campos: Record<string, string>): Row {
   const out: Row = {}
   for (const [campoApp, coluna] of Object.entries(campos)) {
-    if (campoApp in patch) out[coluna] = patch[campoApp] === undefined ? null : patch[campoApp]
+    if (!(campoApp in patch)) continue
+    const valor = patch[campoApp]
+    if (valor == null && COLUNAS_NAO_NULAS.has(coluna)) continue
+    out[coluna] = valor === undefined ? null : valor
   }
   return out
 }
@@ -143,10 +161,7 @@ function paraRow(patch: Row, campos: Record<string, string>): Row {
 // ---------- Imóvel ----------
 
 export function imovelParaDominio(row: Row): Imovel {
-  const imovel = paraDominio<Imovel>(row, IMOVEL_CAMPOS)
-  // banco tem default '{}'; array vazio vira undefined para o app usar a foto padrão
-  if (Array.isArray(imovel.fotos) && imovel.fotos.length === 0) delete imovel.fotos
-  return imovel
+  return paraDominio<Imovel>(row, IMOVEL_CAMPOS)
 }
 
 export function imovelParaRow(patch: Partial<Imovel>): Row {

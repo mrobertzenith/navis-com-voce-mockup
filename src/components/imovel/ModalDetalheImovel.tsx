@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Copy, MessageCircle, Pencil } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ChipTipoImovel } from '@/components/imovel/ChipTipoImovel'
-import { CarouselFotos } from '@/components/imovel/CarouselFotos'
 import {
   Dialog,
   DialogContent,
@@ -16,7 +15,6 @@ import { useToast } from '@/components/ui/use-toast'
 import type { Imovel, Lead } from '@/domain/types'
 import { formatM2, formatPreco } from '@/lib/format'
 import { CORRETORES, CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
-import { fotoPadrao } from '@/mocks/data/fotosImoveis'
 
 interface ModalDetalheImovelProps {
   imovel: Imovel | null
@@ -80,8 +78,6 @@ export function ModalDetalheImovel({ imovel, meusLeads, onClose }: ModalDetalheI
         </DialogHeader>
 
         <div className="flex flex-col gap-3">
-          <CarouselFotos fotos={imovel.fotos ?? [fotoPadrao(imovel.tipo)]} />
-
           <ChipTipoImovel tipo={imovel.tipo} />
 
           <p className="font-mono text-xl font-semibold text-ink">
@@ -98,6 +94,19 @@ export function ModalDetalheImovel({ imovel, meusLeads, onClose }: ModalDetalheI
 
           {diferenciais.length > 0 && (
             <p className="text-sm text-text-mut">Diferenciais: {diferenciais.join(', ')}</p>
+          )}
+
+          {(imovel.diferenciaisExtras?.length ?? 0) > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {imovel.diferenciaisExtras!.map((d) => (
+                <span
+                  key={d}
+                  className="rounded-chip border border-border bg-bg px-2 py-0.5 text-xs text-text-mut"
+                >
+                  {d}
+                </span>
+              ))}
+            </div>
           )}
 
           {imovel.nomeCondominio && (
