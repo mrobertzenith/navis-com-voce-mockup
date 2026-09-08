@@ -16,6 +16,7 @@ import { ETAPA_LEAD_LABEL } from '@/domain/constants'
 import { calcularMatch } from '@/domain/matching'
 import type { EtapaLead, Lead } from '@/domain/types'
 import { useImoveis } from '@/hooks/useImoveis'
+import { useLeads } from '@/hooks/useLeads'
 import { CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 import { useScoreStore } from '@/stores/scoreStore'
 
@@ -40,19 +41,45 @@ export function ModalGateCliente({
   const [checks, setChecks] = useState<Record<string, boolean>>({})
   const [visitasSelecionadas, setVisitasSelecionadas] = useState<Record<string, string>>({})
   const [enderecoForaDaBase, setEnderecoForaDaBase] = useState('')
+  // corretor de fora da plataforma responsável pelo imóvel fora da base —
+  // alimenta a lista de corretores ainda não participantes a abordar
+  const [corretorExternoNome, setCorretorExternoNome] = useState('')
+  const [corretorExternoContato, setCorretorExternoContato] = useState('')
   const [imoveisNegociacao, setImoveisNegociacao] = useState<string[]>([])
   const { data: imoveis = [] } = useImoveis()
+  const { data: todosLeads = [] } = useLeads()
   const pesos = useScoreStore((s) => s.pesos)
-  const meusImoveis = imoveis.filter((i) => i.corretorResponsavelId === CORRETOR_LOGADO_ID)
-  const imoveisCompativeis = lead
-    ? meusImoveis.filter((i) => calcularMatch(i, lead, pesos) != null)
-    : []
+  /**
+   * Um imóvel pode estar em match com vários clientes (fica "no radar"), mas
+   * só pode estar em UMA negociação ativa por vez. Se outro cliente já tem
+   * esse imóvel em negociacoesAtivas, ele não pode ser escolhido pra visita
+   * nem pra negociação deste cliente — precisa voltar a "Publicado" primeiro.
+   */
+  const imoveisComprometidosComOutroCliente = new Set(
+    todosLeads
+      .filter((l) => l.id !== lead?.id)
+      .flatMap((l) => (l.negociacoesAtivas ?? []).map((n) => n.imovelId)),
+  )
   /** negociação pode envolver imóveis de outros corretores, sujeitos à aprovação deles */
   const imoveisNegociacaoCompativeis = lead
-    ? imoveis.filter((i) => calcularMatch(i, lead, pesos) != null)
+    ? imoveis.filter(
+        (i) =>
+          i.etapa !== 'f' &&
+          calcularMatch(i, lead, pesos) != null &&
+          !imoveisComprometidosComOutroCliente.has(i.id),
+      )
     : []
   /** visita pode ser marcada em qualquer imóvel do match, mesmo de outro corretor */
   const imoveisVisitaCompativeis = imoveisNegociacaoCompativeis
+  /**
+   * "Imóvel do negócio" (Negócio Fechado) precisa ser um dos imóveis que JÁ
+   * está em negociação ativa com este cliente — não um recálculo de match
+   * restrito aos meus imóveis. Antes disso, fechar negócio com imóvel de
+   * outro corretor deixava o campo sempre vazio e travava o Confirmar.
+   */
+  const imoveisDaNegociacaoAtiva = lead
+    ? imoveis.filter((i) => (lead.negociacoesAtivas ?? []).some((n) => n.imovelId === i.id))
+    : []
 
   if (!lead || !destino) return null
 
@@ -64,7 +91,10 @@ export function ModalGateCliente({
       return (
         entradas.length > 0 &&
         entradas.every(
-          ([id, data]) => data.trim() && (id !== 'fora-da-base' || enderecoForaDaBase.trim()),
+          ([id, data]) =>
+            data.trim() &&
+            (id !== 'fora-da-base' ||
+              (enderecoForaDaBase.trim() && corretorExternoNome.trim() && corretorExternoContato.trim())),
         )
       )
     }
@@ -78,7 +108,13 @@ export function ModalGateCliente({
     if (Object.keys(visitasSelecionadas).length > 0) {
       patch.visitasAgendadas = Object.entries(visitasSelecionadas).map(([id, data]) =>
         id === 'fora-da-base'
-          ? { imovelId: '', data, enderecoLivre: enderecoForaDaBase.trim() }
+          ? {
+              imovelId: '',
+              data,
+              enderecoLivre: enderecoForaDaBase.trim(),
+              corretorExternoNome: corretorExternoNome.trim(),
+              corretorExternoContato: corretorExternoContato.trim(),
+            }
           : { imovelId: id, data },
       )
     }
@@ -94,6 +130,8 @@ export function ModalGateCliente({
     setChecks({})
     setVisitasSelecionadas({})
     setEnderecoForaDaBase('')
+    setCorretorExternoNome('')
+    setCorretorExternoContato('')
     setImoveisNegociacao([])
   }
 
@@ -159,22 +197,26 @@ export function ModalGateCliente({
                     <Select
                       value={valores[campo] ?? ''}
                       onValueChange={(v) => setValores((val) => ({ ...val, [campo]: v }))}
-                      disabled={imoveisCompativeis.length === 0}
+                      disabled={imoveisDaNegociacaoAtiva.length === 0}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione o imóvel" />
                       </SelectTrigger>
                       <SelectContent>
-                        {imoveisCompativeis.map((i) => (
+                        {imoveisDaNegociacaoAtiva.map((i) => (
                           <SelectItem key={i.id} value={i.id}>
                             {i.enderecoRua}, {i.enderecoNumero} · {i.bairro}
+                            {i.corretorResponsavelId !== CORRETOR_LOGADO_ID
+                              ? ` — imóvel de ${nomeCorretor(i.corretorResponsavelId)}`
+                              : ''}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {imoveisCompativeis.length === 0 && (
+                    {imoveisDaNegociacaoAtiva.length === 0 && (
                       <p className="text-xs text-text-soft">
-                        Nenhum dos seus imóveis tem perfil compatível com este cliente no momento.
+                        Este cliente não tem nenhum imóvel em negociação ativa no momento — volte para
+                        "Em negociação" e vincule um imóvel antes de fechar o negócio.
                       </p>
                     )}
                   </>
@@ -274,21 +316,38 @@ export function ModalGateCliente({
                         Imóvel fora da base
                       </label>
                       {'fora-da-base' in visitasSelecionadas && (
-                        <div className="flex flex-col gap-2 rounded-card border border-border p-3 sm:flex-row sm:items-center">
-                          <Input
-                            placeholder="Endereço do imóvel"
-                            value={enderecoForaDaBase}
-                            onChange={(e) => setEnderecoForaDaBase(e.target.value)}
-                            className="flex-1"
-                          />
-                          <Input
-                            type="date"
-                            value={visitasSelecionadas['fora-da-base']}
-                            onChange={(e) =>
-                              setVisitasSelecionadas((atual) => ({ ...atual, 'fora-da-base': e.target.value }))
-                            }
-                            className="sm:w-44"
-                          />
+                        <div className="flex flex-col gap-2 rounded-card border border-border p-3">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <Input
+                              placeholder="Endereço do imóvel"
+                              value={enderecoForaDaBase}
+                              onChange={(e) => setEnderecoForaDaBase(e.target.value)}
+                              className="flex-1"
+                            />
+                            <Input
+                              type="date"
+                              value={visitasSelecionadas['fora-da-base']}
+                              onChange={(e) =>
+                                setVisitasSelecionadas((atual) => ({ ...atual, 'fora-da-base': e.target.value }))
+                              }
+                              className="sm:w-44"
+                            />
+                          </div>
+                          {/* corretor de fora da plataforma — alimenta a lista de quem abordar depois */}
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                            <Input
+                              placeholder="Nome do corretor (externo)"
+                              value={corretorExternoNome}
+                              onChange={(e) => setCorretorExternoNome(e.target.value)}
+                              className="flex-1"
+                            />
+                            <Input
+                              placeholder="WhatsApp/contato do corretor"
+                              value={corretorExternoContato}
+                              onChange={(e) => setCorretorExternoContato(e.target.value)}
+                              className="flex-1"
+                            />
+                          </div>
                         </div>
                       )}
                     </div>

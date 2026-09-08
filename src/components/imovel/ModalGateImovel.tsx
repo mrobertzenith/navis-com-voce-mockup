@@ -39,7 +39,15 @@ export function ModalGateImovel({
   const [valores, setValores] = useState<Record<string, string>>({})
   const { data: leads = [] } = useLeads()
   const pesos = useScoreStore((s) => s.pesos)
-  const leadsCompativeis = imovel ? leads.filter((l) => calcularMatch(imovel, l, pesos) != null) : []
+  // "Vendido" precisa do cliente COM QUEM o negócio já está em andamento, não
+  // um recálculo de match — sem isso, vender não deixava manifestação nenhuma
+  // no card do cliente (rodada 03)
+  const leadsCompativeis =
+    imovel && destino === 'f'
+      ? leads.filter((l) => l.negociacoesAtivas?.some((n) => n.imovelId === imovel.id))
+      : imovel
+        ? leads.filter((l) => calcularMatch(imovel, l, pesos) != null)
+        : []
 
   if (!imovel || !destino) return null
 
@@ -96,7 +104,9 @@ export function ModalGateImovel({
                   </Select>
                   {leadsCompativeis.length === 0 && (
                     <p className="text-xs text-text-soft">
-                      Nenhum cliente (seu ou de outro corretor) tem perfil compatível com este imóvel no momento.
+                      {destino === 'f'
+                        ? 'Nenhum cliente está com este imóvel em negociação ativa no momento — volte para "Em negociação" e vincule um cliente antes de marcar como vendido.'
+                        : 'Nenhum cliente (seu ou de outro corretor) tem perfil compatível com este imóvel no momento.'}
                     </p>
                   )}
                 </>

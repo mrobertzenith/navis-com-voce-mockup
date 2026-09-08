@@ -249,6 +249,68 @@ export function MeusClientesPage() {
       return
     }
 
+    // Fechou negócio: o imóvel precisa ir junto pra "Vendido", senão o card do
+    // imóvel nunca sabe que foi vendido. Desfaz também a negociação dos DEMAIS
+    // clientes que tinham esse imóvel no radar — vendido, ele sai de circulação.
+    if (destino === 5 && patchFinal.imovelFechadoId) {
+      const imovel = imoveis.find((i) => i.id === patchFinal.imovelFechadoId)
+      const outrosVinculados = leads.filter(
+        (l) => l.id !== lead.id && l.negociacoesAtivas?.some((n) => n.imovelId === patchFinal.imovelFechadoId),
+      )
+
+      atualizarLead.mutate(
+        { id: lead.id, patch: patchFinal },
+        {
+          onSuccess: () => {
+            if (imovel && imovel.etapa !== 'f') {
+              atualizarImovel.mutate({
+                id: imovel.id,
+                patch: { etapa: 'f', valorVenda: patchFinal.valorNegociado, dataVenda: new Date().toISOString() },
+              })
+            }
+            outrosVinculados.forEach((outro) => {
+              const negociacoesRestantes = (outro.negociacoesAtivas ?? []).filter(
+                (n) => n.imovelId !== patchFinal.imovelFechadoId,
+              )
+              atualizarLead.mutate({
+                id: outro.id,
+                patch: {
+                  negociacoesAtivas: negociacoesRestantes,
+                  ...(negociacoesRestantes.length === 0 && outro.etapa === 4 ? { etapa: 3 } : {}),
+                },
+              })
+            })
+            toast({ title: 'Cliente e imóvel movidos', description: 'Negócio fechado — imóvel agora "Vendido".' })
+          },
+        },
+      )
+      setPending(null)
+      return
+    }
+
+    // Reversão de Negócio Fechado pra Em Negociação: o imóvel volta junto pra
+    // "Em negociação" (não fica "Vendido" órfão) — sem isso, tentar corrigir o
+    // imóvel manualmente só dava pra voltar até "Publicado", perdendo o cliente.
+    if (origem === 5 && destino === 4) {
+      const imovel = lead.imovelFechadoId ? imoveis.find((i) => i.id === lead.imovelFechadoId) : undefined
+      patchFinal.imovelFechadoId = undefined
+      patchFinal.valorNegociado = undefined
+
+      atualizarLead.mutate(
+        { id: lead.id, patch: patchFinal },
+        {
+          onSuccess: () => {
+            if (imovel && imovel.etapa === 'f') {
+              atualizarImovel.mutate({ id: imovel.id, patch: { etapa: 'e', emNegociacaoFlag: true } })
+            }
+            toast({ title: 'Cliente movido', description: 'Agora em "Em negociação". O imóvel voltou junto.' })
+          },
+        },
+      )
+      setPending(null)
+      return
+    }
+
     atualizarLead.mutate(
       { id: lead.id, patch: patchFinal },
       {

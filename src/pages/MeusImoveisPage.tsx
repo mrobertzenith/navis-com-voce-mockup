@@ -173,6 +173,83 @@ export function MeusImoveisPage() {
       return
     }
 
+    // Vendido: precisa saber pra quem, senão o card do cliente nunca sabe que o
+    // imóvel dele foi vendido. Move o cliente escolhido pra "Negócio Fechado" e
+    // desfaz a negociação dos DEMAIS clientes que tinham esse imóvel no radar —
+    // um imóvel vendido não pode continuar "em negociação" com mais ninguém.
+    if (destino === 'f' && leadNegociacaoId) {
+      const leadComprador = leads.find((l) => l.id === leadNegociacaoId)
+      const outrosVinculados = leads.filter(
+        (l) => l.id !== leadNegociacaoId && l.negociacoesAtivas?.some((n) => n.imovelId === imovel.id),
+      )
+
+      atualizarImovel.mutate(
+        { id: imovel.id, patch: patchFinal },
+        {
+          onSuccess: () => {
+            if (leadComprador) {
+              atualizarLead.mutate({
+                id: leadComprador.id,
+                patch: {
+                  etapa: 5,
+                  imovelFechadoId: imovel.id,
+                  valorNegociado: patchFinal.valorVenda,
+                },
+              })
+            }
+            outrosVinculados.forEach((lead) => {
+              const negociacoesRestantes = (lead.negociacoesAtivas ?? []).filter((n) => n.imovelId !== imovel.id)
+              atualizarLead.mutate({
+                id: lead.id,
+                patch: {
+                  negociacoesAtivas: negociacoesRestantes,
+                  ...(negociacoesRestantes.length === 0 && lead.etapa === 4 ? { etapa: 3 } : {}),
+                },
+              })
+            })
+            toast({
+              title: 'Imóvel vendido',
+              description: leadComprador
+                ? `Cliente "${leadComprador.codigo}" movido para "Negócio Fechado".`
+                : 'Imóvel movido para "Vendido".',
+            })
+          },
+        },
+      )
+      setPending(null)
+      return
+    }
+
+    // Reversão de Vendido pra Em Negociação: a venda caiu, mas o cliente ainda
+    // está negociando — devolve o(s) cliente(s) que tinham fechado com este
+    // imóvel de volta pra "Em negociação", sem perder o vínculo.
+    if (origem === 'f' && destino === 'e') {
+      const leadsQueFecharam = leads.filter((l) => l.imovelFechadoId === imovel.id && (l.etapa === 5 || l.etapa === 6))
+
+      atualizarImovel.mutate(
+        { id: imovel.id, patch: patchFinal },
+        {
+          onSuccess: () => {
+            leadsQueFecharam.forEach((lead) => {
+              atualizarLead.mutate({
+                id: lead.id,
+                patch: { etapa: 4, imovelFechadoId: undefined, valorNegociado: undefined },
+              })
+            })
+            toast({
+              title: 'Imóvel movido',
+              description:
+                leadsQueFecharam.length > 0
+                  ? 'Agora em "Em negociação". O(s) cliente(s) vinculado(s) voltou(aram) junto.'
+                  : 'Agora em "Em negociação".',
+            })
+          },
+        },
+      )
+      setPending(null)
+      return
+    }
+
     if (destino === 'e' && leadNegociacaoId) {
       const lead = leads.find((l) => l.id === leadNegociacaoId)
       const mesmoCorretor = lead?.corretorResponsavelId === CORRETOR_LOGADO_ID

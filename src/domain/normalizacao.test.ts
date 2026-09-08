@@ -32,6 +32,14 @@ describe('normalizarLocal — variações do mesmo bairro', () => {
     expect(mesmoLocal('Sta. Cruz', 'Santa Cruz')).toBe(true)
   })
 
+  // achado na rodada 03: "RESIDENCIAL ALTO DO CASTELO" (cadastro do imóvel) x
+  // "ALTO DO CASTELO" (perfil do cliente, sem "residencial") não batiam
+  it('reconhece o mesmo bairro com e sem o qualificador genérico (residencial, jardim, vila…)', () => {
+    expect(mesmoLocal('Residencial Alto do Castelo', 'Alto do Castelo')).toBe(true)
+    expect(mesmoLocal('Jardim Botânico', 'Botânico')).toBe(true)
+    expect(mesmoLocal('Vila Seixas', 'Seixas')).toBe(true)
+  })
+
   it('não confunde bairros diferentes', () => {
     expect(mesmoLocal('Jardim Botânico', 'Jardim Paulista')).toBe(false)
     expect(mesmoLocal('Centro', 'Centro Norte')).toBe(false)

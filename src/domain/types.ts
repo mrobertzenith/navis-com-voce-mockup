@@ -177,8 +177,16 @@ export interface Lead {
   dataCadastro: string
   ttlAtual?: string
   /** pode haver mais de uma visita agendada, cada uma com seu próprio imóvel e data.
-   * `imovelId` fica vazio quando é um imóvel fora da base — nesse caso `enderecoLivre` descreve o imóvel. */
-  visitasAgendadas?: { imovelId: string; data: string; enderecoLivre?: string }[]
+   * `imovelId` fica vazio quando é um imóvel fora da base — nesse caso `enderecoLivre`
+   * descreve o imóvel e `corretorExternoNome`/`corretorExternoContato` identificam o
+   * corretor de fora da plataforma (alimenta a lista de corretores a abordar). */
+  visitasAgendadas?: {
+    imovelId: string
+    data: string
+    enderecoLivre?: string
+    corretorExternoNome?: string
+    corretorExternoContato?: string
+  }[]
   /** ids de imóveis vinculados ao entrar em negociação, separados por vírgula (campo transiente do gate) */
   imovelNegociacaoId?: string
   motivoStandby?: string

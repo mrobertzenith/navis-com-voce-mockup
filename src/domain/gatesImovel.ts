@@ -18,7 +18,7 @@ interface PatchGateImovel extends Partial<Imovel> {
 }
 
 interface ResultadoTransicao {
-  tipo: 'avanco' | 'reversao_e_d' | 'reversao_f_d' | 'invalida'
+  tipo: 'avanco' | 'reversao_e_d' | 'reversao_f_d' | 'reversao_f_e' | 'invalida'
   /** campos de dado faltantes que bloqueiam o avanço (pedidos via modal) */
   camposFaltantes: CampoGateImovel[]
   /** true quando a transição exige apenas uma confirmação (sem dado extra) */
@@ -44,6 +44,12 @@ export function avaliarTransicaoImovel(
   if (origem === 'f' && destino === 'd') {
     return { tipo: 'reversao_f_d', camposFaltantes: [], requerConfirmacao: true }
   }
+  // vendido pode voltar direto pra negociação (venda desfeita, mas o cliente
+  // ainda negociando) — sem isso, só dava pra voltar até "Publicado", perdendo
+  // o vínculo com o cliente mesmo quando a negociação continuava de pé
+  if (origem === 'f' && destino === 'e') {
+    return { tipo: 'reversao_f_e', camposFaltantes: [], requerConfirmacao: true }
+  }
 
   if (idxDestino !== idxOrigem + 1) {
     return { tipo: 'invalida', camposFaltantes: [], requerConfirmacao: false }
@@ -59,7 +65,12 @@ export function avaliarTransicaoImovel(
     if (!temMetragem(efetivo)) faltantes.push('metragem')
   }
   if (destino === 'e' && !efetivo.leadNegociacaoId) faltantes.push('leadNegociacaoId')
-  if (destino === 'f' && efetivo.valorVenda == null) faltantes.push('valorVenda')
+  if (destino === 'f') {
+    if (efetivo.valorVenda == null) faltantes.push('valorVenda')
+    // a venda precisa estar amarrada a um cliente — sem isso o card do
+    // cliente nunca sabia que o imóvel dele tinha sido vendido
+    if (!efetivo.leadNegociacaoId) faltantes.push('leadNegociacaoId')
+  }
 
   const requerConfirmacao = destino === 'e' || destino === 'f'
 

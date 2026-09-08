@@ -118,20 +118,31 @@ describe('avaliarTransicaoImovel', () => {
     })
   })
 
-  describe('etapa f — Vendido: exige valor de venda', () => {
-    it('bloqueia sem valorVenda', () => {
+  describe('etapa f — Vendido: exige valor de venda E o cliente da venda', () => {
+    it('lista os dois campos quando ambos faltam', () => {
       const r = avaliarTransicaoImovel(imovelBase({ etapa: 'e' }), 'f')
-      expect(r.camposFaltantes).toEqual(['valorVenda'])
+      expect(r.camposFaltantes).toEqual(['valorVenda', 'leadNegociacaoId'])
       expect(r.requerConfirmacao).toBe(true)
     })
 
-    it('libera com valorVenda preenchido', () => {
+    // regressão da rodada 03: vender sem escolher o cliente não gerava
+    // nenhuma manifestação no card do cliente — a venda ficava "solta"
+    it('bloqueia sem leadNegociacaoId mesmo com valorVenda preenchido', () => {
       const r = avaliarTransicaoImovel(imovelBase({ etapa: 'e', valorVenda: 480000 }), 'f')
+      expect(r.camposFaltantes).toEqual(['leadNegociacaoId'])
+    })
+
+    it('libera com os dois campos preenchidos', () => {
+      const r = avaliarTransicaoImovel(
+        imovelBase({ etapa: 'e', valorVenda: 480000 }),
+        'f',
+        { leadNegociacaoId: 'lead-1' },
+      )
       expect(r.camposFaltantes).toEqual([])
     })
   })
 
-  describe('reversões especiais — voltar de negociação ou de vendido para Publicado', () => {
+  describe('reversões especiais — voltar de negociação, ou de vendido para negociação/Publicado', () => {
     it('e → d é reversão explícita, sem campo faltante, com confirmação', () => {
       const r = avaliarTransicaoImovel(imovelBase({ etapa: 'e' }), 'd')
       expect(r.tipo).toBe('reversao_e_d')
@@ -143,6 +154,16 @@ describe('avaliarTransicaoImovel', () => {
       const r = avaliarTransicaoImovel(imovelBase({ etapa: 'f' }), 'd')
       expect(r.tipo).toBe('reversao_f_d')
       expect(r.requerConfirmacao).toBe(true)
+    })
+
+    // regressão da rodada 03: só dava pra voltar de Vendido até Publicado,
+    // perdendo o vínculo mesmo quando o cliente só tinha voltado um passo
+    // (de Negócio Fechado pra Em Negociação)
+    it('f → e é reversão explícita, sem campo faltante, com confirmação', () => {
+      const r = avaliarTransicaoImovel(imovelBase({ etapa: 'f' }), 'e')
+      expect(r.tipo).toBe('reversao_f_e')
+      expect(r.requerConfirmacao).toBe(true)
+      expect(r.camposFaltantes).toEqual([])
     })
   })
 })

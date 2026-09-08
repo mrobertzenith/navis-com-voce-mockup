@@ -40,6 +40,29 @@ const ABREVIACOES: Record<string, string> = {
 const LIGACOES = new Set(['de', 'da', 'do', 'das', 'dos', 'e'])
 
 /**
+ * Qualificadores genéricos de loteamento/bairro — na prática, quem digita o
+ * endereço às vezes inclui, às vezes omite ("Residencial Alto do Castelo" no
+ * cadastro do imóvel vs. "Alto do Castelo" no perfil do cliente). Tratados
+ * como palavra de ligação: contam pra reconhecer nomes existentes, mas não
+ * distinguem um lugar do outro sozinhos.
+ * Deliberadamente NÃO entram aqui qualificadores que fazem parte de um nome
+ * próprio (santo, santa, presidente…) — "Santo Antônio" não pode virar
+ * equivalente de qualquer outro "Antônio".
+ */
+const QUALIFICADORES_GENERICOS = new Set([
+  'jardim',
+  'vila',
+  'parque',
+  'residencial',
+  'conjunto',
+  'condominio',
+  'chacara',
+  'distrito',
+  'nucleo',
+  'loteamento',
+])
+
+/**
  * Reduz um nome de bairro/cidade à sua forma comparável: sem acentos, sem
  * pontuação, com abreviações expandidas e sem palavras de ligação.
  *
@@ -72,7 +95,9 @@ export function normalizarLocal(valor: string): string {
     }
   }
 
-  const palavras = unidas.map((p) => ABREVIACOES[p] ?? p).filter((p) => !LIGACOES.has(p))
+  const palavras = unidas
+    .map((p) => ABREVIACOES[p] ?? p)
+    .filter((p) => !LIGACOES.has(p) && !QUALIFICADORES_GENERICOS.has(p))
 
   return palavras.sort().join(' ')
 }
