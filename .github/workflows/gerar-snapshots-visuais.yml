@@ -1,0 +1,39 @@
+name: Gerar snapshots visuais (Linux)
+
+# Roda só por acionamento manual. Gera as referências dos testes @visual
+# (e2e/visual-*.spec.ts) a partir do próprio runner Linux do GitHub Actions —
+# as que existem hoje no repo foram geradas num Mac, e o gate de CI roda em
+# Linux, então a comparação de pixel entre plataformas dá falso positivo.
+# Uso: rodar este workflow manualmente, baixar o artefato "snapshots-visuais"
+# e substituir o conteúdo de e2e/**/*-snapshots por ele (os arquivos vêm com
+# sufixo -linux, coexistem com os -darwin já commitados — o Playwright escolhe
+# o certo pela plataforma de quem roda). Ver ESTRATEGIA_QA.md §5.4/§4 (P3).
+on:
+  workflow_dispatch:
+
+jobs:
+  gerar:
+    name: Gerar referências @visual no Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Instalar navegador do Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Gerar as referências (modo mock, sem segredo nenhum)
+        run: npx playwright test --grep "@visual" --update-snapshots
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: snapshots-visuais
+          path: e2e/**/*-snapshots/**
+          retention-days: 30

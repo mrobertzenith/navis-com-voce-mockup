@@ -8,22 +8,14 @@
  * dados criados pela interface têm UUID aleatório do banco → sobrevivem.
  */
 import { createHash } from 'node:crypto'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 import { IMOVEIS_SEED } from '../src/mocks/data/imoveis'
 import { LEADS_SEED } from '../src/mocks/data/clientes'
 import { CORRETORES, CORRETOR_LOGADO_ID } from '../src/mocks/data/corretores'
+import { env as lerEnvLocal } from './lib/env'
 
 const EXECUTAR = process.argv.includes('--executar')
-
-function lerEnvLocal(): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const linha of readFileSync('.env.local', 'utf8').split('\n')) {
-    const m = linha.match(/^\s*([A-Z_]+)\s*=\s*(.+?)\s*$/)
-    if (m) out[m[1]] = m[2]
-  }
-  return out
-}
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 function uuidDeterministico(nome: string): string {
@@ -43,8 +35,8 @@ async function main() {
   const env = lerEnvLocal()
   const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_ANON_KEY)
   const { error: erroLogin } = await supabase.auth.signInWithPassword({
-    email: 'ana.silva@exemplo.com',
-    password: 'NavisDemo2026x',
+    email: env.ADMIN_EMAIL ?? 'ana.silva@exemplo.com',
+    password: env.ADMIN_SENHA ?? 'NavisDemo2026x',
   })
   if (erroLogin) throw new Error('Login admin falhou: ' + erroLogin.message)
 

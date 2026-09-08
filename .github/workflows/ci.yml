@@ -56,3 +56,36 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 14
+
+  fluxos-banco-real:
+    name: Fluxos contra o banco real (produção — dados marcados e autolimpos)
+    runs-on: ubuntu-latest
+    # só em push (nunca em pull_request): estes dois scripts escrevem e apagam
+    # dados de verdade no Supabase de produção com uma conta admin real — não
+    # devem rodar contra código de PR ainda não revisado. Ver ESTRATEGIA_QA.md
+    # §2 camada 5 e §5.3/§5.4 pra contexto de por que essas suítes existem.
+    if: github.event_name == 'push'
+    needs: verificacao
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+      ADMIN_SENHA: ${{ secrets.ADMIN_SENHA }}
+      TESTE_FLUXO_CORRETOR_B_EMAIL: ${{ secrets.TESTE_FLUXO_CORRETOR_B_EMAIL }}
+      TESTE_FLUXO_CORRETOR_B_SENHA: ${{ secrets.TESTE_FLUXO_CORRETOR_B_SENHA }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Fluxo de fumaça (uma sessão, CRUD real, autolimpo)
+        run: npm run test:fluxos
+
+      - name: Fluxo cross-corretor (duas sessões reais simultâneas, autolimpo)
+        run: npm run test:fluxos-cross

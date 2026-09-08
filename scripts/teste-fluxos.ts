@@ -6,21 +6,12 @@
  * é assim que se pega a família de bug "app manda algo que o banco recusa".
  * Cria tudo com um marcador e apaga no fim; dados reais não são tocados.
  */
-import { readFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 import { imovelParaRow, leadParaRow, perfilParaRow } from '../src/lib/supabaseMap'
 import type { Imovel, Lead, PerfilBusca } from '../src/domain/types'
+import { env } from './lib/env'
 
 const MARCADOR = 'ZZTESTE-FLUXO'
-
-function env(): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const linha of readFileSync('.env.local', 'utf8').split('\n')) {
-    const m = linha.match(/^\s*([A-Z_]+)\s*=\s*(.+?)\s*$/)
-    if (m) out[m[1]] = m[2]
-  }
-  return out
-}
 
 const e = env()
 const supabase = createClient(e.VITE_SUPABASE_URL, e.VITE_SUPABASE_ANON_KEY)
@@ -50,8 +41,8 @@ async function main() {
   console.log('\n=== TESTE DE FLUXOS — NAVIS COM VOCÊ ===\n')
 
   const { data: sessao, error: erroLogin } = await supabase.auth.signInWithPassword({
-    email: 'ana.silva@exemplo.com',
-    password: 'NavisDemo2026x',
+    email: e.ADMIN_EMAIL ?? 'ana.silva@exemplo.com',
+    password: e.ADMIN_SENHA ?? 'NavisDemo2026x',
   })
   if (erroLogin) throw new Error('login falhou: ' + erroLogin.message)
   const { data: eu } = await supabase

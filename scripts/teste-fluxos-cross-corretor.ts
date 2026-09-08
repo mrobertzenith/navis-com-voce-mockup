@@ -15,21 +15,12 @@
  * conta já fez login — por isso não é recriada/apagada a cada rodada; ver
  * comentário em .env.local). Não é dado de corretor real da equipe.
  */
-import { readFileSync } from 'node:fs'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { imovelParaRow, leadParaRow } from '../src/lib/supabaseMap'
 import type { Imovel } from '../src/domain/types'
+import { env } from './lib/env'
 
 const MARCADOR = 'ZZTESTE-CROSS'
-
-function env(): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const linha of readFileSync('.env.local', 'utf8').split('\n')) {
-    const m = linha.match(/^\s*([A-Z_]+)\s*=\s*(.+?)\s*$/)
-    if (m) out[m[1]] = m[2]
-  }
-  return out
-}
 
 const e = env()
 
@@ -72,7 +63,7 @@ async function main() {
     )
   }
 
-  const a = await login('ana.silva@exemplo.com', 'NavisDemo2026x')
+  const a = await login(e.ADMIN_EMAIL ?? 'ana.silva@exemplo.com', e.ADMIN_SENHA ?? 'NavisDemo2026x')
   const b = await login(e.TESTE_FLUXO_CORRETOR_B_EMAIL, e.TESTE_FLUXO_CORRETOR_B_SENHA)
   console.log(`Corretor A (admin): ${a.corretorId}`)
   console.log(`Corretor B (comum): ${b.corretorId}\n`)
