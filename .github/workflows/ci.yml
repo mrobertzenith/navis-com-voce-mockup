@@ -39,16 +39,13 @@ jobs:
       - name: Instalar navegador do Playwright
         run: npx playwright install --with-deps chromium
 
-      - name: Testes E2E funcionais (Playwright, modo mock — sem segredo nenhum)
-        # @visual fica de fora aqui de propósito: os PNGs de referência em
-        # e2e/**/*-snapshots foram gerados no macOS local, e o runner do
-        # GitHub Actions é Linux — a comparação de pixels falharia por
-        # plataforma diferente, não por regressão de verdade. Rodar os
-        # testes visuais em CI exige gerar as referências a partir do
-        # próprio runner (ou de um container Linux equivalente) primeiro;
-        # ver ESTRATEGIA_QA.md §5.4. Localmente, rode `npm run test:e2e`
-        # (sem --grep-invert) pra cobrir os visuais também.
-        run: npx playwright test --grep-invert "@visual"
+      - name: Testes E2E (Playwright, modo mock — sem segredo nenhum)
+        # inclui os @visual: as referências em e2e/**/*-snapshots têm uma
+        # cópia gerada no próprio runner Linux do GitHub Actions (sufixo
+        # -linux, via .github/workflows/gerar-snapshots-visuais.yml), além
+        # da cópia -darwin usada em desenvolvimento local no Mac — o
+        # Playwright escolhe a certa pela plataforma sozinho.
+        run: npx playwright test
 
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}

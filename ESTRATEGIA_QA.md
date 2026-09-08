@@ -265,9 +265,15 @@ prática nesta sessão mas precisa sobreviver a quem não tem esse contexto:
 | P1 | Testes de hook para o payload das notificações e vínculos (contrato, não só "funciona") | baixo–médio | §1.2 — classe de bug do destinatário errado | ✅ feito |
 | P1 | Suíte de dois corretores simultâneos (extensão de `teste-fluxos.ts`) | médio | §1.3 — única forma de fechar de vez a dúvida do bug #4 e prevenir a próxima | ✅ feito (13 testes, `test:fluxos-cross`) |
 | P2 | Playwright: fluxos críticos + snapshot visual em 2 viewports | médio–alto | §1.2 + camada visual, hoje 100% manual | ✅ feito — e achou um bug ao vivo (ver §5.4) |
-| P2 | Revisão formal de Sentry/Analytics (DSN em prod, cadência de revisão) | baixo | §1.5 | pendente |
-| P3 | Mover `teste-fluxos.ts` e `teste-fluxos-cross-corretor.ts` para rodar em CI (hoje são manuais — exigem segredo de login no ambiente do CI) | baixo | consolida §1.2/§1.3 no gate automático | pendente |
-| P3 | Gerar as referências visuais (`e2e/**/*-snapshots`) a partir do runner Linux do CI, pra poder rodar os testes `@visual` no gate automático | baixo | hoje esses 2 testes só rodam localmente (macOS) — ver nota no `ci.yml` | pendente |
+| P2 | Revisão formal de Sentry/Analytics (DSN em prod, cadência de revisão) | baixo | §1.5 | ✅ feito (ver §5.5) |
+| P3 | Mover `teste-fluxos.ts` e `teste-fluxos-cross-corretor.ts` para rodar em CI (hoje são manuais — exigem segredo de login no ambiente do CI) | baixo | consolida §1.2/§1.3 no gate automático | ✅ feito (ver §5.5) |
+| P3 | Gerar as referências visuais (`e2e/**/*-snapshots`) a partir do runner Linux do CI, pra poder rodar os testes `@visual` no gate automático | baixo | hoje esses 2 testes só rodam localmente (macOS) — ver nota no `ci.yml` | ✅ feito (ver §5.5) |
+
+**Com isso, todo o roteiro do §4 está fechado.** O que seguir a partir daqui não
+é mais "terminar a estratégia" — é o ciclo normal de manutenção: rodar
+`npm run test:e2e:update-snapshots` (e regenerar as referências Linux via o
+workflow dedicado) sempre que uma mudança visual for intencional, e revisar
+periodicamente a cobertura conforme o sistema cresce.
 
 O P0, o P1 e o P2 estão concluídos (ver §5, abaixo, para o que cada item
 entregou de fato — a §5.4 em particular registra um bug real que o P2 achou em
@@ -427,10 +433,75 @@ central deste documento (§1.4): para essa classe de bug, a camada de
 navegador automatizado não é opcional.
 
 **Nota sobre os testes `@visual` e CI**: as duas referências de screenshot
-foram geradas neste Mac (sufixo `-darwin` no nome do arquivo, que o próprio
-Playwright adiciona). O runner do GitHub Actions é Linux, e comparação de
-pixel entre plataformas diferentes é instável mesmo sem regressão nenhuma
-(anti-aliasing, hinting de fonte). Por isso o job de CI roda só os testes
-funcionais (`--grep-invert "@visual"`) por enquanto — rodar os visuais em CI
-exige gerar as referências a partir do próprio runner Linux primeiro (item
-P3 no roteiro). Localmente, `npm run test:e2e` continua cobrindo os dois.
+foram geradas neste Mac (sufixo `-darwin`). O runner do GitHub Actions é
+Linux, e comparação de pixel entre plataformas diferentes é instável mesmo
+sem regressão nenhuma (anti-aliasing, hinting de fonte) — por isso ficaram de
+fora do CI até o P3 gerar as referências `-linux` (ver §5.5). Localmente,
+`npm run test:e2e` sempre cobriu os dois.
+
+### 5.5 P3 — fluxos contra o banco real em CI, snapshots Linux, Sentry/Analytics
+
+Fecha o roteiro do §4 por completo.
+
+**Credenciais de teste saíram do código-fonte.** Os três scripts que fazem
+login administrativo (`teste-fluxos.ts`, `teste-fluxos-cross-corretor.ts`,
+`limpar_dados_teste.ts`) tinham a senha da conta admin de demonstração
+hardcoded em texto puro — prática pré-existente, não introduzida nesta
+sessão, mas ruim o bastante pra valer a pena corrigir enquanto essa área
+estava sendo mexida mesmo. `scripts/lib/env.ts` agora centraliza a leitura de
+credenciais: usa `.env.local` quando existe (dev local) e sempre deixa
+variável de ambiente real ter prioridade, com o valor conhecido como
+fallback — ninguém precisou mudar o próprio fluxo de trabalho local.
+
+**`fluxos-banco-real` — novo job de CI, só em `push`** (nunca em
+`pull_request`, de propósito: esses dois scripts escrevem e apagam dado real
+em produção com uma conta admin de verdade — não deveriam rodar contra
+código de PR ainda não revisado). Lê as credenciais de 6 GitHub Secrets
+(`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `ADMIN_EMAIL`,
+`ADMIN_SENHA`, `TESTE_FLUXO_CORRETOR_B_EMAIL`, `TESTE_FLUXO_CORRETOR_B_SENHA`)
+e roda os 20 fluxos de fumaça + os 13 fluxos cross-corretor a cada push em
+`main`. Testado de duas formas antes de configurar os secrets de verdade:
+localmente simulando o ambiente de CI (removendo `.env.local`, passando só
+variável de ambiente) e depois observando o run real no GitHub Actions —
+que quebrou na primeira tentativa (`@supabase/supabase-js` exige WebSocket
+nativo do Node 22+, e o runner estava configurado com Node 20) e passou
+20/20 + 13/13 depois do ajuste, contra a produção real.
+
+**Referências visuais Linux geradas e commitadas.** Criado
+`.github/workflows/gerar-snapshots-visuais.yml`, disparável sob demanda
+(`workflow_dispatch`), que roda os testes `@visual` com `--update-snapshots`
+no próprio runner Linux do GitHub Actions e publica o resultado como
+artefato. Disparado uma vez, o artefato foi baixado e as referências
+`-linux` (coexistindo com as `-darwin` já commitadas — o Playwright escolhe
+a certa pela plataforma de quem roda) foram commitadas em
+`e2e/**/*-snapshots`. O gate de CI agora roda a suíte Playwright inteira,
+`@visual` incluído — sem `--grep-invert` mais. Da próxima vez que uma
+mudança visual intencional exigir atualizar as referências, o fluxo é:
+`npm run test:e2e:update-snapshots` localmente (Mac) + disparar esse
+workflow (Linux) + commitar os dois conjuntos.
+
+**Sentry e Vercel Web Analytics — confirmados ativos em produção, não só
+"instalados no código".** Verificação direta, não suposição:
+- Baixei o bundle JavaScript publicado em produção e confirmei que o DSN do
+  Sentry (`o4511854317993984.ingest.us.sentry.io`) está de fato embutido —
+  ou seja, a variável `VITE_SENTRY_DSN` está configurada no ambiente de
+  produção do Vercel, não só no `.env.local` local.
+- Abri a aplicação em produção e conferi via rede que o Vercel Web Analytics
+  dispara de verdade: `_vercel/insights/script.js` carrega e
+  `_vercel/insights/view` é enviado com sucesso (200) a cada visita.
+- Não consegui confirmar o recebimento do evento de teste do Sentry
+  (`?teste-sentry`) do lado do dashboard — isso exigiria login na conta
+  Sentry do projeto, que não está disponível aqui. O que foi verificado
+  (DSN presente no bundle de produção, inicialização incondicional quando o
+  DSN existe) é forte evidência de que está funcionando, mas a confirmação
+  final de "o evento chegou e um alerta dispararia" depende de alguém com
+  acesso ao dashboard olhar uma vez.
+
+**Cadência de revisão recomendada** (isso é processo, não código — não dá
+pra automatizar sozinho): revisar o dashboard do Sentry semanalmente
+enquanto o sistema estiver em fase ativa de correções (como agora), e
+mensalmente depois de estabilizar; qualquer erro novo e recorrente (mesmo
+sem usuário reclamando) vale investigar — é frequentemente o primeiro sinal
+de um bug que ainda não virou reclamação. Vercel Analytics vale olhar junto
+com métricas de produto (quantos corretores realmente usam o quê), não como
+rotina de QA separada.
