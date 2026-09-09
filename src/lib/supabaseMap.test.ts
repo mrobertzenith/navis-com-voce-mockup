@@ -1,8 +1,8 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { imovelParaRow, leadParaRow, perfilParaRow } from '@/lib/supabaseMap'
-import type { Imovel, Lead, PerfilBusca } from '@/domain/types'
+import { imovelParaRow, leadParaRow, negociacaoParaRow, perfilParaRow, vendaParaRow } from '@/lib/supabaseMap'
+import type { Imovel, Lead, Negociacao, PerfilBusca, Venda } from '@/domain/types'
 
 /**
  * Estes testes existem por causa de dois bugs reais em produção: o app enviava
@@ -166,21 +166,34 @@ describe('cliente — payloads dos fluxos reais', () => {
     expect(checarNulos('leads', row)).toEqual([])
   })
 
-  it('mover no Kanban com listas de negociação', () => {
-    expect(
-      checarNulos('leads', leadParaRow({ etapa: 4, negociacoesAtivas: [], pendenteAprovacaoImoveis: [] })),
-    ).toEqual([])
+  it('mover no Kanban com lista de pendentes de aprovação', () => {
+    expect(checarNulos('leads', leadParaRow({ etapa: 4, pendenteAprovacaoImoveis: [] }))).toEqual([])
   })
 
-  it('patch com listas ausentes (undefined) não viram null', () => {
-    const row = leadParaRow({
-      etapa: 3,
-      negociacoesAtivas: undefined,
-      pendenteAprovacaoImoveis: undefined,
-    })
-    expect(row.negociacoes_ativas).not.toBeNull()
+  it('patch com lista ausente (undefined) não vira null', () => {
+    const row = leadParaRow({ etapa: 3, pendenteAprovacaoImoveis: undefined })
     expect(row.pendente_aprovacao_imoveis).not.toBeNull()
     expect(checarNulos('leads', row)).toEqual([])
+  })
+
+  // negociacoesAtivas/imovelFechadoId/valorNegociado/pagamentosConcluidos/
+  // chavesEntregues saíram de LEAD_CAMPOS de propósito — são calculados a
+  // partir de negociacoes/vendas na leitura, não gravados em leads. Este
+  // teste garante que ninguém readicione essas colunas por engano.
+  it('negociacoesAtivas e afins não são mais colunas de leads', () => {
+    const row = leadParaRow({
+      etapa: 4,
+      negociacoesAtivas: [{ imovelId: 'im-1', dataInicio: '2026-01-01' }],
+      imovelFechadoId: 'im-1',
+      valorNegociado: 500000,
+      pagamentosConcluidos: true,
+      chavesEntregues: true,
+    } as Partial<Lead>)
+    expect(row).not.toHaveProperty('negociacoes_ativas')
+    expect(row).not.toHaveProperty('imovel_fechado_id')
+    expect(row).not.toHaveProperty('valor_negociado')
+    expect(row).not.toHaveProperty('pagamentos_concluidos')
+    expect(row).not.toHaveProperty('chaves_entregues')
   })
 
   it('perfil de busca sem CEP nem coordenadas', () => {
@@ -190,6 +203,33 @@ describe('cliente — payloads dos fluxos reais', () => {
   it('perfil de busca com listas vazias', () => {
     const row = perfilParaRow({ ...perfil, bairros: [], tipos: [], cep: undefined, lat: undefined })
     expect(checarNulos('perfis_busca', row)).toEqual([])
+  })
+
+  // negociacoes/vendas: tabelas existentes desde a primeira migração, só
+  // passaram a ser escritas de verdade na migração dos hooks useNegociacoes —
+  // mesma proteção contra null em coluna obrigatória que já pegou dois bugs
+  // reais antes (ver comentário no topo do arquivo).
+  it('nova negociação, só com os campos obrigatórios', () => {
+    const negociacao: Omit<Negociacao, 'id'> = {
+      imovelId: 'im-1',
+      corretorImovelId: 'cor-1',
+      dataInicio: '2026-01-01T00:00:00.000Z',
+      status: 'ativa',
+    }
+    expect(checarNulos('negociacoes', negociacaoParaRow(negociacao))).toEqual([])
+  })
+
+  it('nova venda, só com os campos obrigatórios', () => {
+    const venda: Omit<Venda, 'id'> = {
+      imovelId: 'im-1',
+      corretorImovelId: 'cor-1',
+      valorVenda: 500000,
+      dataVenda: '2026-01-01T00:00:00.000Z',
+      revertida: false,
+      pagamentosConcluidos: false,
+      chavesEntregues: false,
+    }
+    expect(checarNulos('vendas', vendaParaRow(venda))).toEqual([])
   })
 })
 

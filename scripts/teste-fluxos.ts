@@ -7,7 +7,7 @@
  * Cria tudo com um marcador e apaga no fim; dados reais não são tocados.
  */
 import { createClient } from '@supabase/supabase-js'
-import { imovelParaRow, leadParaRow, perfilParaRow } from '../src/lib/supabaseMap'
+import { imovelParaRow, leadParaRow, negociacaoParaRow, perfilParaRow, vendaParaRow } from '../src/lib/supabaseMap'
 import type { Imovel, Lead, PerfilBusca } from '../src/domain/types'
 import { env } from './lib/env'
 
@@ -215,24 +215,81 @@ async function main() {
     exigir(!erroPerfil, erroPerfil?.message ?? '')
   })
 
+  // negociacoesAtivas/imovelFechadoId/valorNegociado/pagamentosConcluidos/
+  // chavesEntregues não são mais colunas de leads — passam pelas tabelas
+  // negociacoes/vendas, exatamente como o app real escreve (ver
+  // MeusClientesPage.tsx e useNegociacoes.ts).
+  let negociacaoId = ''
   await checar('percorrer o Kanban de clientes (1 → 6)', async () => {
-    for (const etapa of [2, 3, 4, 5, 6]) {
-      const patch: Partial<Lead> = { etapa: etapa as Lead['etapa'] }
-      if (etapa === 4) {
-        patch.negociacoesAtivas = [{ imovelId, dataInicio: new Date().toISOString() }]
-        patch.pendenteAprovacaoImoveis = []
-      }
-      if (etapa === 5) {
-        patch.imovelFechadoId = imovelId
-        patch.valorNegociado = 480000
-      }
-      if (etapa === 6) {
-        patch.pagamentosConcluidos = true
-        patch.chavesEntregues = true
-      }
-      const { error } = await supabase.from('leads').update(leadParaRow(patch)).eq('id', leadId)
+    for (const etapa of [2, 3] as const) {
+      const { error } = await supabase.from('leads').update(leadParaRow({ etapa })).eq('id', leadId)
       exigir(!error, `etapa ${etapa}: ${error?.message}`)
     }
+
+    // etapa 4 — Em negociação: cria a negociação na tabela relacional
+    const { data: negociacao, error: erroNeg } = await supabase
+      .from('negociacoes')
+      .insert(
+        negociacaoParaRow({
+          imovelId,
+          leadId,
+          corretorImovelId: corretorId,
+          corretorClienteId: corretorId,
+          dataInicio: new Date().toISOString(),
+          status: 'ativa',
+        }),
+      )
+      .select()
+      .single()
+    exigir(!erroNeg, `criar negociação: ${erroNeg?.message}`)
+    negociacaoId = negociacao!.id as string
+    const etapa4 = await supabase
+      .from('leads')
+      .update(leadParaRow({ etapa: 4, pendenteAprovacaoImoveis: [] }))
+      .eq('id', leadId)
+    exigir(!etapa4.error, `etapa 4: ${etapa4.error?.message}`)
+
+    // etapa 5 — Negócio Fechado: conclui a negociação e cria a venda
+    const concluir = await supabase
+      .from('negociacoes')
+      .update(negociacaoParaRow({ status: 'concluida', dataFim: new Date().toISOString(), valorNegociado: 480000 }))
+      .eq('id', negociacaoId)
+    exigir(!concluir.error, `concluir negociação: ${concluir.error?.message}`)
+    const { data: venda, error: erroVenda } = await supabase
+      .from('vendas')
+      .insert(
+        vendaParaRow({
+          negociacaoId,
+          imovelId,
+          leadId,
+          corretorImovelId: corretorId,
+          corretorClienteId: corretorId,
+          valorVenda: 480000,
+          dataVenda: new Date().toISOString(),
+          revertida: false,
+          pagamentosConcluidos: false,
+          chavesEntregues: false,
+        }),
+      )
+      .select()
+      .single()
+    exigir(!erroVenda, `criar venda: ${erroVenda?.message}`)
+    const etapa5 = await supabase.from('leads').update(leadParaRow({ etapa: 5 })).eq('id', leadId)
+    exigir(!etapa5.error, `etapa 5: ${etapa5.error?.message}`)
+
+    // etapa 6 — Pós-venda: pagamentos/chaves na venda, não no lead
+    const posVenda = await supabase
+      .from('vendas')
+      .update(vendaParaRow({ pagamentosConcluidos: true, chavesEntregues: true }))
+      .eq('id', venda!.id)
+    exigir(!posVenda.error, `pós-venda: ${posVenda.error?.message}`)
+    const etapa6 = await supabase.from('leads').update(leadParaRow({ etapa: 6 })).eq('id', leadId)
+    exigir(!etapa6.error, `etapa 6: ${etapa6.error?.message}`)
+  })
+
+  await checar('venda concluída fica ligada à negociação (negociacao_id)', async () => {
+    const { data } = await supabase.from('vendas').select('id').eq('negociacao_id', negociacaoId)
+    exigir((data?.length ?? 0) === 1, 'deveria haver exatamente 1 venda para a negociação concluída')
   })
 
   await checar('etapas laterais: Standby e Perdidos', async () => {
@@ -248,10 +305,20 @@ async function main() {
     exigir(!perdido.error, perdido.error?.message ?? '')
   })
 
-  await checar('reverter negociação (listas esvaziadas)', async () => {
+  await checar('reverter negociação (negociação e venda marcadas como revertidas)', async () => {
+    const revNeg = await supabase
+      .from('negociacoes')
+      .update(negociacaoParaRow({ status: 'revertida', dataFim: new Date().toISOString() }))
+      .eq('id', negociacaoId)
+    exigir(!revNeg.error, revNeg.error?.message ?? '')
+    const revVenda = await supabase
+      .from('vendas')
+      .update(vendaParaRow({ revertida: true, justificativaReversao: 'teste de fluxo' }))
+      .eq('negociacao_id', negociacaoId)
+    exigir(!revVenda.error, revVenda.error?.message ?? '')
     const { error } = await supabase
       .from('leads')
-      .update(leadParaRow({ etapa: 3, negociacoesAtivas: [], pendenteAprovacaoImoveis: [] }))
+      .update(leadParaRow({ etapa: 3, pendenteAprovacaoImoveis: [] }))
       .eq('id', leadId)
     exigir(!error, error?.message ?? '')
   })
@@ -350,6 +417,10 @@ async function main() {
   // ---------- LIMPEZA ----------
   console.log('\nLIMPEZA')
   await checar('remover todos os dados de teste', async () => {
+    // negociacoes/vendas primeiro: têm FK pra leads/imoveis sem cascade —
+    // apagar o lead/imóvel antes falharia com violação de chave estrangeira
+    await supabase.from('vendas').delete().eq('imovel_id', imovelId)
+    await supabase.from('negociacoes').delete().eq('imovel_id', imovelId)
     await supabase.from('leads').delete().like('codigo', `${MARCADOR}%`)
     await supabase.from('imoveis').delete().eq('endereco_rua', MARCADOR)
     const depois = await supabase.from('imoveis').select('id', { count: 'exact', head: true })

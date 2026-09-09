@@ -193,13 +193,26 @@ export interface Lead {
   meMantenhaInformado?: boolean
   motivoPerdido?: string
   dataEntradaStandby?: string
-  pagamentosConcluidos?: boolean
-  chavesEntregues?: boolean
-  imovelFechadoId?: string
-  valorNegociado?: number
 
-  /** negociações ativas na etapa (4) — modelo simplificado até o motor de matching (Fase 4) */
+  /**
+   * Os cinco campos abaixo são CALCULADOS a partir das tabelas relacionais
+   * `negociacoes`/`vendas` no momento da leitura (useLeads) — não são mais
+   * gravados como JSON solto no lead. Ficam aqui, no formato de sempre, pra
+   * não obrigar toda tela que já lê `lead.negociacoesAtivas` etc. a mudar;
+   * quem MUDA de verdade é a escrita, que agora vai pras tabelas próprias
+   * (ver useNegociacoes.ts e PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md).
+   */
+  /** negociações com status='ativa' referenciando este lead */
   negociacoesAtivas?: { imovelId: string; dataInicio: string }[]
+  /** imóvel da negociação mais recente com status='concluida' deste lead */
+  imovelFechadoId?: string
+  /** valor_negociado dessa mesma negociação concluída */
+  valorNegociado?: number
+  /** pagamentos_concluidos da venda ligada a essa negociação concluída */
+  pagamentosConcluidos?: boolean
+  /** chaves_entregues da venda ligada a essa negociação concluída */
+  chavesEntregues?: boolean
+
   /** imóveis de outros corretores vinculados nesta negociação que ainda aguardam aprovação deles */
   pendenteAprovacaoImoveis?: string[]
 }
@@ -214,11 +227,19 @@ export interface Vinculo {
   dismissedEm?: string
 }
 
+/**
+ * Negociação entre um imóvel e um cliente — tabela `negociacoes`, existente
+ * desde a primeira migração do banco, mas nunca escrita de verdade: o app
+ * reimplementou a mesma coisa como `Lead.negociacoesAtivas` (JSON solto, sem
+ * chave estrangeira nem `unique`), o que já causou dado duplicado em
+ * produção. Passa a ser a fonte de verdade a partir desta migração — ver
+ * PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md.
+ */
 export interface Negociacao {
   id: string
   imovelId: string
-  leadId: string | null
-  clienteExterno?: { nome: string; email: string; telefone: string }
+  leadId?: string
+  clienteExterno?: { nome: string; email?: string; telefone?: string }
   corretorImovelId: string
   corretorClienteId?: string
   dataInicio: string
@@ -227,11 +248,15 @@ export interface Negociacao {
   valorNegociado?: number
 }
 
+/** Venda concluída — tabela `vendas`, ligada 1:1 a uma `Negociacao` concluída
+ * via `negociacaoId`. Mesma história da `Negociacao`: existia desde a
+ * primeira migração e nunca tinha sido escrita pelo app. */
 export interface Venda {
   id: string
+  negociacaoId?: string
   imovelId: string
   leadId?: string
-  clienteExterno?: { nome: string; email: string; telefone: string }
+  clienteExterno?: { nome: string; email?: string; telefone?: string }
   corretorImovelId: string
   corretorClienteId?: string
   valorVenda: number

@@ -16,6 +16,14 @@ import type { EtapaLead, Imovel, Lead } from '@/domain/types'
 import { useAtualizarLead, useLeads } from '@/hooks/useLeads'
 import { useAtualizarImovel, useImoveis } from '@/hooks/useImoveis'
 import { useMatches } from '@/hooks/useMatches'
+import {
+  useAtualizarNegociacao,
+  useAtualizarVenda,
+  useCriarNegociacao,
+  useCriarVenda,
+  useNegociacoes,
+  useVendas,
+} from '@/hooks/useNegociacoes'
 import { CORRETORES, CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 import { formatPreco } from '@/lib/format'
 import { useDismissStore } from '@/stores/dismissStore'
@@ -38,8 +46,14 @@ interface PendingMove {
 export function MeusClientesPage() {
   const { data: leads = [], isLoading } = useLeads()
   const { data: imoveis = [] } = useImoveis()
+  const { data: negociacoes = [] } = useNegociacoes()
+  const { data: vendas = [] } = useVendas()
   const atualizarLead = useAtualizarLead()
   const atualizarImovel = useAtualizarImovel()
+  const criarNegociacao = useCriarNegociacao()
+  const atualizarNegociacao = useAtualizarNegociacao()
+  const criarVenda = useCriarVenda()
+  const atualizarVenda = useAtualizarVenda()
   const criarNotificacao = useCriarNotificacao()
   const { contadorPorLead } = useMatches()
   const pesos = useScoreStore((s) => s.pesos)
@@ -147,15 +161,25 @@ export function MeusClientesPage() {
     const { lead, destino } = pending
     const origem = lead.etapa
 
+    // negociacoesAtivas/imovelFechadoId/valorNegociado/pagamentosConcluidos/
+    // chavesEntregues não são mais colunas de leads — são calculados a partir
+    // de negociacoes/vendas (ver useLeads.ts). Escrever pra valer acontece
+    // caso a caso abaixo, via useNegociacoes/useVendas.
     const patchFinal: Partial<Lead> = { ...patch, etapa: destino }
+    delete patchFinal.negociacoesAtivas
+    delete patchFinal.imovelFechadoId
+    delete patchFinal.valorNegociado
+    delete patchFinal.pagamentosConcluidos
+    delete patchFinal.chavesEntregues
     if (destino === 7) patchFinal.dataEntradaStandby = new Date().toISOString()
 
     const indoParaTras = ETAPA_LEAD_ORDEM.indexOf(destino) < ETAPA_LEAD_ORDEM.indexOf(origem)
 
-    // Reversão saindo de "Em negociação": desfaz vínculos e devolve os imóveis próprios para Publicado
+    // Reversão saindo de "Em negociação": reverte as negociações ativas deste
+    // cliente e devolve os imóveis próprios pra Publicado quando ninguém mais
+    // estiver negociando com eles.
     if (origem === 4 && indoParaTras) {
-      const negociacoesAnteriores = lead.negociacoesAtivas ?? []
-      patchFinal.negociacoesAtivas = []
+      const negociacoesDoLead = negociacoes.filter((n) => n.leadId === lead.id && n.status === 'ativa')
       // usar [] em vez de undefined: o patch é serializado com JSON.stringify, que descarta chaves undefined
       patchFinal.pendenteAprovacaoImoveis = []
 
@@ -163,10 +187,14 @@ export function MeusClientesPage() {
         { id: lead.id, patch: patchFinal },
         {
           onSuccess: () => {
-            negociacoesAnteriores.forEach((neg) => {
+            negociacoesDoLead.forEach((neg) => {
+              atualizarNegociacao.mutate({
+                id: neg.id,
+                patch: { status: 'revertida', dataFim: new Date().toISOString() },
+              })
               const imovel = imoveis.find((i) => i.id === neg.imovelId)
-              const outroClienteAindaNegociando = leads.some(
-                (l) => l.id !== lead.id && l.negociacoesAtivas?.some((n) => n.imovelId === neg.imovelId),
+              const outroClienteAindaNegociando = negociacoes.some(
+                (n) => n.id !== neg.id && n.imovelId === neg.imovelId && n.status === 'ativa',
               )
               if (
                 imovel &&
@@ -188,13 +216,9 @@ export function MeusClientesPage() {
       return
     }
 
-    if (destino === 4 && patchFinal.imovelNegociacaoId) {
-      const imovelIds = patchFinal.imovelNegociacaoId.split(',').filter(Boolean)
+    if (destino === 4 && patch.imovelNegociacaoId) {
+      const imovelIds = patch.imovelNegociacaoId.split(',').filter(Boolean)
       delete patchFinal.imovelNegociacaoId
-      patchFinal.negociacoesAtivas = [
-        ...(lead.negociacoesAtivas ?? []),
-        ...imovelIds.map((imovelId) => ({ imovelId, dataInicio: new Date().toISOString() })),
-      ]
       const imoveisSelecionados = imovelIds
         .map((id) => imoveis.find((i) => i.id === id))
         .filter((i): i is Imovel => i != null)
@@ -215,6 +239,19 @@ export function MeusClientesPage() {
         { id: lead.id, patch: patchFinal },
         {
           onSuccess: () => {
+            // uma linha por imóvel selecionado — o índice único parcial em
+            // negociacoes(imovel_id) where status='ativa' garante, no próprio
+            // banco, que nenhum deles já esteja em negociação com outro cliente
+            imoveisSelecionados.forEach((imovel) => {
+              criarNegociacao.mutate({
+                imovelId: imovel.id,
+                leadId: lead.id,
+                corretorImovelId: imovel.corretorResponsavelId,
+                corretorClienteId: lead.corretorResponsavelId,
+                dataInicio: new Date().toISOString(),
+                status: 'ativa',
+              })
+            })
             proprios.forEach((imovel) => {
               atualizarImovel.mutate({ id: imovel.id, patch: { etapa: 'e', emNegociacaoFlag: true } })
             })
@@ -249,36 +286,57 @@ export function MeusClientesPage() {
       return
     }
 
-    // Fechou negócio: o imóvel precisa ir junto pra "Vendido", senão o card do
-    // imóvel nunca sabe que foi vendido. Desfaz também a negociação dos DEMAIS
-    // clientes que tinham esse imóvel no radar — vendido, ele sai de circulação.
-    if (destino === 5 && patchFinal.imovelFechadoId) {
-      const imovel = imoveis.find((i) => i.id === patchFinal.imovelFechadoId)
-      const outrosVinculados = leads.filter(
-        (l) => l.id !== lead.id && l.negociacoesAtivas?.some((n) => n.imovelId === patchFinal.imovelFechadoId),
+    // Fechou negócio: conclui a negociação ativa, cria a venda, e o imóvel
+    // precisa ir junto pra "Vendido" — senão o card do imóvel nunca sabe que
+    // foi vendido. Desfaz também a negociação dos DEMAIS clientes que tinham
+    // esse imóvel no radar — vendido, ele sai de circulação.
+    if (destino === 5 && patch.imovelFechadoId) {
+      const imovelId = patch.imovelFechadoId
+      const imovel = imoveis.find((i) => i.id === imovelId)
+      const negociacaoAtiva = negociacoes.find(
+        (n) => n.leadId === lead.id && n.imovelId === imovelId && n.status === 'ativa',
       )
+      const outrasNegociacoesDoImovel = negociacoes.filter(
+        (n) => n.id !== negociacaoAtiva?.id && n.imovelId === imovelId && n.status === 'ativa',
+      )
+      const valorNegociado = patch.valorNegociado
 
       atualizarLead.mutate(
         { id: lead.id, patch: patchFinal },
         {
           onSuccess: () => {
+            if (negociacaoAtiva) {
+              atualizarNegociacao.mutate(
+                {
+                  id: negociacaoAtiva.id,
+                  patch: { status: 'concluida', dataFim: new Date().toISOString(), valorNegociado },
+                },
+                {
+                  onSuccess: () => {
+                    criarVenda.mutate({
+                      negociacaoId: negociacaoAtiva.id,
+                      imovelId,
+                      leadId: lead.id,
+                      corretorImovelId: negociacaoAtiva.corretorImovelId,
+                      corretorClienteId: negociacaoAtiva.corretorClienteId,
+                      valorVenda: valorNegociado ?? 0,
+                      dataVenda: new Date().toISOString(),
+                      revertida: false,
+                      pagamentosConcluidos: false,
+                      chavesEntregues: false,
+                    })
+                  },
+                },
+              )
+            }
             if (imovel && imovel.etapa !== 'f') {
               atualizarImovel.mutate({
                 id: imovel.id,
-                patch: { etapa: 'f', valorVenda: patchFinal.valorNegociado, dataVenda: new Date().toISOString() },
+                patch: { etapa: 'f', valorVenda: valorNegociado, dataVenda: new Date().toISOString() },
               })
             }
-            outrosVinculados.forEach((outro) => {
-              const negociacoesRestantes = (outro.negociacoesAtivas ?? []).filter(
-                (n) => n.imovelId !== patchFinal.imovelFechadoId,
-              )
-              atualizarLead.mutate({
-                id: outro.id,
-                patch: {
-                  negociacoesAtivas: negociacoesRestantes,
-                  ...(negociacoesRestantes.length === 0 && outro.etapa === 4 ? { etapa: 3 } : {}),
-                },
-              })
+            outrasNegociacoesDoImovel.forEach((n) => {
+              atualizarNegociacao.mutate({ id: n.id, patch: { status: 'revertida', dataFim: new Date().toISOString() } })
             })
             toast({ title: 'Cliente e imóvel movidos', description: 'Negócio fechado — imóvel agora "Vendido".' })
           },
@@ -288,22 +346,63 @@ export function MeusClientesPage() {
       return
     }
 
-    // Reversão de Negócio Fechado pra Em Negociação: o imóvel volta junto pra
-    // "Em negociação" (não fica "Vendido" órfão) — sem isso, tentar corrigir o
-    // imóvel manualmente só dava pra voltar até "Publicado", perdendo o cliente.
+    // Reversão de Negócio Fechado pra Em Negociação: a negociação concluída
+    // volta a 'ativa', a venda vinculada vira 'revertida' (histórico, não
+    // apagada), e o imóvel volta junto pra "Em negociação" (não fica
+    // "Vendido" órfão) — sem isso, corrigir o imóvel manualmente só dava pra
+    // voltar até "Publicado", perdendo o cliente.
     if (origem === 5 && destino === 4) {
-      const imovel = lead.imovelFechadoId ? imoveis.find((i) => i.id === lead.imovelFechadoId) : undefined
-      patchFinal.imovelFechadoId = undefined
-      patchFinal.valorNegociado = undefined
+      const negociacaoConcluida = negociacoes.find((n) => n.leadId === lead.id && n.status === 'concluida')
+      const imovel = negociacaoConcluida ? imoveis.find((i) => i.id === negociacaoConcluida.imovelId) : undefined
+      const vendaLigada = negociacaoConcluida
+        ? vendas.find((v) => v.negociacaoId === negociacaoConcluida.id)
+        : undefined
 
       atualizarLead.mutate(
         { id: lead.id, patch: patchFinal },
         {
           onSuccess: () => {
+            if (negociacaoConcluida) {
+              atualizarNegociacao.mutate({ id: negociacaoConcluida.id, patch: { status: 'ativa', dataFim: undefined } })
+            }
+            if (vendaLigada) {
+              atualizarVenda.mutate({
+                id: vendaLigada.id,
+                patch: { revertida: true, justificativaReversao: 'Revertido pelo corretor via Kanban' },
+              })
+            }
             if (imovel && imovel.etapa === 'f') {
               atualizarImovel.mutate({ id: imovel.id, patch: { etapa: 'e', emNegociacaoFlag: true } })
             }
             toast({ title: 'Cliente movido', description: 'Agora em "Em negociação". O imóvel voltou junto.' })
+          },
+        },
+      )
+      setPending(null)
+      return
+    }
+
+    // Pós-venda: pagamentos/chaves agora vivem na venda, não no lead
+    if (destino === 6) {
+      const negociacaoConcluida = negociacoes.find((n) => n.leadId === lead.id && n.status === 'concluida')
+      const vendaLigada = negociacaoConcluida
+        ? vendas.find((v) => v.negociacaoId === negociacaoConcluida.id)
+        : undefined
+
+      atualizarLead.mutate(
+        { id: lead.id, patch: patchFinal },
+        {
+          onSuccess: () => {
+            if (vendaLigada) {
+              atualizarVenda.mutate({
+                id: vendaLigada.id,
+                patch: {
+                  pagamentosConcluidos: Boolean(patch.pagamentosConcluidos),
+                  chavesEntregues: Boolean(patch.chavesEntregues),
+                },
+              })
+            }
+            toast({ title: 'Cliente movido', description: `Agora em "${ETAPA_LEAD_LABEL[destino]}".` })
           },
         },
       )

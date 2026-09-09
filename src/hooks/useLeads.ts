@@ -1,19 +1,55 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { Lead } from '@/domain/types'
+import type { Lead, Negociacao, Venda } from '@/domain/types'
 import { supabase } from '@/lib/supabase'
-import { leadParaDominio, leadParaRow, perfilParaRow } from '@/lib/supabaseMap'
+import { leadParaDominio, leadParaRow, negociacaoParaDominio, perfilParaRow, vendaParaDominio } from '@/lib/supabaseMap'
 
 const LEADS_KEY = ['leads'] as const
 const LEAD_SELECT = '*, perfis_busca(*)'
 
+/**
+ * negociacoesAtivas/imovelFechadoId/valorNegociado/pagamentosConcluidos/
+ * chavesEntregues não são mais colunas de `leads` — são calculados aqui, a
+ * partir de `negociacoes`/`vendas`, pra quem já consome `Lead` continuar
+ * lendo do jeito de sempre. Ver useNegociacoes.ts.
+ */
+function comCamposDeNegociacao(lead: Lead, negociacoes: Negociacao[], vendas: Venda[]): Lead {
+  const doLead = negociacoes.filter((n) => n.leadId === lead.id)
+
+  const negociacoesAtivas = doLead
+    .filter((n) => n.status === 'ativa')
+    .map((n) => ({ imovelId: n.imovelId, dataInicio: n.dataInicio }))
+
+  const concluidas = doLead
+    .filter((n) => n.status === 'concluida')
+    .sort((a, b) => (b.dataFim ?? b.dataInicio).localeCompare(a.dataFim ?? a.dataInicio))
+  const fechamento = concluidas[0]
+  const vendaDoFechamento = fechamento
+    ? vendas.find((v) => v.negociacaoId === fechamento.id && !v.revertida)
+    : undefined
+
+  return {
+    ...lead,
+    negociacoesAtivas,
+    imovelFechadoId: fechamento?.imovelId,
+    valorNegociado: fechamento?.valorNegociado,
+    pagamentosConcluidos: vendaDoFechamento?.pagamentosConcluidos,
+    chavesEntregues: vendaDoFechamento?.chavesEntregues,
+  }
+}
+
 async function fetchLeads(): Promise<Lead[]> {
   if (supabase) {
-    const { data, error } = await supabase
-      .from('leads')
-      .select(LEAD_SELECT)
-      .order('data_cadastro', { ascending: true })
+    const [{ data, error }, negociacoesRes, vendasRes] = await Promise.all([
+      supabase.from('leads').select(LEAD_SELECT).order('data_cadastro', { ascending: true }),
+      supabase.from('negociacoes').select('*'),
+      supabase.from('vendas').select('*'),
+    ])
     if (error) throw new Error('Falha ao carregar leads')
-    return data.map(leadParaDominio)
+    if (negociacoesRes.error) throw new Error('Falha ao carregar negociações')
+    if (vendasRes.error) throw new Error('Falha ao carregar vendas')
+    const negociacoes = negociacoesRes.data.map(negociacaoParaDominio)
+    const vendas = vendasRes.data.map(vendaParaDominio)
+    return data.map(leadParaDominio).map((lead) => comCamposDeNegociacao(lead, negociacoes, vendas))
   }
   const res = await fetch('/api/leads')
   if (!res.ok) throw new Error('Falha ao carregar leads')

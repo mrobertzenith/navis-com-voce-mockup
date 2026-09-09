@@ -1,4 +1,4 @@
-import type { Imovel, Lead, PerfilBusca } from '@/domain/types'
+import type { Imovel, Lead, Negociacao, PerfilBusca, Venda } from '@/domain/types'
 
 /**
  * Conversão entre o modelo do app (camelCase) e as tabelas Postgres (snake_case).
@@ -53,8 +53,22 @@ const IMOVEL_CAMPOS: Record<keyof Omit<Imovel, 'id'>, string> = {
   atualizadoEm: 'atualizado_em',
 }
 
+// negociacoesAtivas/imovelFechadoId/valorNegociado/pagamentosConcluidos/
+// chavesEntregues saem daqui de propósito: são calculados a partir de
+// negociacoes/vendas na leitura (useLeads), não colunas de leads que se
+// escreve diretamente — ver o comentário em domain/types.ts.
 const LEAD_CAMPOS: Record<
-  keyof Omit<Lead, 'id' | 'perfilBusca' | 'imovelNegociacaoId'>,
+  keyof Omit<
+    Lead,
+    | 'id'
+    | 'perfilBusca'
+    | 'imovelNegociacaoId'
+    | 'negociacoesAtivas'
+    | 'imovelFechadoId'
+    | 'valorNegociado'
+    | 'pagamentosConcluidos'
+    | 'chavesEntregues'
+  >,
   string
 > = {
   codigo: 'codigo',
@@ -69,16 +83,39 @@ const LEAD_CAMPOS: Record<
   dataCadastro: 'data_cadastro',
   ttlAtual: 'ttl_atual',
   visitasAgendadas: 'visitas_agendadas',
-  negociacoesAtivas: 'negociacoes_ativas',
   pendenteAprovacaoImoveis: 'pendente_aprovacao_imoveis',
   motivoStandby: 'motivo_standby',
   meMantenhaInformado: 'me_mantenha_informado',
   motivoPerdido: 'motivo_perdido',
   dataEntradaStandby: 'data_entrada_standby',
+}
+
+const NEGOCIACAO_CAMPOS: Record<keyof Omit<Negociacao, 'id'>, string> = {
+  imovelId: 'imovel_id',
+  leadId: 'lead_id',
+  clienteExterno: 'cliente_externo',
+  corretorImovelId: 'corretor_imovel_id',
+  corretorClienteId: 'corretor_cliente_id',
+  dataInicio: 'data_inicio',
+  dataFim: 'data_fim',
+  status: 'status',
+  valorNegociado: 'valor_negociado',
+}
+
+const VENDA_CAMPOS: Record<keyof Omit<Venda, 'id'>, string> = {
+  negociacaoId: 'negociacao_id',
+  imovelId: 'imovel_id',
+  leadId: 'lead_id',
+  clienteExterno: 'cliente_externo',
+  corretorImovelId: 'corretor_imovel_id',
+  corretorClienteId: 'corretor_cliente_id',
+  valorVenda: 'valor_venda',
+  dataVenda: 'data_venda',
+  tempoAnuncioDias: 'tempo_anuncio_dias',
+  revertida: 'revertida',
+  justificativaReversao: 'justificativa_reversao',
   pagamentosConcluidos: 'pagamentos_concluidos',
   chavesEntregues: 'chaves_entregues',
-  imovelFechadoId: 'imovel_fechado_id',
-  valorNegociado: 'valor_negociado',
 }
 
 const PERFIL_CAMPOS: Record<keyof Omit<PerfilBusca, 'id' | 'leadId'>, string> = {
@@ -118,7 +155,7 @@ function normalizarData(v: unknown): unknown {
 
 const CAMPOS_DATA = new Set([
   'criado_em', 'atualizado_em', 'data_publicacao', 'data_venda', 'ttl_atual',
-  'data_cadastro', 'data_entrada_standby',
+  'data_cadastro', 'data_entrada_standby', 'data_inicio', 'data_fim',
 ])
 
 function paraDominio<T>(row: Row, campos: Record<string, string>, manterNull: Set<string> = new Set()): T {
@@ -189,4 +226,22 @@ export function leadParaRow(patch: Partial<Lead>): Row {
 
 export function perfilParaRow(patch: Partial<PerfilBusca>): Row {
   return paraRow(patch as Row, PERFIL_CAMPOS)
+}
+
+// ---------- Negociação + Venda ----------
+
+export function negociacaoParaDominio(row: Row): Negociacao {
+  return paraDominio<Negociacao>(row, NEGOCIACAO_CAMPOS)
+}
+
+export function negociacaoParaRow(patch: Partial<Negociacao>): Row {
+  return paraRow(patch as Row, NEGOCIACAO_CAMPOS)
+}
+
+export function vendaParaDominio(row: Row): Venda {
+  return paraDominio<Venda>(row, VENDA_CAMPOS)
+}
+
+export function vendaParaRow(patch: Partial<Venda>): Row {
+  return paraRow(patch as Row, VENDA_CAMPOS)
 }
