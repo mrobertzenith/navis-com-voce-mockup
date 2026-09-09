@@ -15,6 +15,7 @@
  * conta já fez login — por isso não é recriada/apagada a cada rodada; ver
  * comentário em .env.local). Não é dado de corretor real da equipe.
  */
+import { randomUUID } from 'node:crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { imovelParaRow, leadParaRow } from '../src/lib/supabaseMap'
 import type { Imovel } from '../src/domain/types'
@@ -120,19 +121,23 @@ async function main() {
   console.log('\nNOTIFICAÇÕES (100% local até esta sessão — agora precisa realmente atravessar contas)')
 
   await checar('A cria uma notificação real para B (mesmo payload que useCriarNotificacao manda)', async () => {
-    const { data, error } = await a.client
-      .from('notificacoes')
-      .insert({
-        destinatario_corretor_id: b.corretorId,
-        tipo_evento: 'E16',
-        titulo: MARCADOR,
-        corpo: 'teste cross-corretor',
-        acao_pendente: null,
-      })
-      .select()
-      .single()
+    // gera o id no cliente: depois da RLS de notificações restringir SELECT
+    // só ao destinatário (migração 9), A não consegue mais reler de volta a
+    // notificação que ela mesma criou pra B — o próprio Postgres recusa um
+    // INSERT ... RETURNING quando a linha resultante não passa na política de
+    // SELECT de quem inseriu. É o comportamento certo (o app real nunca usa
+    // .select() nesse insert, só este script usava, pra saber o id a apagar).
+    const id = randomUUID()
+    const { error } = await a.client.from('notificacoes').insert({
+      id,
+      destinatario_corretor_id: b.corretorId,
+      tipo_evento: 'E16',
+      titulo: MARCADOR,
+      corpo: 'teste cross-corretor',
+      acao_pendente: null,
+    })
     exigir(!error, error?.message ?? '')
-    notificacoesTeste.push(data!.id as string)
+    notificacoesTeste.push(id)
   })
 
   await checar('B enxerga a notificação usando a MESMA query do app (fetchNotificacoes)', async () => {
