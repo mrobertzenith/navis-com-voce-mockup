@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Bell, BellOff, Check, Handshake, Link2Off, Users } from 'lucide-react'
+import { ArrowLeftRight, Bell, BellOff, Check, Handshake, Link2Off, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
@@ -16,6 +16,7 @@ const ICONE_POR_TIPO: Partial<Record<TipoEvento, typeof Bell>> = {
   E4: Users,
   E12: Handshake,
   E16: Link2Off,
+  E17: ArrowLeftRight,
 }
 
 type Filtro = 'todas' | 'nao_lidas' | TipoEvento

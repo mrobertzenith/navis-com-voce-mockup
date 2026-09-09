@@ -20,6 +20,7 @@ interface CardClienteProps {
   contadorMatches?: number
   negociacoesAtivas?: NegociacaoResumo[]
   onAbrirImovelNegociacao?: (imovelId: string) => void
+  onDesvincularNegociacao?: (imovelId: string) => void
   onClick?: () => void
   onClickContador?: () => void
   onMover?: () => void
@@ -32,6 +33,7 @@ export function CardCliente({
   contadorMatches,
   negociacoesAtivas,
   onAbrirImovelNegociacao,
+  onDesvincularNegociacao,
   onClick,
   onClickContador,
   onMover,
@@ -125,6 +127,7 @@ export function CardCliente({
         <NegociacaoAtivaExpansivel
           negociacoes={negociacoesAtivas}
           onAbrirImovel={onAbrirImovelNegociacao}
+          onDesvincular={onDesvincularNegociacao}
         />
       )}
 

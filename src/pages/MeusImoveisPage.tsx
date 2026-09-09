@@ -191,16 +191,25 @@ export function MeusImoveisPage() {
               const aindaTemOutraNegociacaoAtiva = negociacoes.some(
                 (n) => n.id !== neg.id && n.leadId === lead.id && n.status === 'ativa',
               )
+              const voltaPraEmContato =
+                !aindaTemOutraNegociacaoAtiva && (lead.etapa === 4 || lead.etapa === 5 || lead.etapa === 6)
               atualizarLead.mutate({
                 id: lead.id,
                 patch: {
                   // usar [] em vez de undefined: o patch é serializado com JSON.stringify, que descarta chaves undefined
                   pendenteAprovacaoImoveis: pendenteRestante,
-                  ...(!aindaTemOutraNegociacaoAtiva && (lead.etapa === 4 || lead.etapa === 5 || lead.etapa === 6)
-                    ? { etapa: 3 }
-                    : {}),
+                  ...(voltaPraEmContato ? { etapa: 3 } : {}),
                 },
               })
+              // card de outro corretor foi movido de forma passiva — ele precisa saber
+              if (voltaPraEmContato && lead.corretorResponsavelId !== CORRETOR_LOGADO_ID) {
+                criarNotificacao.mutate({
+                  destinatarioCorretorId: lead.corretorResponsavelId,
+                  tipoEvento: 'E17',
+                  titulo: 'Cliente movido automaticamente',
+                  corpo: `${nomeCorretor(CORRETOR_LOGADO_ID)} tirou o imóvel "${imovel.enderecoRua}, ${imovel.enderecoNumero}" de negociação — seu cliente "${lead.codigo}" voltou para "Em contato".`,
+                })
+              }
             })
             toast({
               title: 'Imóvel movido',
@@ -233,6 +242,14 @@ export function MeusImoveisPage() {
           onSuccess: () => {
             if (leadComprador) {
               atualizarLead.mutate({ id: leadComprador.id, patch: { etapa: 5 } })
+              if (leadComprador.corretorResponsavelId !== CORRETOR_LOGADO_ID) {
+                criarNotificacao.mutate({
+                  destinatarioCorretorId: leadComprador.corretorResponsavelId,
+                  tipoEvento: 'E17',
+                  titulo: 'Cliente movido automaticamente',
+                  corpo: `${nomeCorretor(CORRETOR_LOGADO_ID)} vendeu o imóvel "${imovel.enderecoRua}, ${imovel.enderecoNumero}" — seu cliente "${leadComprador.codigo}" foi movido para "Negócio Fechado".`,
+                })
+              }
               if (negociacaoDoComprador) {
                 atualizarNegociacao.mutate(
                   {
@@ -293,7 +310,18 @@ export function MeusImoveisPage() {
                   patch: { revertida: true, justificativaReversao: 'Imóvel voltou a Em negociação' },
                 })
               }
-              if (neg.leadId) atualizarLead.mutate({ id: neg.leadId, patch: { etapa: 4 } })
+              const leadRevertido = neg.leadId ? leads.find((l) => l.id === neg.leadId) : undefined
+              if (leadRevertido) {
+                atualizarLead.mutate({ id: leadRevertido.id, patch: { etapa: 4 } })
+                if (leadRevertido.corretorResponsavelId !== CORRETOR_LOGADO_ID) {
+                  criarNotificacao.mutate({
+                    destinatarioCorretorId: leadRevertido.corretorResponsavelId,
+                    tipoEvento: 'E17',
+                    titulo: 'Cliente movido automaticamente',
+                    corpo: `${nomeCorretor(CORRETOR_LOGADO_ID)} reverteu a venda do imóvel "${imovel.enderecoRua}, ${imovel.enderecoNumero}" — seu cliente "${leadRevertido.codigo}" voltou para "Em negociação".`,
+                  })
+                }
+              }
             })
             toast({
               title: 'Imóvel movido',
@@ -313,44 +341,60 @@ export function MeusImoveisPage() {
       const lead = leads.find((l) => l.id === leadNegociacaoId)
       const mesmoCorretor = lead?.corretorResponsavelId === CORRETOR_LOGADO_ID
 
-      atualizarImovel.mutate(
-        { id: imovel.id, patch: patchFinal },
-        {
-          onSuccess: () => {
-            if (!lead) return
-            criarNegociacao.mutate({
-              imovelId: imovel.id,
-              leadId: lead.id,
-              corretorImovelId: imovel.corretorResponsavelId,
-              corretorClienteId: lead.corretorResponsavelId,
-              dataInicio: new Date().toISOString(),
-              status: 'ativa',
-            })
-            atualizarLead.mutate({
-              id: lead.id,
-              patch: {
-                pendenteAprovacaoImoveis: mesmoCorretor
-                  ? lead.pendenteAprovacaoImoveis
-                  : [...(lead.pendenteAprovacaoImoveis ?? []), imovel.id],
-                ...(lead.etapa !== 4 ? { etapa: 4 } : {}),
-              },
-            })
-            if (mesmoCorretor) {
-              toast({ title: 'Imóvel e cliente movidos', description: 'Ambos agora em "Em negociação".' })
-            } else {
-              // vai para quem PRECISA aprovar (dono do cliente) — não para quem pediu
-              criarNotificacao.mutate({
-                destinatarioCorretorId: lead.corretorResponsavelId,
-                tipoEvento: 'E16',
-                titulo: 'Aprovação pendente',
-                corpo: `${nomeCorretor(CORRETOR_LOGADO_ID)} quer vincular o imóvel "${imovel.enderecoRua}, ${imovel.enderecoNumero}" ao seu cliente "${lead.codigo}". Aprove para confirmar a negociação.`,
-                acaoPendente: { leadId: lead.id, imovelId: imovel.id },
+      // Mesma classe de bug real do lado do cliente (ver MeusClientesPage.tsx):
+      // criar a negociação DEPOIS de já ter movido o imóvel deixava o card
+      // avançar mesmo quando o banco recusasse (índice único parcial). Tenta
+      // criar a negociação PRIMEIRO; só move o imóvel se der certo.
+      void (async () => {
+        if (!lead) return
+        try {
+          await criarNegociacao.mutateAsync({
+            imovelId: imovel.id,
+            leadId: lead.id,
+            corretorImovelId: imovel.corretorResponsavelId,
+            corretorClienteId: lead.corretorResponsavelId,
+            dataInicio: new Date().toISOString(),
+            status: 'ativa',
+          })
+        } catch {
+          toast({
+            title: 'Não foi possível negociar',
+            description: 'Este imóvel já está em negociação com outro cliente.',
+            variant: 'destructive',
+          })
+          return
+        }
+
+        atualizarImovel.mutate(
+          { id: imovel.id, patch: patchFinal },
+          {
+            onSuccess: () => {
+              atualizarLead.mutate({
+                id: lead.id,
+                patch: {
+                  pendenteAprovacaoImoveis: mesmoCorretor
+                    ? lead.pendenteAprovacaoImoveis
+                    : [...(lead.pendenteAprovacaoImoveis ?? []), imovel.id],
+                  ...(lead.etapa !== 4 ? { etapa: 4 } : {}),
+                },
               })
-              toast({ title: 'Imóvel movido', description: 'Cliente pendente de aprovação do corretor responsável.' })
-            }
+              if (mesmoCorretor) {
+                toast({ title: 'Imóvel e cliente movidos', description: 'Ambos agora em "Em negociação".' })
+              } else {
+                // vai para quem PRECISA aprovar (dono do cliente) — não para quem pediu
+                criarNotificacao.mutate({
+                  destinatarioCorretorId: lead.corretorResponsavelId,
+                  tipoEvento: 'E16',
+                  titulo: 'Aprovação pendente',
+                  corpo: `${nomeCorretor(CORRETOR_LOGADO_ID)} quer vincular o imóvel "${imovel.enderecoRua}, ${imovel.enderecoNumero}" ao seu cliente "${lead.codigo}". Aprove para confirmar a negociação.`,
+                  acaoPendente: { leadId: lead.id, imovelId: imovel.id },
+                })
+                toast({ title: 'Imóvel movido', description: 'Cliente pendente de aprovação do corretor responsável.' })
+              }
+            },
           },
-        },
-      )
+        )
+      })()
       setPending(null)
       return
     }
