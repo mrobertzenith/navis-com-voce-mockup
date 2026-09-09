@@ -8,10 +8,15 @@
 > parcial (`idx_negociacoes_imovel_ativa_unica`) em produção. Ver commit
 > `07daa25` e detalhe em A.8 no fim desta seção.
 >
-> **Parte B (RLS Fase 4): passo 1 (notificações) CONCLUÍDO** (commit
-> `78d8091`). Passo 2 (leads/imóveis) teve a decisão de produto fechada com
-> o PO em 09/09/2026 — ver §B.6–B.9 pro desenho final (schema, arquivos
-> afetados, esforço) — pronto pra implementar.
+> **Parte B (RLS Fase 4): CONCLUÍDA em 09/09/2026** (passo 1 — notificações
+> — commit `78d8091`; passo 2 — leads/imóveis — commit a seguir). Tabela
+> `leads_contato` separada com RLS só-dono, RLS + trigger simétrico em
+> `leads`/`imoveis` restringindo escrita cross-corretor a etapa/flags de
+> funil, `negociacoes`/`vendas` só editáveis por quem participa. Verificado
+> com `teste-fluxos.ts` (22/22) e `teste-fluxos-cross-corretor.ts` (22/22,
+> 9 casos novos cobrindo exatamente as regras da decisão do PO — leitura de
+> contato bloqueada mesmo com vínculo, escrita cruzada só de etapa nos dois
+> sentidos, valor de venda travado pro dono do imóvel). Ver §B.6–B.9.
 
 Documento de planejamento para as duas mudanças estruturais identificadas
 como dívida técnica séria (não cosméticas) durante a correção da rodada 03.
@@ -458,8 +463,12 @@ essa tela; é uma decisão separada, sinalizo mas não mexo sem perguntar.
 
 1. ~~RLS de `notificacoes` (B.4)~~ — feito (`78d8091`).
 2. ~~Migração `negociacoes`/`vendas` (Parte A)~~ — feito (`07daa25`).
-3. **RLS completo de `leads`/`imoveis` (B.6–B.9)** — decisão de produto
-   fechada com o PO em 09/09/2026 (leitura restrita a match, contato/
-   observações nunca cruzam mesmo com vínculo, escrita cruza só
-   etapa/flags de funil nos dois sentidos, valor de venda só pelo corretor
-   do imóvel). Pronto pra implementar.
+3. ~~RLS completo de `leads`/`imoveis` (B.6–B.9)~~ — feito em 09/09/2026,
+   migração `20260909000011_rls_granular_leads_imoveis.sql`.
+
+**As três frentes deste plano estão concluídas.** Este documento fica como
+registro histórico da decisão e do desenho — não há mais trabalho pendente
+aqui além do que já foi levantado como decisão de produto separada (ex.: se
+"Todos os Clientes" deveria parar de anonimizar o nome, já que a resposta 1
+do PO libera isso — ver nota em §B.8. Não mexido de propósito, é uma
+decisão de produto independente desta).

@@ -528,5 +528,20 @@ pras tabelas novas via `useNegociacoes.ts`, o dado histórico foi migrado
 estrutural — substitui o trigger de `4b9ed23`. Verificado: `teste-fluxos.ts`
 22/22 contra o banco real, CI verde (verificação + fluxos-banco-real), e
 conferência direta em produção do caso real que motivou o plano (Cliente
-#2403). RLS Fase 4 passo 1 (notificações) também concluído (`78d8091`); o
-passo 2 (leads/imóveis, §B.3 do plano) segue pendente de decisão de produto.
+#2403). RLS Fase 4 passo 1 (notificações) também concluído (`78d8091`).
+
+**Atualização 09/09/2026 — Parte B (RLS Fase 4) concluída inteira:** o PO
+decidiu o modelo de permissão pra `leads`/`imoveis` (leitura restrita a
+dado de match — nome, endereço, tipo, valor —, contato/observações nunca
+cruzam pra outro corretor mesmo com vínculo formal, escrita cruza só
+etapa/flags de funil nos dois sentidos quando existe negociação real, valor
+de venda só o corretor do imóvel preenche). Implementado: tabela
+`leads_contato` separada com RLS restritiva de verdade (não só filtro de
+tela), RLS + trigger simétrico em `leads`/`imoveis` restringindo update
+cross-corretor por COLUNA (Postgres não faz RLS por coluna nativamente —
+por isso o trigger), `negociacoes`/`vendas` só editáveis por quem participa.
+Verificado com `teste-fluxos.ts` (22/22) e `teste-fluxos-cross-corretor.ts`
+(22/22, 9 casos novos validando cada regra da decisão do PO com duas sessões
+reais simultâneas). As duas frentes do plano
+([PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md](PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md))
+estão fechadas.

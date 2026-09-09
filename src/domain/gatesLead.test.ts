@@ -114,23 +114,25 @@ describe('avaliarTransicaoLead', () => {
     })
   })
 
-  describe('etapa 5 — Fechado: exige imóvel e valor negociado', () => {
-    it('lista os dois campos quando ambos faltam', () => {
-      const r = avaliarTransicaoLead(leadBase({ etapa: 4 }), 5)
-      expect(r.camposFaltantes).toEqual(['imovelFechadoId', 'valorNegociado'])
-    })
-
-    it('valorNegociado igual a zero conta como preenchido (não é "faltando")', () => {
-      const r = avaliarTransicaoLead(leadBase({ etapa: 4, imovelFechadoId: 'im-1', valorNegociado: 0 }), 5)
-      expect(r.camposFaltantes).toEqual([])
-    })
-
-    it('libera com os dois campos preenchidos', () => {
+  describe('etapa 5 — Fechado: não é mais uma transição manual do lado do cliente', () => {
+    // Decisão do PO (09/09/2026): quem decide "Vendido" e preenche o valor é
+    // o corretor do imóvel, não o do cliente — o card do cliente chega em
+    // "Negócio Fechado" sozinho, como reação (ver MeusImoveisPage.tsx e
+    // PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md §B.6). Arrastar manualmente
+    // aqui sempre bloqueia, mesmo com imóvel e valor no patch.
+    it('bloqueia mesmo com imóvel e valor no patch', () => {
       const r = avaliarTransicaoLead(
-        leadBase({ etapa: 4, imovelFechadoId: 'im-1', valorNegociado: 450000 }),
+        leadBase({ etapa: 4 }),
         5,
+        { imovelFechadoId: 'im-1', valorNegociado: 450000 } as Partial<Lead>,
       )
+      expect(r.tipo).toBe('invalida')
       expect(r.camposFaltantes).toEqual([])
+    })
+
+    it('bloqueia sem nada no patch', () => {
+      const r = avaliarTransicaoLead(leadBase({ etapa: 4 }), 5)
+      expect(r.tipo).toBe('invalida')
     })
   })
 

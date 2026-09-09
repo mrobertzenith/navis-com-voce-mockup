@@ -57,6 +57,13 @@ const IMOVEL_CAMPOS: Record<keyof Omit<Imovel, 'id'>, string> = {
 // chavesEntregues saem daqui de propósito: são calculados a partir de
 // negociacoes/vendas na leitura (useLeads), não colunas de leads que se
 // escreve diretamente — ver o comentário em domain/types.ts.
+//
+// email/telefoneWhatsapp/origem/descricaoOrigem/observacoes/motivoStandby/
+// meMantenhaInformado/motivoPerdido/dataEntradaStandby TAMBÉM saem daqui:
+// desde a migração 11, moram em `leads_contato`, tabela própria com RLS que
+// só libera pro dono do lead — nunca cruza pra outro corretor, nem com
+// negociação/vínculo formal (decisão do PO, ver
+// PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md §B.6). Ver LEAD_CONTATO_CAMPOS.
 const LEAD_CAMPOS: Record<
   keyof Omit<
     Lead,
@@ -68,6 +75,15 @@ const LEAD_CAMPOS: Record<
     | 'valorNegociado'
     | 'pagamentosConcluidos'
     | 'chavesEntregues'
+    | 'email'
+    | 'telefoneWhatsapp'
+    | 'origem'
+    | 'descricaoOrigem'
+    | 'observacoes'
+    | 'motivoStandby'
+    | 'meMantenhaInformado'
+    | 'motivoPerdido'
+    | 'dataEntradaStandby'
   >,
   string
 > = {
@@ -75,15 +91,30 @@ const LEAD_CAMPOS: Record<
   corretorResponsavelId: 'corretor_responsavel_id',
   etapa: 'etapa',
   nome: 'nome',
+  dataCadastro: 'data_cadastro',
+  ttlAtual: 'ttl_atual',
+  visitasAgendadas: 'visitas_agendadas',
+  pendenteAprovacaoImoveis: 'pendente_aprovacao_imoveis',
+}
+
+/** Campos sensíveis do lead — tabela `leads_contato`, RLS só-dono (ver acima). */
+const LEAD_CONTATO_CAMPOS: Record<
+  | 'email'
+  | 'telefoneWhatsapp'
+  | 'origem'
+  | 'descricaoOrigem'
+  | 'observacoes'
+  | 'motivoStandby'
+  | 'meMantenhaInformado'
+  | 'motivoPerdido'
+  | 'dataEntradaStandby',
+  string
+> = {
   email: 'email',
   telefoneWhatsapp: 'telefone_whatsapp',
   origem: 'origem',
   descricaoOrigem: 'descricao_origem',
   observacoes: 'observacoes',
-  dataCadastro: 'data_cadastro',
-  ttlAtual: 'ttl_atual',
-  visitasAgendadas: 'visitas_agendadas',
-  pendenteAprovacaoImoveis: 'pendente_aprovacao_imoveis',
   motivoStandby: 'motivo_standby',
   meMantenhaInformado: 'me_mantenha_informado',
   motivoPerdido: 'motivo_perdido',
@@ -217,11 +248,30 @@ export function leadParaDominio(row: Row): Lead {
     perfil.leadId = String(row.id)
     lead.perfilBusca = perfil
   }
+  // leads_contato vem null/ausente quando o corretor logado não é o dono —
+  // RLS bloqueia a linha, não é erro. Os campos de contato ficam undefined
+  // no domínio, exatamente como quando não preenchidos.
+  const contatoRow = (Array.isArray(row.leads_contato) ? row.leads_contato[0] : row.leads_contato) as
+    | Row
+    | undefined
+  if (contatoRow) {
+    // paraDominio sempre seta `id` a partir de row.id — leads_contato não
+    // tem essa coluna (a PK é lead_id), então descarta antes de misturar
+    // pra não sobrescrever o id de verdade do lead com undefined.
+    const contato = paraDominio<Partial<Lead> & { id?: string }>(contatoRow, LEAD_CONTATO_CAMPOS)
+    delete contato.id
+    Object.assign(lead, contato)
+  }
   return lead
 }
 
 export function leadParaRow(patch: Partial<Lead>): Row {
   return paraRow(patch as Row, LEAD_CAMPOS)
+}
+
+/** Campos de contato do patch — vão pra `leads_contato`, não pra `leads`. */
+export function leadContatoParaRow(patch: Partial<Lead>): Row {
+  return paraRow(patch as Row, LEAD_CONTATO_CAMPOS)
 }
 
 export function perfilParaRow(patch: Partial<PerfilBusca>): Row {

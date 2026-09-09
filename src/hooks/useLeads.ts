@@ -1,10 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Lead, Negociacao, Venda } from '@/domain/types'
 import { supabase } from '@/lib/supabase'
-import { leadParaDominio, leadParaRow, negociacaoParaDominio, perfilParaRow, vendaParaDominio } from '@/lib/supabaseMap'
+import {
+  leadContatoParaRow,
+  leadParaDominio,
+  leadParaRow,
+  negociacaoParaDominio,
+  perfilParaRow,
+  vendaParaDominio,
+} from '@/lib/supabaseMap'
 
 const LEADS_KEY = ['leads'] as const
-const LEAD_SELECT = '*, perfis_busca(*)'
+// leads_contato vem null pra quem não é dono do lead (RLS) — não é erro,
+// é o comportamento esperado (ver leadParaDominio em supabaseMap.ts).
+const LEAD_SELECT = '*, perfis_busca(*), leads_contato(*)'
 
 /**
  * negociacoesAtivas/imovelFechadoId/valorNegociado/pagamentosConcluidos/
@@ -63,6 +72,15 @@ async function atualizarLead(id: string, patch: Partial<Lead>): Promise<Lead> {
       const { error } = await supabase.from('leads').update(rowLead).eq('id', id)
       if (error) throw new Error('Falha ao atualizar lead')
     }
+    const rowContato = leadContatoParaRow(patch)
+    if (Object.keys(rowContato).length > 0) {
+      // upsert: leads antigos migrados já têm a linha, mas não custa cobrir
+      // o caso de uma linha que por algum motivo não exista ainda
+      const { error } = await supabase
+        .from('leads_contato')
+        .upsert({ ...rowContato, lead_id: id }, { onConflict: 'lead_id' })
+      if (error) throw new Error('Falha ao atualizar dados de contato do lead')
+    }
     if (patch.perfilBusca) {
       const { error } = await supabase
         .from('perfis_busca')
@@ -107,6 +125,11 @@ async function criarLead(dados: Omit<Lead, 'id' | 'codigo' | 'dataCadastro'>): P
       .from('perfis_busca')
       .insert({ ...perfilParaRow(perfilBusca), lead_id: criado.id })
     if (erroPerfil) throw new Error('Falha ao criar perfil de busca')
+    const rowContato = leadContatoParaRow(lead)
+    const { error: erroContato } = await supabase
+      .from('leads_contato')
+      .insert({ ...rowContato, lead_id: criado.id })
+    if (erroContato) throw new Error('Falha ao criar dados de contato do lead')
     const { data, error: erroSelect } = await supabase
       .from('leads')
       .select(LEAD_SELECT)

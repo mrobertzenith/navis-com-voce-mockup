@@ -215,6 +215,124 @@ async function main() {
     await a.client.from('leads').delete().eq('id', leadDeB!.id)
   })
 
+  // ---------- PERMISSÕES GRANULARES (migração 11) ----------
+  // Decisão do PO 09/09/2026: contato/observações NUNCA cruzam (nem com
+  // vínculo), escrita cruza só etapa/flags de funil nos dois sentidos
+  // quando existe negociação real ligando os dois lados, valor de venda só
+  // o dono do imóvel altera. Ver PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md §B.6-B.9.
+  console.log('\nPERMISSÕES GRANULARES (RLS + trigger de leads/imoveis/negociacoes — migração 11)')
+
+  let imovelDeBId = ''
+  let negociacaoVinculoId = ''
+
+  await checar('B cadastra um imóvel', async () => {
+    const imovel: Omit<Imovel, 'id' | 'criadoEm' | 'atualizadoEm'> = {
+      corretorResponsavelId: b.corretorId,
+      etapa: 'a',
+      enderecoRua: MARCADOR,
+      enderecoNumero: '2',
+      bairro: 'Centro',
+      cidade: 'Ribeirão Preto',
+      estado: 'SP',
+      cep: '',
+      lat: 0,
+      lng: 0,
+      tipo: 'apartamento',
+      quartos: 2,
+      suites: 0,
+      vagas: 1,
+      banheiros: 1,
+      emNegociacaoFlag: false,
+    }
+    const { data, error } = await b.client.from('imoveis').insert(imovelParaRow(imovel)).select().single()
+    exigir(!error, error?.message ?? '')
+    imovelDeBId = data!.id
+  })
+
+  await checar('B NÃO consegue ler o contato do cliente de A, mesmo sem nenhuma negociação envolvida', async () => {
+    const { data, error } = await b.client.from('leads_contato').select('*').eq('lead_id', leadDeAId)
+    exigir(!error, error?.message ?? '')
+    exigir((data ?? []).length === 0, 'B conseguiu ler leads_contato de um lead que não é dele')
+  })
+
+  await checar('sem negociação, B NÃO consegue mudar a etapa do lead de A', async () => {
+    const { error } = await b.client.from('leads').update({ etapa: 2 }).eq('id', leadDeAId)
+    exigir(!error, error?.message ?? '') // RLS bloqueia silenciosamente (0 linhas), não é erro
+    const { data } = await a.client.from('leads').select('etapa').eq('id', leadDeAId).single()
+    exigir(data!.etapa === 1, 'B conseguiu mudar a etapa de um lead de A sem negociação ligando os dois')
+  })
+
+  await checar('cria negociação ligando o lead de A ao imóvel de B', async () => {
+    const { data, error } = await a.client
+      .from('negociacoes')
+      .insert({
+        imovel_id: imovelDeBId,
+        lead_id: leadDeAId,
+        corretor_imovel_id: b.corretorId,
+        corretor_cliente_id: a.corretorId,
+        data_inicio: new Date().toISOString(),
+        status: 'ativa',
+      })
+      .select()
+      .single()
+    exigir(!error, error?.message ?? '')
+    negociacaoVinculoId = data!.id
+  })
+
+  await checar('COM negociação, B consegue mudar a etapa do lead de A (mover imóvel move cliente vinculado)', async () => {
+    const { error } = await b.client.from('leads').update({ etapa: 4 }).eq('id', leadDeAId)
+    exigir(!error, error?.message ?? '')
+    const { data } = await a.client.from('leads').select('etapa').eq('id', leadDeAId).single()
+    exigir(data!.etapa === 4, 'a etapa do lead de A não mudou mesmo com negociação ligando os dois')
+  })
+
+  await checar('mesmo com negociação, B NÃO consegue mudar o nome do lead de A (dado do dono, não de funil)', async () => {
+    const { error } = await b.client.from('leads').update({ nome: 'hackeado' }).eq('id', leadDeAId)
+    exigir(error != null, 'B conseguiu alterar o nome de um lead de outro corretor')
+    const { data } = await a.client.from('leads').select('nome').eq('id', leadDeAId).single()
+    exigir(data!.nome !== 'hackeado', 'o nome do lead de A foi alterado por B')
+  })
+
+  await checar('com a mesma negociação, A consegue mudar a etapa do imóvel de B (mover cliente move imóvel vinculado)', async () => {
+    const { error } = await a.client
+      .from('imoveis')
+      .update({ etapa: 'e', em_negociacao_flag: true })
+      .eq('id', imovelDeBId)
+    exigir(!error, error?.message ?? '')
+    const { data } = await b.client.from('imoveis').select('etapa').eq('id', imovelDeBId).single()
+    exigir(data!.etapa === 'e', 'a etapa do imóvel de B não mudou mesmo com A tendo negociação ligando os dois')
+  })
+
+  await checar('mesmo vinculado, A NÃO consegue mudar o valor de venda do imóvel de B (só o dono do imóvel preenche)', async () => {
+    const { error } = await a.client.from('imoveis').update({ valor_venda: 999999 }).eq('id', imovelDeBId)
+    exigir(error != null, 'A conseguiu alterar valor_venda de um imóvel de outro corretor')
+    const { data } = await b.client.from('imoveis').select('valor_venda').eq('id', imovelDeBId).single()
+    exigir(data!.valor_venda == null, 'valor_venda do imóvel de B foi alterado por A')
+  })
+
+  let negociacaoSoDeAId = ''
+  await checar('B (não participa) NÃO consegue atualizar uma negociação só entre A e A mesmo', async () => {
+    const { data: nego, error: erroCria } = await a.client
+      .from('negociacoes')
+      .insert({
+        imovel_id: imovelDeAId,
+        lead_id: leadDeAId,
+        corretor_imovel_id: a.corretorId,
+        corretor_cliente_id: a.corretorId,
+        data_inicio: new Date().toISOString(),
+        status: 'ativa',
+      })
+      .select()
+      .single()
+    exigir(!erroCria, erroCria?.message ?? '')
+    negociacaoSoDeAId = nego!.id
+
+    const { error } = await b.client.from('negociacoes').update({ status: 'revertida' }).eq('id', nego!.id)
+    exigir(!error, error?.message ?? '') // RLS bloqueia silenciosamente (0 linhas)
+    const { data } = await a.client.from('negociacoes').select('status').eq('id', nego!.id).single()
+    exigir(data!.status === 'ativa', 'B conseguiu alterar uma negociação da qual não participa')
+  })
+
   // ---------- SEGURANÇA — permissões negativas com sessão realmente não-admin ----------
   console.log('\nSEGURANÇA (testado com uma sessão de verdade sem privilégio de admin)')
 
@@ -248,11 +366,16 @@ async function main() {
 
   // ---------- LIMPEZA ----------
   console.log('\nLIMPEZA (dados marcados deste script — a conta fixture do corretor B NÃO é apagada)')
-  await checar('remover imóvel, cliente, vínculos e notificações de teste', async () => {
+  await checar('remover imóvel, cliente, vínculos, negociações e notificações de teste', async () => {
+    // negociacoes primeiro: FK sem cascade pra leads/imoveis (mesmo motivo
+    // de teste-fluxos.ts) — apagar o imóvel/lead antes falharia
+    await a.client.from('negociacoes').delete().eq('id', negociacaoVinculoId)
+    await a.client.from('negociacoes').delete().eq('id', negociacaoSoDeAId)
     for (const id of vinculosTeste) await a.client.from('vinculos').delete().eq('id', id)
     for (const id of notificacoesTeste) await a.client.from('notificacoes').delete().eq('id', id)
     await a.client.from('leads').delete().eq('id', leadDeAId)
-    await a.client.from('imoveis').delete().eq('id', imovelDeAId)
+    // imovelDeAId e imovelDeBId têm o mesmo endereco_rua (MARCADOR) — um filtro só pega os dois
+    await a.client.from('imoveis').delete().eq('endereco_rua', MARCADOR)
 
     const { data: sobrouImovel } = await a.client.from('imoveis').select('id').eq('endereco_rua', MARCADOR)
     const { data: sobrouLead } = await a.client.from('leads').select('id').like('codigo', `${MARCADOR}%`)

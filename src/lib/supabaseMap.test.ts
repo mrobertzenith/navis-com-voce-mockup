@@ -1,7 +1,15 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { imovelParaRow, leadParaRow, negociacaoParaRow, perfilParaRow, vendaParaRow } from '@/lib/supabaseMap'
+import {
+  leadContatoParaRow,
+  leadParaDominio,
+  imovelParaRow,
+  leadParaRow,
+  negociacaoParaRow,
+  perfilParaRow,
+  vendaParaRow,
+} from '@/lib/supabaseMap'
 import type { Imovel, Lead, Negociacao, PerfilBusca, Venda } from '@/domain/types'
 
 /**
@@ -239,5 +247,79 @@ describe('campos opcionais continuam podendo ser limpos', () => {
     const row = imovelParaRow({ cnm: undefined, observacoes: undefined })
     expect(row.cnm).toBeNull()
     expect(row.observacoes).toBeNull()
+  })
+})
+
+// Migração 11: contato do cliente (e-mail, telefone, observações, motivos)
+// sai de `leads` pra `leads_contato`, tabela própria com RLS que só libera
+// pro dono — ver PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md §B.6-B.9.
+describe('leads_contato — dado sensível separado (migração 11)', () => {
+  it('leadParaRow não escreve mais nenhum campo de contato em leads', () => {
+    const row = leadParaRow({
+      etapa: 2,
+      email: 'a@b.com',
+      telefoneWhatsapp: '16999998888',
+      observacoes: 'sigiloso',
+      origem: 'indicacao',
+      descricaoOrigem: 'amigo',
+      motivoStandby: 'financiamento',
+      motivoPerdido: 'comprou com outro',
+      meMantenhaInformado: true,
+      dataEntradaStandby: '2026-01-01T00:00:00.000Z',
+    } as Partial<Lead>)
+    expect(row).not.toHaveProperty('email')
+    expect(row).not.toHaveProperty('telefone_whatsapp')
+    expect(row).not.toHaveProperty('observacoes')
+    expect(row).not.toHaveProperty('origem')
+    expect(row).not.toHaveProperty('descricao_origem')
+    expect(row).not.toHaveProperty('motivo_standby')
+    expect(row).not.toHaveProperty('motivo_perdido')
+    expect(row).not.toHaveProperty('me_mantenha_informado')
+    expect(row).not.toHaveProperty('data_entrada_standby')
+  })
+
+  it('leadContatoParaRow captura exatamente os campos de contato', () => {
+    const row = leadContatoParaRow({
+      etapa: 2, // não é campo de contato — não deveria aparecer
+      nome: 'Fulano', // idem
+      email: 'a@b.com',
+      telefoneWhatsapp: '16999998888',
+      observacoes: 'sigiloso',
+    } as Partial<Lead>)
+    expect(row).toEqual({ email: 'a@b.com', telefone_whatsapp: '16999998888', observacoes: 'sigiloso' })
+  })
+
+  it('leadParaDominio mescla leads_contato sem sobrescrever o id do lead', () => {
+    // regressão: paraDominio() sempre seta `id` a partir de row.id — a linha
+    // de leads_contato não tem coluna `id` (a PK é lead_id), então mesclar
+    // sem descartar esse campo sobrescrevia lead.id com undefined
+    const lead = leadParaDominio({
+      id: 'lead-123',
+      codigo: 'Cliente #0001',
+      corretor_responsavel_id: 'cor-1',
+      etapa: 2,
+      nome: 'Fulano',
+      data_cadastro: '2026-01-01T00:00:00.000Z',
+      leads_contato: { email: 'a@b.com', telefone_whatsapp: '16999998888' },
+    })
+    expect(lead.id).toBe('lead-123')
+    expect(lead.email).toBe('a@b.com')
+    expect(lead.telefoneWhatsapp).toBe('16999998888')
+  })
+
+  it('leadParaDominio não quebra quando leads_contato vem null (RLS bloqueou — não é dono)', () => {
+    const lead = leadParaDominio({
+      id: 'lead-123',
+      codigo: 'Cliente #0001',
+      corretor_responsavel_id: 'cor-1',
+      etapa: 2,
+      nome: 'Fulano',
+      data_cadastro: '2026-01-01T00:00:00.000Z',
+      leads_contato: null,
+    })
+    expect(lead.id).toBe('lead-123')
+    expect(lead.email).toBeUndefined()
+    expect(lead.telefoneWhatsapp).toBeUndefined()
+    expect(lead.observacoes).toBeUndefined()
   })
 })

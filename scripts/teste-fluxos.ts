@@ -7,7 +7,14 @@
  * Cria tudo com um marcador e apaga no fim; dados reais não são tocados.
  */
 import { createClient } from '@supabase/supabase-js'
-import { imovelParaRow, leadParaRow, negociacaoParaRow, perfilParaRow, vendaParaRow } from '../src/lib/supabaseMap'
+import {
+  imovelParaRow,
+  leadContatoParaRow,
+  leadParaRow,
+  negociacaoParaRow,
+  perfilParaRow,
+  vendaParaRow,
+} from '../src/lib/supabaseMap'
 import type { Imovel, Lead, PerfilBusca } from '../src/domain/types'
 import { env } from './lib/env'
 
@@ -185,6 +192,11 @@ async function main() {
       .from('perfis_busca')
       .insert({ ...perfilParaRow(perfil), lead_id: data!.id })
     exigir(!erroPerfil, erroPerfil?.message ?? '')
+    // leads_contato: mesma linha que criarLead() insere no app real (useLeads.ts)
+    const { error: erroContato } = await supabase
+      .from('leads_contato')
+      .insert({ ...leadContatoParaRow(payload), lead_id: data!.id })
+    exigir(!erroContato, erroContato?.message ?? '')
     return data!.id as string
   }
 
@@ -202,12 +214,26 @@ async function main() {
     } as Partial<Lead>)
   })
 
-  await checar('edição do cliente e do perfil de busca', async () => {
+  await checar('edição do cliente, do contato e do perfil de busca', async () => {
     const { error } = await supabase
       .from('leads')
-      .update(leadParaRow({ nome: `${MARCADOR} editado`, telefoneWhatsapp: '16999998888' }))
+      .update(leadParaRow({ nome: `${MARCADOR} editado` }))
       .eq('id', leadId)
     exigir(!error, error?.message ?? '')
+    // telefone é leads_contato, não leads, desde a migração 11 — mesmo
+    // caminho de escrita que atualizarLead() usa em useLeads.ts
+    const { error: erroContato } = await supabase
+      .from('leads_contato')
+      .update(leadContatoParaRow({ telefoneWhatsapp: '16999998888' }))
+      .eq('lead_id', leadId)
+    exigir(!erroContato, erroContato?.message ?? '')
+    const { data: contatoAtualizado, error: erroLeContato } = await supabase
+      .from('leads_contato')
+      .select('telefone_whatsapp')
+      .eq('lead_id', leadId)
+      .single()
+    exigir(!erroLeContato, erroLeContato?.message ?? '')
+    exigir(contatoAtualizado!.telefone_whatsapp === '16999998888', 'telefone não foi persistido em leads_contato')
     const { error: erroPerfil } = await supabase
       .from('perfis_busca')
       .update(perfilParaRow({ ...perfil, bairros: ['Centro', 'Jardim Botânico'], valorAte: 700000 }))

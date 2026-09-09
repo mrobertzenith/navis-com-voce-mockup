@@ -20,7 +20,6 @@ import {
   useAtualizarNegociacao,
   useAtualizarVenda,
   useCriarNegociacao,
-  useCriarVenda,
   useNegociacoes,
   useVendas,
 } from '@/hooks/useNegociacoes'
@@ -52,7 +51,6 @@ export function MeusClientesPage() {
   const atualizarImovel = useAtualizarImovel()
   const criarNegociacao = useCriarNegociacao()
   const atualizarNegociacao = useAtualizarNegociacao()
-  const criarVenda = useCriarVenda()
   const atualizarVenda = useAtualizarVenda()
   const criarNotificacao = useCriarNotificacao()
   const { contadorPorLead } = useMatches()
@@ -286,65 +284,11 @@ export function MeusClientesPage() {
       return
     }
 
-    // Fechou negócio: conclui a negociação ativa, cria a venda, e o imóvel
-    // precisa ir junto pra "Vendido" — senão o card do imóvel nunca sabe que
-    // foi vendido. Desfaz também a negociação dos DEMAIS clientes que tinham
-    // esse imóvel no radar — vendido, ele sai de circulação.
-    if (destino === 5 && patch.imovelFechadoId) {
-      const imovelId = patch.imovelFechadoId
-      const imovel = imoveis.find((i) => i.id === imovelId)
-      const negociacaoAtiva = negociacoes.find(
-        (n) => n.leadId === lead.id && n.imovelId === imovelId && n.status === 'ativa',
-      )
-      const outrasNegociacoesDoImovel = negociacoes.filter(
-        (n) => n.id !== negociacaoAtiva?.id && n.imovelId === imovelId && n.status === 'ativa',
-      )
-      const valorNegociado = patch.valorNegociado
-
-      atualizarLead.mutate(
-        { id: lead.id, patch: patchFinal },
-        {
-          onSuccess: () => {
-            if (negociacaoAtiva) {
-              atualizarNegociacao.mutate(
-                {
-                  id: negociacaoAtiva.id,
-                  patch: { status: 'concluida', dataFim: new Date().toISOString(), valorNegociado },
-                },
-                {
-                  onSuccess: () => {
-                    criarVenda.mutate({
-                      negociacaoId: negociacaoAtiva.id,
-                      imovelId,
-                      leadId: lead.id,
-                      corretorImovelId: negociacaoAtiva.corretorImovelId,
-                      corretorClienteId: negociacaoAtiva.corretorClienteId,
-                      valorVenda: valorNegociado ?? 0,
-                      dataVenda: new Date().toISOString(),
-                      revertida: false,
-                      pagamentosConcluidos: false,
-                      chavesEntregues: false,
-                    })
-                  },
-                },
-              )
-            }
-            if (imovel && imovel.etapa !== 'f') {
-              atualizarImovel.mutate({
-                id: imovel.id,
-                patch: { etapa: 'f', valorVenda: valorNegociado, dataVenda: new Date().toISOString() },
-              })
-            }
-            outrasNegociacoesDoImovel.forEach((n) => {
-              atualizarNegociacao.mutate({ id: n.id, patch: { status: 'revertida', dataFim: new Date().toISOString() } })
-            })
-            toast({ title: 'Cliente e imóvel movidos', description: 'Negócio fechado — imóvel agora "Vendido".' })
-          },
-        },
-      )
-      setPending(null)
-      return
-    }
+    // "Fechar negócio" deixou de ser uma ação manual daqui (decisão do PO —
+    // quem decide "Vendido" e preenche o valor é o corretor do imóvel, não
+    // o do cliente). avaliarTransicaoLead já bloqueia esse drag; o card do
+    // cliente chega em "Negócio Fechado" sozinho, como reação, quando o
+    // imóvel é marcado "Vendido" do lado certo — ver MeusImoveisPage.tsx.
 
     // Reversão de Negócio Fechado pra Em Negociação: a negociação concluída
     // volta a 'ativa', a venda vinculada vira 'revertida' (histórico, não

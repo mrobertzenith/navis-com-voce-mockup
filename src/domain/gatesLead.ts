@@ -5,8 +5,6 @@ export type CampoGateLead =
   | 'observacoes'
   | 'visitasAgendadas'
   | 'imovelNegociacaoId'
-  | 'imovelFechadoId'
-  | 'valorNegociado'
   | 'motivoStandby'
   | 'motivoPerdido'
   | 'pagamentosConcluidos'
@@ -18,8 +16,6 @@ export const CAMPO_GATE_LEAD_CONFIG: Record<CampoGateLead, { label: string; tipo
   observacoes: { label: 'Observações', tipo: 'textarea' },
   visitasAgendadas: { label: 'Visitas agendadas', tipo: 'visitas' },
   imovelNegociacaoId: { label: 'Imóveis da negociação', tipo: 'imovel-multi' },
-  imovelFechadoId: { label: 'Imóvel do negócio', tipo: 'imovel' },
-  valorNegociado: { label: 'Valor negociado', tipo: 'number' },
   motivoStandby: { label: 'Motivo do standby (até 500 caracteres)', tipo: 'textarea' },
   motivoPerdido: { label: 'Motivo da perda (até 500 caracteres)', tipo: 'textarea' },
   pagamentosConcluidos: { label: 'Pagamentos concluídos', tipo: 'checkbox' },
@@ -64,6 +60,16 @@ export function avaliarTransicaoLead(
     return { tipo: 'invalida', camposFaltantes: [], requerConfirmacao: false }
   }
 
+  // "Negócio Fechado" deixou de ser uma transição manual do lado do cliente:
+  // quem decide que vendeu e preenche o valor é o corretor do imóvel
+  // (decisão do PO — valor é dado do imóvel, não do cliente). O card do
+  // cliente avança sozinho, como reação, quando o imóvel é marcado
+  // "Vendido" do lado certo — ver MeusImoveisPage.tsx e
+  // PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md §B.6.
+  if (destino === 5) {
+    return { tipo: 'invalida', camposFaltantes: [], requerConfirmacao: false }
+  }
+
   const efetivo = { ...lead, ...patch }
   const faltantes: CampoGateLead[] = []
 
@@ -72,16 +78,12 @@ export function avaliarTransicaoLead(
     faltantes.push('visitasAgendadas')
   }
   if (destino === 4 && !efetivo.imovelNegociacaoId) faltantes.push('imovelNegociacaoId')
-  if (destino === 5) {
-    if (!efetivo.imovelFechadoId) faltantes.push('imovelFechadoId')
-    if (efetivo.valorNegociado == null) faltantes.push('valorNegociado')
-  }
   if (destino === 6) {
     if (!efetivo.pagamentosConcluidos) faltantes.push('pagamentosConcluidos')
     if (!efetivo.chavesEntregues) faltantes.push('chavesEntregues')
   }
 
-  const requerConfirmacao = destino === 4 || destino === 5 || destino === 6
+  const requerConfirmacao = destino === 4 || destino === 6
 
   return { tipo: 'avanco', camposFaltantes: faltantes, requerConfirmacao }
 }
