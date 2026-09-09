@@ -515,7 +515,18 @@ reimplementou a mesma coisa como array JSON solto em `leads`, sem chave
 estrangeira nem `unique`, exigindo sincronia manual espalhada por 4 telas
 diferentes. Isso já tinha causado dado real duplicado em produção antes
 desta correção. Apliquei uma trava de banco (trigger) como rede de segurança
-imediata (`4b9ed23`) e limpei o dado existente, mas a correção definitiva —
-migrar pra tabela relacional — e o reforço de permissão pendente desde a
-criação do banco (RLS Fase 4) são mudanças estruturais maiores, com plano
-detalhado em [PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md](PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md).
+imediata (`4b9ed23`) e limpei o dado existente. Plano detalhado em
+[PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md](PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md).
+
+**Atualização 08/09/2026 — Parte A concluída:** a migração pra `negociacoes`/
+`vendas` foi executada (commit `07daa25`): leitura de `Lead.negociacoesAtivas`
+e afins passou a ser calculada a partir das tabelas relacionais em
+`useLeads.ts`, escrita em `MeusClientesPage`/`MeusImoveisPage` passou a ir
+pras tabelas novas via `useNegociacoes.ts`, o dado histórico foi migrado
+(`scripts/migrar_negociacoes.ts`), e um índice único parcial
+(`idx_negociacoes_imovel_ativa_unica`) trava a duplicidade no banco de forma
+estrutural — substitui o trigger de `4b9ed23`. Verificado: `teste-fluxos.ts`
+22/22 contra o banco real, CI verde (verificação + fluxos-banco-real), e
+conferência direta em produção do caso real que motivou o plano (Cliente
+#2403). RLS Fase 4 passo 1 (notificações) também concluído (`78d8091`); o
+passo 2 (leads/imóveis, §B.3 do plano) segue pendente de decisão de produto.

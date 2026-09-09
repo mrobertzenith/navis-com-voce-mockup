@@ -1,5 +1,17 @@
 # Plano: migração para `negociacoes`/`vendas` + RLS Fase 4
 
+> **Parte A: CONCLUÍDA em 08/09/2026.** Migração relacional feita, testada
+> (`teste-fluxos.ts` 22/22 contra o banco real, CI verde nos dois jobs) e
+> verificada em produção — Cliente #2403 (as 2 negociações reais que
+> motivaram este plano) agora resolve corretamente via `negociacoes`, e os
+> imóveis envolvidos aparecem em etapa `e` de forma consistente. Índice único
+> parcial (`idx_negociacoes_imovel_ativa_unica`) em produção. Ver commit
+> `07daa25` e detalhe em A.8 no fim desta seção.
+>
+> **Parte B (RLS Fase 4): passo 1 (notificações) CONCLUÍDO** (commit
+> `78d8091`). Passo 2 (leads/imóveis, §B.3) segue pendente — precisa de
+> decisão de produto antes de começar, não faz parte do escopo já executado.
+
 Documento de planejamento para as duas mudanças estruturais identificadas
 como dívida técnica séria (não cosméticas) durante a correção da rodada 03.
 Não é trabalho de sessão pontual — é arquitetura, e mudança de arquitetura
