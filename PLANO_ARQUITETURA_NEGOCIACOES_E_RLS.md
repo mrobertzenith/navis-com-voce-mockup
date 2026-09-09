@@ -224,14 +224,166 @@ existe (já teria pego isso se já estivesse assim).
   sensível" vs. "dado de matching"), não só engenharia. Não estimo em dias
   sem essa decisão vir primeiro.
 
+### B.6 Decisão do PO (09/09/2026)
+
+Perguntas 1–4 do documento `Decisao_PO_Permissoes_Leads_Imoveis.pdf` respondidas:
+
+1. **Leitura (matching)**: equipe toda vê nome do cliente, endereço, tipo e
+   valor. Contato (telefone/e-mail) e observações da etapa "Em contato" NÃO
+   são expostos a ninguém além do dono.
+2. **Leitura (contato/observações)**: fechado — nem vínculo formal
+   (negociação ativa) libera. Só quem cadastrou o lead.
+3. **Escrita**: ninguém altera registro de outro corretor. Só visualiza o
+   necessário pro match (nome, endereço, tipo, valor); o sistema é quem faz
+   o match. **Valor da negociação não entra no CRM enquanto "em negociação"**
+   — só quando vira venda, e quem preenche é o corretor do imóvel (o valor é
+   do imóvel, não do cliente).
+4. **Proteção real no banco** (não só filtro de tela) para telefone/e-mail/
+   observações — dado sensível sai de `leads` pra uma tabela própria com
+   política de RLS restritiva de verdade.
+
+**⚠️ Conflito real encontrado entre a resposta 3 e o comportamento atual do
+produto** (preciso de confirmação antes de implementar, não posso decidir
+sozinho): hoje, `MeusImoveisPage.tsx` avança a ETAPA do lead de OUTRO
+corretor automaticamente quando o corretor do imóvel move o card — ex.:
+imóvel vai pra "Em negociação" → `atualizarLead.mutate({ id: neg.leadId,
+patch: { etapa: 4 } })` (linha 296); imóvel é vendido → o lead comprador
+vai pra etapa 5 (linha 235); reversão pelo lado do imóvel também regride a
+etapa do lead (linha ~198). Isso é uma escrita cross-corretor real e usada
+o tempo todo — sem ela, o card do cliente nunca saberia que o imóvel dele
+avançou ou foi vendido, a não ser que o corretor do CLIENTE mova manualmente
+(o que quebra a razão de ter negociação vinculada em primeiro lugar).
+
+A resposta 3, lida ao pé da letra ("ninguém altera registro de outro"),
+bloquearia exatamente essa escrita. A saída que não contradiz o espírito da
+resposta (dado de contato continua intocável, só a ETAPA do card é
+sistêmica) é: **`leads.etapa` deixa de ser uma coluna de escrita livre por
+UPDATE e passa a mudar só através de uma função de banco
+(`security definer`)** que:
+- só aceita a transição se houver uma `negociacao` ativa/concluída/revertida
+  ligando aquele `lead_id` ao `imovel_id` do corretor que está chamando;
+- só altera a coluna `etapa` (e o array `pendente_aprovacao_imoveis`), nada
+  mais do lead.
+
+Ou seja, RLS deixa de proteger só por linha e passa a ter uma "porta lateral"
+controlada por função pra esse caso específico — não é "abrir uma exceção
+qualquer", é o único jeito de manter os dois requisitos (nada de escrita
+livre cross-corretor E o Kanban do cliente continua se movendo sozinho)
+verdadeiros ao mesmo tempo. **Preciso da sua confirmação nisso antes de
+implementar** — ver pergunta ao final desta seção.
+
+### B.7 Desenho de schema
+
+```sql
+-- dado sensível sai de leads pra tabela própria, 1:1
+create table leads_contato (
+  lead_id uuid primary key references leads (id) on delete cascade,
+  email text,
+  telefone_whatsapp text,
+  observacoes text,
+  origem origem_lead,
+  descricao_origem text,
+  motivo_standby text,
+  motivo_perdido text,
+  me_mantenha_informado boolean,
+  data_entrada_standby timestamptz
+);
+
+-- RLS: só o dono do lead lê/escreve — nem com negociação ativa libera (resp. 2)
+create policy "somente_dono_le" on leads_contato
+  for select to authenticated
+  using (lead_id in (select id from leads where corretor_responsavel_id = corretor_atual_id()));
+create policy "somente_dono_escreve" on leads_contato
+  for all to authenticated
+  using (lead_id in (select id from leads where corretor_responsavel_id = corretor_atual_id()))
+  with check (lead_id in (select id from leads where corretor_responsavel_id = corretor_atual_id()));
+
+-- leads: equipe lê só campos de match (nome incluso, por decisão do PO);
+-- update fica restrito ao dono, MENOS a função abaixo
+drop policy "equipe_atualiza" on leads;
+create policy "dono_atualiza" on leads
+  for update to authenticated
+  using (corretor_responsavel_id = corretor_atual_id())
+  with check (corretor_responsavel_id = corretor_atual_id());
+
+-- porta lateral controlada pra avanço de etapa via negociação (ver B.6)
+create function avancar_etapa_lead_por_negociacao(p_lead_id uuid, p_imovel_id uuid, p_nova_etapa smallint)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (
+    select 1 from negociacoes
+    where lead_id = p_lead_id and imovel_id = p_imovel_id
+      and corretor_imovel_id = corretor_atual_id()
+  ) then
+    raise exception 'sem negociação ligando esse lead a esse imóvel pra esse corretor';
+  end if;
+  update leads set etapa = p_nova_etapa where id = p_lead_id;
+end;
+$$;
+
+-- imoveis: mesma lógica — equipe lê campos de match, update só do dono
+drop policy "equipe_atualiza" on imoveis;
+create policy "dono_atualiza" on imoveis
+  for update to authenticated
+  using (corretor_responsavel_id = corretor_atual_id())
+  with check (corretor_responsavel_id = corretor_atual_id());
+
+-- negociacoes.valor_negociado deixa de ser usado (resp. 3) — valor só em
+-- vendas.valor_venda, preenchido pelo corretor_imovel_id na etapa "Vendido"
+```
+
+### B.8 Telas e arquivos afetados
+
+- `src/lib/supabaseMap.ts` — split de `LEAD_CAMPOS` em campos públicos vs.
+  `LEAD_CONTATO_CAMPOS` (nova tabela); `leadParaDominio` passa a receber o
+  join opcional com `leads_contato` (null quando RLS bloqueia = não é dono).
+- `src/domain/types.ts` — `Lead` mantém os campos de contato como opcionais
+  (undefined quando o corretor não é dono, e a UI já sabe tratar campo
+  ausente); considerar tipo `LeadComContato` vs `LeadPublico` se a distinção
+  precisar ficar explícita no tipo.
+- `src/hooks/useLeads.ts` — `fetchLeads` faz o join com `leads_contato`
+  (retorna null pras linhas de outros corretores, sem erro — é esperado).
+- `src/pages/MeusImoveisPage.tsx` — as 4 chamadas de `atualizarLead.mutate`
+  pra lead de outro corretor viram uma nova mutation
+  `avancarEtapaLeadPorNegociacao` (RPC pra função do banco), não mais UPDATE
+  direto.
+- `src/components/lead/CardCliente.tsx`, `ModalGateCliente.tsx`,
+  `ModalGateImovel.tsx` — já tratam `visao='publica'` vs `'propria'`
+  (confirmado: já escondem nome/contato hoje pra visão pública) — revisar se
+  cobrem TODOS os campos de contato (telefone, observações) e não só nome.
+- Formulário/card de "Em negociação" (`MeusClientesPage.tsx`/
+  `MeusImoveisPage.tsx`) — remover a captura de `valorNegociado` na etapa 4/5
+  de negociação; campo de valor só aparece no fechamento (etapa "Vendido"),
+  preenchido pelo lado do imóvel.
+- `scripts/teste-fluxos-cross-corretor.ts` e `teste-fluxos.ts` — precisam de
+  casos novos: ler lead de outro corretor não deve trazer contato; tentar
+  UPDATE direto em lead de outro corretor deve falhar; a função
+  `avancar_etapa_lead_por_negociacao` deve funcionar só com negociação
+  válida.
+
+**Nota:** `TodosClientesPage.tsx` já anonimiza nome propositalmente (mostra
+só código) por um motivo de produto diferente deste (incentivar contato via
+corretor, não direto com o cliente) — a resposta 1 do PO não obriga mudar
+essa tela; é uma decisão separada, sinalizo mas não mexo sem perguntar.
+
+### B.9 Esforço estimado
+
+- Tabela `leads_contato` + políticas + migração de dado existente
+  (mover as colunas, não duplicar): ~meio dia.
+- Função `avancar_etapa_lead_por_negociacao` + trocar as 4 chamadas em
+  `MeusImoveisPage.tsx`: ~meio dia, com teste cross-corretor cobrindo.
+- Ajustar `imoveis` (mesma lógica de update restrito ao dono): ~2h.
+- Remover captura de `valorNegociado` na negociação (schema + telas): ~2h.
+- Testes (`teste-fluxos-cross-corretor.ts` + `teste-fluxos.ts` + hooks): ~meio dia.
+- **Total: ~2 dias**, com CI/teste real cobrindo cada etapa antes de seguir
+  pra próxima (mesma disciplina da Parte A).
+
 ---
 
 ## Ordem sugerida se/quando isso for retomado
 
-1. **RLS de `notificacoes` (B.4)** — menor risco, mais rápido, fecha uma
-   exposição real sem tocar em nada crítico.
-2. **Migração `negociacoes`/`vendas` (Parte A)** — maior benefício
-   estrutural, escopo conhecido e fechado (11 arquivos listados).
-3. **RLS completo de `leads`/`imoveis` (B.3)** — o mais arriscado e o que
-   mais precisa de decisão de produto antes de qualquer linha de código;
-   fazer por último, com as duas anteriores já estáveis.
+1. ~~RLS de `notificacoes` (B.4)~~ — feito (`78d8091`).
+2. ~~Migração `negociacoes`/`vendas` (Parte A)~~ — feito (`07daa25`).
+3. **RLS completo de `leads`/`imoveis` (B.6–B.9)** — decisão de produto já
+   tomada; falta só a confirmação do ponto levantado em B.6 (a função
+   `avancar_etapa_lead_por_negociacao`) antes de começar a implementar.
