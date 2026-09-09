@@ -505,3 +505,17 @@ sem usuário reclamando) vale investigar — é frequentemente o primeiro sinal
 de um bug que ainda não virou reclamação. Vercel Analytics vale olhar junto
 com métricas de produto (quantos corretores realmente usam o quê), não como
 rotina de QA separada.
+
+### 5.6 Dívida arquitetural encontrada — plano à parte
+
+Investigando a fragilidade da sincronia imóvel↔cliente (§5.4/rodada 03),
+achei que o banco já tem a tabela relacional certa pra isso
+(`negociacoes`/`vendas`, criadas na migração 1) e o app nunca usou —
+reimplementou a mesma coisa como array JSON solto em `leads`, sem chave
+estrangeira nem `unique`, exigindo sincronia manual espalhada por 4 telas
+diferentes. Isso já tinha causado dado real duplicado em produção antes
+desta correção. Apliquei uma trava de banco (trigger) como rede de segurança
+imediata (`4b9ed23`) e limpei o dado existente, mas a correção definitiva —
+migrar pra tabela relacional — e o reforço de permissão pendente desde a
+criação do banco (RLS Fase 4) são mudanças estruturais maiores, com plano
+detalhado em [PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md](PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md).
