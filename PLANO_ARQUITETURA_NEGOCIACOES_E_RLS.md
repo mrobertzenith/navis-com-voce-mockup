@@ -9,8 +9,9 @@
 > `07daa25` e detalhe em A.8 no fim desta seção.
 >
 > **Parte B (RLS Fase 4): passo 1 (notificações) CONCLUÍDO** (commit
-> `78d8091`). Passo 2 (leads/imóveis, §B.3) segue pendente — precisa de
-> decisão de produto antes de começar, não faz parte do escopo já executado.
+> `78d8091`). Passo 2 (leads/imóveis) teve a decisão de produto fechada com
+> o PO em 09/09/2026 — ver §B.6–B.9 pro desenho final (schema, arquivos
+> afetados, esforço) — pronto pra implementar.
 
 Documento de planejamento para as duas mudanças estruturais identificadas
 como dívida técnica séria (não cosméticas) durante a correção da rodada 03.
@@ -242,35 +243,43 @@ Perguntas 1–4 do documento `Decisao_PO_Permissoes_Leads_Imoveis.pdf` respondid
    observações — dado sensível sai de `leads` pra uma tabela própria com
    política de RLS restritiva de verdade.
 
-**⚠️ Conflito real encontrado entre a resposta 3 e o comportamento atual do
-produto** (preciso de confirmação antes de implementar, não posso decidir
-sozinho): hoje, `MeusImoveisPage.tsx` avança a ETAPA do lead de OUTRO
-corretor automaticamente quando o corretor do imóvel move o card — ex.:
-imóvel vai pra "Em negociação" → `atualizarLead.mutate({ id: neg.leadId,
-patch: { etapa: 4 } })` (linha 296); imóvel é vendido → o lead comprador
-vai pra etapa 5 (linha 235); reversão pelo lado do imóvel também regride a
-etapa do lead (linha ~198). Isso é uma escrita cross-corretor real e usada
-o tempo todo — sem ela, o card do cliente nunca saberia que o imóvel dele
-avançou ou foi vendido, a não ser que o corretor do CLIENTE mova manualmente
-(o que quebra a razão de ter negociação vinculada em primeiro lugar).
+**Confirmado pelo PO (09/09/2026): o vínculo move os dois lados, nos dois
+sentidos** — mover o imóvel move o cliente vinculado, e mover o cliente move
+o imóvel vinculado, sempre que houver negociação entre eles. Isso não abre
+brecha de dado pessoal porque o que se move é só a ETAPA (organização de
+funil), nunca contato/observações.
 
-A resposta 3, lida ao pé da letra ("ninguém altera registro de outro"),
-bloquearia exatamente essa escrita. A saída que não contradiz o espírito da
-resposta (dado de contato continua intocável, só a ETAPA do card é
-sistêmica) é: **`leads.etapa` deixa de ser uma coluna de escrita livre por
-UPDATE e passa a mudar só através de uma função de banco
-(`security definer`)** que:
-- só aceita a transição se houver uma `negociacao` ativa/concluída/revertida
-  ligando aquele `lead_id` ao `imovel_id` do corretor que está chamando;
-- só altera a coluna `etapa` (e o array `pendente_aprovacao_imoveis`), nada
-  mais do lead.
+Revendo o código com esse critério, o comportamento já é bidirecional hoje
+dos dois lados — `MeusImoveisPage.tsx` escreve em `leads.etapa`/
+`pendente_aprovacao_imoveis` (linhas 194, 235, 296, 329) e
+`MeusClientesPage.tsx` escreve em `imoveis.etapa`/`em_negociacao_flag`/
+`valor_venda`/`data_venda` (linhas 205, 256, 333, 375) — sempre a partir de
+uma `negociacao` real ligando os dois. **Um ponto, porém, contraria
+diretamente a resposta 3** ("quem preenche o valor é o corretor do
+imóvel"): hoje é o fluxo de "Fechar negócio" do lado do CLIENTE
+(`MeusClientesPage.tsx:293-345`) que captura o valor e empurra
+`valor_venda` pro imóvel — o inverso do que foi decidido. A correção: essa
+ação de preencher valor e marcar "Vendido" já existe, correta, do lado do
+imóvel (`MeusImoveisPage.tsx:220-275`, destino `'f'`) — o card do cliente já
+avança sozinho como efeito colateral dela (`atualizarLead.mutate({ ...
+etapa: 5 })`, linha 235). Então a ação equivalente do lado do cliente só
+precisa deixar de pedir o valor e de escrever em `imoveis.valor_venda` —
+vira um espelho passivo do que o lado do imóvel decidiu, igual já acontece
+com a etapa. Nenhuma tela nova, só remove uma escrita que não deveria
+existir.
 
-Ou seja, RLS deixa de proteger só por linha e passa a ter uma "porta lateral"
-controlada por função pra esse caso específico — não é "abrir uma exceção
-qualquer", é o único jeito de manter os dois requisitos (nada de escrita
-livre cross-corretor E o Kanban do cliente continua se movendo sozinho)
-verdadeiros ao mesmo tempo. **Preciso da sua confirmação nisso antes de
-implementar** — ver pergunta ao final desta seção.
+A parte que muda de verdade é onde a proteção passa a ser real (banco, não
+tela): hoje isso funciona porque o app confia que quem chama já filtrou
+certo — RLS libera UPDATE de QUALQUER coluna pra QUALQUER um da equipe. O
+que falta é o banco também saber a regra "só etapa/flags de funil cruzam,
+dado de dono não cruza". Isso não dá pra fazer só com a cláusula `USING` de
+uma `policy` (ela filtra LINHA, não COLUNA) — por isso a solução é
+**RLS mais permissiva pra decidir QUEM pode tentar o UPDATE (dono OU
+corretor do outro lado de uma negociação real) + um trigger `BEFORE UPDATE`
+que barra a tentativa se quem não é dono tentar mudar qualquer coluna além
+das poucas permitidas**. Simétrico nas duas tabelas, sem precisar de RPC
+nem mudar as chamadas `.update()` que o app já faz — só ajusta banco e
+remove a captura de valor do lado errado.
 
 ### B.7 Desenho de schema
 
@@ -298,38 +307,97 @@ create policy "somente_dono_escreve" on leads_contato
   using (lead_id in (select id from leads where corretor_responsavel_id = corretor_atual_id()))
   with check (lead_id in (select id from leads where corretor_responsavel_id = corretor_atual_id()));
 
--- leads: equipe lê só campos de match (nome incluso, por decisão do PO);
--- update fica restrito ao dono, MENOS a função abaixo
+-- leads: quem pode TENTAR um update é o dono OU o corretor do imóvel do
+-- outro lado de uma negociação real com este lead — o trigger abaixo decide
+-- se a tentativa é aceita, coluna por coluna
 drop policy "equipe_atualiza" on leads;
-create policy "dono_atualiza" on leads
+create policy "dono_ou_vinculo_atualiza" on leads
   for update to authenticated
-  using (corretor_responsavel_id = corretor_atual_id())
-  with check (corretor_responsavel_id = corretor_atual_id());
+  using (
+    corretor_responsavel_id = corretor_atual_id()
+    or exists (
+      select 1 from negociacoes n
+      where n.lead_id = leads.id and n.corretor_imovel_id = corretor_atual_id()
+    )
+  )
+  with check (true); -- a validação de coluna acontece no trigger, não aqui
 
--- porta lateral controlada pra avanço de etapa via negociação (ver B.6)
-create function avancar_etapa_lead_por_negociacao(p_lead_id uuid, p_imovel_id uuid, p_nova_etapa smallint)
-returns void language plpgsql security definer set search_path = public as $$
+create function restringe_update_lead_cross_corretor()
+returns trigger language plpgsql as $$
 begin
-  if not exists (
-    select 1 from negociacoes
-    where lead_id = p_lead_id and imovel_id = p_imovel_id
-      and corretor_imovel_id = corretor_atual_id()
-  ) then
-    raise exception 'sem negociação ligando esse lead a esse imóvel pra esse corretor';
+  if old.corretor_responsavel_id = corretor_atual_id() then
+    return new; -- dono altera o que quiser
   end if;
-  update leads set etapa = p_nova_etapa where id = p_lead_id;
+  -- não-dono só pode ter chegado aqui via negociação (a policy já garantiu) —
+  -- e só pode mudar etapa/pendente_aprovacao_imoveis, nada de dado do dono
+  if new.nome is distinct from old.nome
+    or new.email is distinct from old.email
+    or new.telefone_whatsapp is distinct from old.telefone_whatsapp
+    or new.observacoes is distinct from old.observacoes
+    or new.corretor_responsavel_id is distinct from old.corretor_responsavel_id
+  then
+    raise exception 'corretor % não pode alterar dado pessoal de lead de outro corretor', corretor_atual_id();
+  end if;
+  return new;
 end;
 $$;
+create trigger trg_restringe_update_lead_cross_corretor
+  before update on leads
+  for each row execute function restringe_update_lead_cross_corretor();
 
--- imoveis: mesma lógica — equipe lê campos de match, update só do dono
+-- imoveis: mesma lógica, espelhada — dono OU corretor do cliente vinculado
 drop policy "equipe_atualiza" on imoveis;
-create policy "dono_atualiza" on imoveis
+create policy "dono_ou_vinculo_atualiza" on imoveis
   for update to authenticated
-  using (corretor_responsavel_id = corretor_atual_id())
-  with check (corretor_responsavel_id = corretor_atual_id());
+  using (
+    corretor_responsavel_id = corretor_atual_id()
+    or exists (
+      select 1 from negociacoes n
+      where n.imovel_id = imoveis.id and n.corretor_cliente_id = corretor_atual_id()
+    )
+  )
+  with check (true);
 
--- negociacoes.valor_negociado deixa de ser usado (resp. 3) — valor só em
--- vendas.valor_venda, preenchido pelo corretor_imovel_id na etapa "Vendido"
+create function restringe_update_imovel_cross_corretor()
+returns trigger language plpgsql as $$
+begin
+  if old.corretor_responsavel_id = corretor_atual_id() then
+    return new;
+  end if;
+  -- não-dono (corretor do cliente vinculado) só mexe em etapa/em_negociacao_flag —
+  -- valor_venda/data_venda são do imóvel, só o dono preenche (decisão do PO)
+  if new.valor_venda is distinct from old.valor_venda
+    or new.valor_estimado is distinct from old.valor_estimado
+    or new.valor_anuncio is distinct from old.valor_anuncio
+    or new.data_venda is distinct from old.data_venda
+    or new.endereco_rua is distinct from old.endereco_rua
+    or new.corretor_responsavel_id is distinct from old.corretor_responsavel_id
+  then
+    raise exception 'corretor % não pode alterar dado do imóvel de outro corretor', corretor_atual_id();
+  end if;
+  return new;
+end;
+$$;
+create trigger trg_restringe_update_imovel_cross_corretor
+  before update on imoveis
+  for each row execute function restringe_update_imovel_cross_corretor();
+
+-- negociacoes/vendas: cada linha tem dois donos legítimos (lado do imóvel e
+-- lado do cliente) — substitui equipe_atualiza por uma política que só
+-- libera pra quem participa da negociação, não pra equipe toda
+drop policy "equipe_atualiza" on negociacoes;
+create policy "participante_atualiza" on negociacoes
+  for update to authenticated
+  using (corretor_atual_id() in (corretor_imovel_id, corretor_cliente_id))
+  with check (corretor_atual_id() in (corretor_imovel_id, corretor_cliente_id));
+-- (mesma policy em vendas, por igual)
+
+-- valor_negociado durante "em negociação" não entra mais no CRM (resp. 3) —
+-- a coluna negociacoes.valor_negociado deixa de ser escrita antes de
+-- status='concluida'; valor definitivo mora só em vendas.valor_venda,
+-- preenchido pelo corretor_imovel_id na etapa "Vendido" (já é o fluxo
+-- correto em MeusImoveisPage.tsx — só remove a captura duplicada e errada
+-- do lado do cliente em MeusClientesPage.tsx)
 ```
 
 ### B.8 Telas e arquivos afetados
@@ -343,18 +411,21 @@ create policy "dono_atualiza" on imoveis
   precisar ficar explícita no tipo.
 - `src/hooks/useLeads.ts` — `fetchLeads` faz o join com `leads_contato`
   (retorna null pras linhas de outros corretores, sem erro — é esperado).
-- `src/pages/MeusImoveisPage.tsx` — as 4 chamadas de `atualizarLead.mutate`
-  pra lead de outro corretor viram uma nova mutation
-  `avancarEtapaLeadPorNegociacao` (RPC pra função do banco), não mais UPDATE
-  direto.
+- `src/pages/MeusImoveisPage.tsx` e `MeusClientesPage.tsx` — as chamadas
+  `atualizarLead.mutate`/`atualizarImovel.mutate` cross-corretor **continuam
+  sendo `.update()` direto**, sem virar RPC — o banco (RLS + trigger de
+  B.7) já garante que só etapa/flags de funil passam; não precisa mudar
+  essas chamadas.
+- `src/pages/MeusClientesPage.tsx` linhas 293-345 ("Fechar negócio" do lado
+  do cliente) — remove a captura de `valorNegociado`/escrita de
+  `imoveis.valorVenda`; a etapa do lead já avança sozinha quando o corretor
+  do imóvel marcar "Vendido" (efeito colateral já existente em
+  `MeusImoveisPage.tsx:235`) — essa ação no lado do cliente vira só reação,
+  igual as outras transições espelhadas.
 - `src/components/lead/CardCliente.tsx`, `ModalGateCliente.tsx`,
   `ModalGateImovel.tsx` — já tratam `visao='publica'` vs `'propria'`
   (confirmado: já escondem nome/contato hoje pra visão pública) — revisar se
   cobrem TODOS os campos de contato (telefone, observações) e não só nome.
-- Formulário/card de "Em negociação" (`MeusClientesPage.tsx`/
-  `MeusImoveisPage.tsx`) — remover a captura de `valorNegociado` na etapa 4/5
-  de negociação; campo de valor só aparece no fechamento (etapa "Vendido"),
-  preenchido pelo lado do imóvel.
 - `scripts/teste-fluxos-cross-corretor.ts` e `teste-fluxos.ts` — precisam de
   casos novos: ler lead de outro corretor não deve trazer contato; tentar
   UPDATE direto em lead de outro corretor deve falhar; a função
@@ -370,13 +441,16 @@ essa tela; é uma decisão separada, sinalizo mas não mexo sem perguntar.
 
 - Tabela `leads_contato` + políticas + migração de dado existente
   (mover as colunas, não duplicar): ~meio dia.
-- Função `avancar_etapa_lead_por_negociacao` + trocar as 4 chamadas em
-  `MeusImoveisPage.tsx`: ~meio dia, com teste cross-corretor cobrindo.
-- Ajustar `imoveis` (mesma lógica de update restrito ao dono): ~2h.
-- Remover captura de `valorNegociado` na negociação (schema + telas): ~2h.
+- RLS + trigger de `leads` e `imoveis` (dono-ou-vínculo na policy, restrição
+  por coluna no trigger): ~meio dia, com teste cross-corretor cobrindo as
+  duas direções (mover imóvel move cliente, mover cliente move imóvel).
+- Policy de `negociacoes`/`vendas` (participante, não equipe toda): ~1h.
+- Remover a captura de valor do lado do cliente em
+  `MeusClientesPage.tsx:293-345` (schema: parar de escrever
+  `negociacoes.valor_negociado` fora da conclusão): ~2h.
 - Testes (`teste-fluxos-cross-corretor.ts` + `teste-fluxos.ts` + hooks): ~meio dia.
-- **Total: ~2 dias**, com CI/teste real cobrindo cada etapa antes de seguir
-  pra próxima (mesma disciplina da Parte A).
+- **Total: ~1,5–2 dias**, com CI/teste real cobrindo cada etapa antes de
+  seguir pra próxima (mesma disciplina da Parte A).
 
 ---
 
@@ -384,6 +458,8 @@ essa tela; é uma decisão separada, sinalizo mas não mexo sem perguntar.
 
 1. ~~RLS de `notificacoes` (B.4)~~ — feito (`78d8091`).
 2. ~~Migração `negociacoes`/`vendas` (Parte A)~~ — feito (`07daa25`).
-3. **RLS completo de `leads`/`imoveis` (B.6–B.9)** — decisão de produto já
-   tomada; falta só a confirmação do ponto levantado em B.6 (a função
-   `avancar_etapa_lead_por_negociacao`) antes de começar a implementar.
+3. **RLS completo de `leads`/`imoveis` (B.6–B.9)** — decisão de produto
+   fechada com o PO em 09/09/2026 (leitura restrita a match, contato/
+   observações nunca cruzam mesmo com vínculo, escrita cruza só
+   etapa/flags de funil nos dois sentidos, valor de venda só pelo corretor
+   do imóvel). Pronto pra implementar.
