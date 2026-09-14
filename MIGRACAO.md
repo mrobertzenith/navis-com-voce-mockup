@@ -97,3 +97,11 @@ Legenda: **[VOCÊ]** = ação do Mário (contas, painéis, testes) · **[EU]** =
 - **Campos jsonb em `leads`** (`visitas_agendadas`, `negociacoes_ativas`): espelham o modelo
   atual do app para a Fase 2 ser mecânica; normalização fica para a Fase 4 (matching no servidor).
 - Migração validada em Postgres embutido (PGlite): triggers, constraints e RLS conferidos.
+- **Auditoria de segurança (14/09/2026)**: `supabase/config.toml` estava divergindo da postura
+  real de produção (`enable_signup = true`, senha mínima de 6 caracteres, sem exigência de
+  maiúscula/minúscula/número) — corrigido pra refletir a intenção (signup fechado, senha
+  mínima 10 com `lower_upper_letters_digits`). Nenhum workflow deste repo roda
+  `supabase config push`, então essa correção é só documentação/prevenção de drift — **[VOCÊ]**
+  precisa conferir manualmente no painel (Authentication → Policies/Settings) se a produção
+  real já está assim: signup público desativado (já confirmado acima), senha mínima e
+  requisito de complexidade, e `secure_password_change` ligado.

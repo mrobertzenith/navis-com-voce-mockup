@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { Anchor } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
-import { supabase } from '@/lib/supabase'
+import { supabase, tipoLinkAuthPendente } from '@/lib/supabase'
 import { inicializarAuth } from '@/stores/authStore'
 
 export function LoginPage() {
@@ -15,6 +15,14 @@ export function LoginPage() {
   const [erro, setErro] = useState<string | null>(null)
   const navigate = useNavigate()
   const { toast } = useToast()
+
+  // Achado real de auditoria: "/login" fica fora do RequireAuth (que é quem
+  // normalmente redireciona um link de convite/recuperação pendente pra
+  // "/definir-senha") — um link antigo, ou algo fora do nosso controle
+  // apontando pra cá, deixaria o usuário preso na tela de login comum, com
+  // o token de recuperação inutilizado na URL. Rede de segurança extra,
+  // independente de já termos corrigido o redirectTo abaixo.
+  if (tipoLinkAuthPendente()) return <Navigate to="/definir-senha" replace />
 
   async function entrar(e: React.FormEvent) {
     e.preventDefault()
@@ -54,8 +62,12 @@ export function LoginPage() {
       setErro('Digite seu e-mail acima e clique de novo em "Esqueci minha senha".')
       return
     }
+    // Bug real de auditoria: apontava pra "login", que não sabe processar o
+    // token de recuperação — só "/definir-senha" sabe. O usuário clicava no
+    // link do e-mail e voltava pra tela de login comum, sem ver o
+    // formulário de nova senha.
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}login`,
+      redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}definir-senha`,
     })
     if (!error) {
       toast({

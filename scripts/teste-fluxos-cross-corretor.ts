@@ -601,6 +601,73 @@ async function main() {
     for (const id of imoveisGatilho) await a.client.from('imoveis').delete().eq('id', id)
   })
 
+  // ---------- RLS DE INSERT POR DONO (migração 15, achado de auditoria) ----------
+  console.log('\nRLS DE INSERT POR DONO (equipe_insere genérica travada — migração 15)')
+
+  await checar('B NÃO consegue criar um lead atribuindo A como responsável', async () => {
+    const { error } = await b.client.from('leads').insert({
+      ...leadParaRow({ corretorResponsavelId: a.corretorId, etapa: 1, nome: `${MARCADOR}-insert-alheio` }),
+      codigo: `${MARCADOR}-INSERT-${Date.now()}`,
+    })
+    exigir(error != null, 'B conseguiu criar um lead atribuindo A como corretor responsável')
+  })
+
+  await checar('B NÃO consegue criar um imóvel atribuindo A como responsável', async () => {
+    const imovel: Omit<Imovel, 'id' | 'criadoEm' | 'atualizadoEm'> = {
+      corretorResponsavelId: a.corretorId,
+      etapa: 'a',
+      enderecoRua: MARCADOR,
+      enderecoNumero: '99',
+      bairro: 'Centro',
+      cidade: 'Ribeirão Preto',
+      estado: 'SP',
+      cep: '',
+      lat: 0,
+      lng: 0,
+      tipo: 'apartamento',
+      quartos: 1,
+      suites: 0,
+      vagas: 0,
+      banheiros: 1,
+      emNegociacaoFlag: false,
+    }
+    const { error } = await b.client.from('imoveis').insert(imovelParaRow(imovel))
+    exigir(error != null, 'B conseguiu criar um imóvel atribuindo A como corretor responsável')
+  })
+
+  await checar('B NÃO consegue criar pesos_score/preferencias/dismisses/interesses atribuindo A como dono', async () => {
+    const { error: erroPesos } = await b.client.from('pesos_score').insert({ corretor_id: a.corretorId, pesos: {} })
+    exigir(erroPesos != null, 'B conseguiu inserir pesos_score em nome de A')
+
+    const { error: erroPref } = await b.client
+      .from('preferencias_notificacao')
+      .insert({ corretor_id: a.corretorId, janela_digest: 'tempo_real' })
+    exigir(erroPref != null, 'B conseguiu inserir preferencias_notificacao em nome de A')
+
+    const { error: erroDismiss } = await b.client
+      .from('dismisses')
+      .insert({ corretor_id: a.corretorId, lead_id: leadDeAId, imovel_id: imovelDeAId })
+    exigir(erroDismiss != null, 'B conseguiu inserir dismisses em nome de A')
+
+    const { error: erroInteresse } = await b.client
+      .from('interesses_posteriores')
+      .insert({ corretor_id: a.corretorId, imovel_id: imovelDeAId })
+    exigir(erroInteresse != null, 'B conseguiu inserir interesses_posteriores em nome de A')
+  })
+
+  await checar('fluxo legítimo continua funcionando: B cria pesos_score/dismisses pra SI MESMO', async () => {
+    const { error: erroPesos } = await b.client
+      .from('pesos_score')
+      .upsert({ corretor_id: b.corretorId, pesos: {} })
+    exigir(!erroPesos, erroPesos?.message ?? '')
+    const { error: erroDismiss } = await b.client
+      .from('dismisses')
+      .insert({ corretor_id: b.corretorId, lead_id: leadDeAId, imovel_id: imovelDeAId })
+    exigir(!erroDismiss, erroDismiss?.message ?? '')
+    // limpeza pontual — não faz parte do dataset marcado por MARCADOR
+    await a.client.from('dismisses').delete().eq('corretor_id', b.corretorId).eq('lead_id', leadDeAId)
+  })
+
   // ---------- SEGURANÇA — permissões negativas com sessão realmente não-admin ----------
   console.log('\nSEGURANÇA (testado com uma sessão de verdade sem privilégio de admin)')
 
@@ -610,6 +677,47 @@ async function main() {
     // verificação real é reler o dado com a sessão de A
     const { data } = await a.client.from('corretores').select('papel').eq('id', b.corretorId).single()
     exigir(data!.papel === 'corretor', 'B conseguiu se promover a admin — falha grave de RLS')
+  })
+
+  await checar('função "equipe" (deploy corrigido, migração 15/achado 2): alterar_papel funciona e reverte de ponta a ponta', async () => {
+    // Prova que checar error nas chamadas do admin.from(...).update(...) e
+    // admin.auth.admin.* (correção real da Edge Function) não quebrou o
+    // caminho de sucesso — só passou a reportar falha quando ela acontece.
+    async function chamarEquipe(sessao: { access_token: string }, corpo: unknown) {
+      const res = await fetch(`${e.VITE_SUPABASE_URL}/functions/v1/equipe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: e.VITE_SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${sessao.access_token}`,
+        },
+        body: JSON.stringify(corpo),
+      })
+      return { status: res.status, corpo: await res.json() }
+    }
+
+    const { data: sessaoA } = await a.client.auth.getSession()
+    try {
+      const paraAdmin = await chamarEquipe(sessaoA.session!, {
+        acao: 'alterar_papel',
+        corretorId: b.corretorId,
+        papel: 'admin',
+      })
+      exigir(paraAdmin.status === 200 && paraAdmin.corpo.ok === true, `promover falhou: ${JSON.stringify(paraAdmin.corpo)}`)
+      const { data: depoisPromover } = await a.client.from('corretores').select('papel').eq('id', b.corretorId).single()
+      exigir(depoisPromover?.papel === 'admin', 'papel não mudou pra admin de verdade no banco')
+    } finally {
+      // reverte SEMPRE, mesmo se a asserção acima falhar — B precisa voltar a
+      // ser não-admin pros testes de segurança logo abaixo fazerem sentido
+      const paraCorretor = await chamarEquipe(sessaoA.session!, {
+        acao: 'alterar_papel',
+        corretorId: b.corretorId,
+        papel: 'corretor',
+      })
+      exigir(paraCorretor.status === 200 && paraCorretor.corpo.ok === true, `reverter falhou: ${JSON.stringify(paraCorretor.corpo)}`)
+    }
+    const { data: depoisReverter } = await a.client.from('corretores').select('papel').eq('id', b.corretorId).single()
+    exigir(depoisReverter?.papel === 'corretor', 'papel não voltou pra corretor de verdade no banco — B ficou admin')
   })
 
   await checar('B (não-admin) recebe 403 da função "equipe" ao tentar uma ação de admin', async () => {

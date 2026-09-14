@@ -152,17 +152,45 @@ Deno.serve(async (req) => {
 
     if (acao === 'desativar') {
       if (alvo.id === chamador.id) return resposta(400, { erro: 'Você não pode desativar a si mesmo' })
-      await admin.from('corretores').update({ status: 'suspenso' }).eq('id', alvo.id)
+      const { error: erroStatus } = await admin
+        .from('corretores')
+        .update({ status: 'suspenso' })
+        .eq('id', alvo.id)
+      if (erroStatus) return resposta(400, { erro: `Falha ao suspender no banco: ${erroStatus.message}` })
       if (alvo.auth_user_id) {
-        await admin.auth.admin.updateUserById(alvo.auth_user_id, { ban_duration: '876000h' })
+        const { error: erroBan } = await admin.auth.admin.updateUserById(alvo.auth_user_id, {
+          ban_duration: '876000h',
+        })
+        if (erroBan) {
+          // o corretor já está 'suspenso' no banco — RLS (migração 4) já bloqueia
+          // o acesso aos dados dele mesmo sem o banimento de login funcionar,
+          // mas ele ainda conseguiria ver a TELA de login normalmente. Não é
+          // sucesso pleno: avisa o admin em vez de devolver ok:true.
+          return resposta(207, {
+            ok: false,
+            erro: `Corretor suspenso no banco, mas o banimento de login falhou: ${erroBan.message}. Ele já perdeu acesso aos dados, mas ainda pode tentar logar — verifique manualmente no painel.`,
+          })
+        }
       }
       return resposta(200, { ok: true })
     }
 
     if (acao === 'reativar') {
-      await admin.from('corretores').update({ status: 'ativo' }).eq('id', alvo.id)
+      const { error: erroStatus } = await admin
+        .from('corretores')
+        .update({ status: 'ativo' })
+        .eq('id', alvo.id)
+      if (erroStatus) return resposta(400, { erro: `Falha ao reativar no banco: ${erroStatus.message}` })
       if (alvo.auth_user_id) {
-        await admin.auth.admin.updateUserById(alvo.auth_user_id, { ban_duration: 'none' })
+        const { error: erroBan } = await admin.auth.admin.updateUserById(alvo.auth_user_id, {
+          ban_duration: 'none',
+        })
+        if (erroBan) {
+          return resposta(207, {
+            ok: false,
+            erro: `Corretor reativado no banco, mas remover o banimento de login falhou: ${erroBan.message}. Ele ainda não conseguirá entrar — verifique manualmente no painel.`,
+          })
+        }
       }
       return resposta(200, { ok: true })
     }
@@ -176,7 +204,8 @@ Deno.serve(async (req) => {
         // impede o sistema de ficar sem nenhum admin
         return resposta(400, { erro: 'Você não pode remover o próprio papel de admin' })
       }
-      await admin.from('corretores').update({ papel }).eq('id', alvo.id)
+      const { error } = await admin.from('corretores').update({ papel }).eq('id', alvo.id)
+      if (error) return resposta(400, { erro: `Falha ao alterar papel: ${error.message}` })
       return resposta(200, { ok: true })
     }
 
@@ -192,13 +221,27 @@ Deno.serve(async (req) => {
     if (acao === 'excluir') {
       // só permite excluir convite que nunca foi usado (sem login registrado)
       if (alvo.auth_user_id) {
-        const { data: u } = await admin.auth.admin.getUserById(alvo.auth_user_id)
+        const { data: u, error: erroBusca } = await admin.auth.admin.getUserById(alvo.auth_user_id)
+        if (erroBusca) return resposta(400, { erro: `Falha ao consultar o usuário: ${erroBusca.message}` })
         if (u?.user?.last_sign_in_at) {
           return resposta(400, { erro: 'Corretor já acessou o sistema — use Desativar' })
         }
-        await admin.auth.admin.deleteUser(alvo.auth_user_id)
+        const { error: erroDeleteAuth } = await admin.auth.admin.deleteUser(alvo.auth_user_id)
+        if (erroDeleteAuth) {
+          // não apaga a linha de corretores se o Auth não confirmou a exclusão —
+          // um registro em corretores sem usuário no Auth é inofensivo (não
+          // consegue logar), mas o inverso (Auth apagado, corretores sobrando)
+          // é o estado ruim: um convite fantasma que ninguém consegue reenviar
+          return resposta(400, { erro: `Falha ao excluir o convite: ${erroDeleteAuth.message}` })
+        }
       }
-      await admin.from('corretores').delete().eq('id', alvo.id)
+      const { error: erroDeleteCorretor } = await admin.from('corretores').delete().eq('id', alvo.id)
+      if (erroDeleteCorretor) {
+        return resposta(207, {
+          ok: false,
+          erro: `Usuário excluído do login, mas o registro em corretores não pôde ser removido: ${erroDeleteCorretor.message}. Verifique manualmente no painel — ele ficou órfão.`,
+        })
+      }
       return resposta(200, { ok: true })
     }
 
