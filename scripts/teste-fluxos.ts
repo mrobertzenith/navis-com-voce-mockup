@@ -252,7 +252,9 @@ async function main() {
       exigir(!error, `etapa ${etapa}: ${error?.message}`)
     }
 
-    // etapa 4 — Em negociação: cria a negociação na tabela relacional
+    // etapa 4 — Em negociação: cria a negociação; o trigger de banco
+    // (migração 12) avança o lead pra etapa 4 sozinho — não precisa mais
+    // de um UPDATE manual em leads.
     const { data: negociacao, error: erroNeg } = await supabase
       .from('negociacoes')
       .insert(
@@ -269,41 +271,30 @@ async function main() {
       .single()
     exigir(!erroNeg, `criar negociação: ${erroNeg?.message}`)
     negociacaoId = negociacao!.id as string
-    const etapa4 = await supabase
-      .from('leads')
-      .update(leadParaRow({ etapa: 4, pendenteAprovacaoImoveis: [] }))
-      .eq('id', leadId)
-    exigir(!etapa4.error, `etapa 4: ${etapa4.error?.message}`)
+    const { data: leadEtapa4 } = await supabase.from('leads').select('etapa').eq('id', leadId).single()
+    exigir(leadEtapa4?.etapa === 4, `trigger deveria ter avançado o lead pra etapa 4 sozinho, veio ${leadEtapa4?.etapa}`)
 
-    // etapa 5 — Negócio Fechado: conclui a negociação e cria a venda
+    // etapa 5 — Negócio Fechado: só conclui a negociação com o valor; o
+    // trigger cria a venda, avança o lead pra 5 e move o imóvel pra 'f'
+    // sozinho — não é mais o app/script que faz isso.
     const concluir = await supabase
       .from('negociacoes')
       .update(negociacaoParaRow({ status: 'concluida', dataFim: new Date().toISOString(), valorNegociado: 480000 }))
       .eq('id', negociacaoId)
     exigir(!concluir.error, `concluir negociação: ${concluir.error?.message}`)
+    const { data: leadEtapa5 } = await supabase.from('leads').select('etapa').eq('id', leadId).single()
+    exigir(leadEtapa5?.etapa === 5, `trigger deveria ter avançado o lead pra etapa 5 sozinho, veio ${leadEtapa5?.etapa}`)
     const { data: venda, error: erroVenda } = await supabase
       .from('vendas')
-      .insert(
-        vendaParaRow({
-          negociacaoId,
-          imovelId,
-          leadId,
-          corretorImovelId: corretorId,
-          corretorClienteId: corretorId,
-          valorVenda: 480000,
-          dataVenda: new Date().toISOString(),
-          revertida: false,
-          pagamentosConcluidos: false,
-          chavesEntregues: false,
-        }),
-      )
-      .select()
+      .select('*')
+      .eq('negociacao_id', negociacaoId)
       .single()
-    exigir(!erroVenda, `criar venda: ${erroVenda?.message}`)
-    const etapa5 = await supabase.from('leads').update(leadParaRow({ etapa: 5 })).eq('id', leadId)
-    exigir(!etapa5.error, `etapa 5: ${etapa5.error?.message}`)
+    exigir(!erroVenda, `venda deveria ter sido criada pelo trigger sozinha: ${erroVenda?.message}`)
+    exigir(Number(venda!.valor_venda) === 480000, `valor_venda deveria ser 480000, veio ${venda!.valor_venda}`)
 
-    // etapa 6 — Pós-venda: pagamentos/chaves na venda, não no lead
+    // etapa 6 — Pós-venda: pagamentos/chaves são só da venda; etapa do
+    // lead continua sendo passo manual (não é consequência de status de
+    // negociação, é confirmação separada do corretor do cliente)
     const posVenda = await supabase
       .from('vendas')
       .update(vendaParaRow({ pagamentosConcluidos: true, chavesEntregues: true }))
@@ -331,22 +322,23 @@ async function main() {
     exigir(!perdido.error, perdido.error?.message ?? '')
   })
 
-  await checar('reverter negociação (negociação e venda marcadas como revertidas)', async () => {
+  await checar('reverter negociação: trigger reverte a venda sozinho', async () => {
+    // o lead deste teste já está em "Perdido" (teste anterior) — o trigger
+    // corretamente NÃO ressuscita um lead perdido só porque a negociação
+    // dele foi revertida (só regride 4/5/6, testado à parte com um lead
+    // fresco em teste-fluxos-cross-corretor.ts). Aqui confere só a venda.
     const revNeg = await supabase
       .from('negociacoes')
       .update(negociacaoParaRow({ status: 'revertida', dataFim: new Date().toISOString() }))
       .eq('id', negociacaoId)
     exigir(!revNeg.error, revNeg.error?.message ?? '')
-    const revVenda = await supabase
+
+    const { data: venda } = await supabase
       .from('vendas')
-      .update(vendaParaRow({ revertida: true, justificativaReversao: 'teste de fluxo' }))
+      .select('revertida')
       .eq('negociacao_id', negociacaoId)
-    exigir(!revVenda.error, revVenda.error?.message ?? '')
-    const { error } = await supabase
-      .from('leads')
-      .update(leadParaRow({ etapa: 3, pendenteAprovacaoImoveis: [] }))
-      .eq('id', leadId)
-    exigir(!error, error?.message ?? '')
+      .single()
+    exigir(venda?.revertida === true, 'trigger deveria ter revertido a venda sozinho')
   })
 
   // ---------- LEITURA ----------

@@ -6,11 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast'
 import { EmptyState } from '@/components/shared/EmptyState'
 import type { TipoEvento } from '@/domain/types'
-import { useAtualizarImovel, useImoveis } from '@/hooks/useImoveis'
+import { useAtualizarImovel } from '@/hooks/useImoveis'
 import { useAtualizarLead, useLeads } from '@/hooks/useLeads'
-import { useAtualizarNegociacao, useCriarVenda, useNegociacoes } from '@/hooks/useNegociacoes'
-import { useAtualizarNotificacao, useCriarNotificacao, useNotificacoes } from '@/hooks/useNotificacoes'
-import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
+import { useAtualizarNegociacao, useNegociacoes } from '@/hooks/useNegociacoes'
+import { useAtualizarNotificacao, useNotificacoes } from '@/hooks/useNotificacoes'
 import { formatData } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
@@ -29,13 +28,10 @@ export function NotificacoesPage() {
   const { data: notificacoes = [], isLoading } = useNotificacoes()
   const atualizarNotificacao = useAtualizarNotificacao()
   const { data: leads = [] } = useLeads()
-  const { data: imoveis = [] } = useImoveis()
   const { data: negociacoes = [] } = useNegociacoes()
   const atualizarImovel = useAtualizarImovel()
   const atualizarLead = useAtualizarLead()
   const atualizarNegociacao = useAtualizarNegociacao()
-  const criarVenda = useCriarVenda()
-  const criarNotificacao = useCriarNotificacao()
   const { toast } = useToast()
   const [filtro, setFiltro] = useState<Filtro>('todas')
   const [precos, setPrecos] = useState<Record<string, string>>({})
@@ -59,12 +55,12 @@ export function NotificacoesPage() {
    * Confirma a venda com o preço — ação exclusiva do corretor do imóvel,
    * depois que o corretor do cliente já fechou o negócio (decisão do PO,
    * 14/09/2026: "cabe ao corretor do cliente mover o card... corretor do
-   * imóvel colocar o preço da venda depois da conclusão"). Conclui a
-   * negociação, cria a venda, move o imóvel pra "Vendido" e desfaz as
-   * outras negociações ativas do MESMO cliente (ele já comprou, não faz
-   * sentido continuar "em negociação" com outros imóveis) — mesmo bug real
-   * do TESTES 05 item 1, agora tratado no único lugar onde a venda de
-   * verdade se conclui.
+   * imóvel colocar o preço da venda depois da conclusão"). Só muda o status
+   * da negociação — o trigger de banco (migração 12) cuida do resto
+   * sozinho: cria a venda, move o imóvel pra "Vendido" e desfaz as outras
+   * negociações ativas do MESMO cliente (ele já comprou, não faz sentido
+   * continuar "em negociação" com outros imóveis — bug real do TESTES 05
+   * item 1, resolvido na raiz agora).
    */
   function confirmarVenda(notificacaoId: string, leadId: string, imovelId: string) {
     const valor = Number(precos[notificacaoId])
@@ -81,61 +77,21 @@ export function NotificacoesPage() {
       })
       return
     }
-    const agora = new Date().toISOString()
 
     atualizarNegociacao.mutate(
-      { id: negociacao.id, patch: { status: 'concluida', dataFim: agora, valorNegociado: valor } },
+      { id: negociacao.id, patch: { status: 'concluida', dataFim: new Date().toISOString(), valorNegociado: valor } },
       {
         onSuccess: () => {
-          criarVenda.mutate({
-            negociacaoId: negociacao.id,
-            imovelId,
-            leadId,
-            corretorImovelId: negociacao.corretorImovelId,
-            corretorClienteId: negociacao.corretorClienteId,
-            valorVenda: valor,
-            dataVenda: agora,
-            revertida: false,
-            pagamentosConcluidos: false,
-            chavesEntregues: false,
+          atualizarNotificacao.mutate({ id: notificacaoId, patch: { resolvida: true, lida: true } })
+          setPrecos((p) => {
+            const resto = { ...p }
+            delete resto[notificacaoId]
+            return resto
           })
+          toast({ title: 'Venda confirmada', description: 'O imóvel foi movido para "Vendido".' })
         },
       },
     )
-    atualizarImovel.mutate({ id: imovelId, patch: { etapa: 'f', dataVenda: agora } })
-
-    // outras negociações ativas do MESMO cliente com OUTROS imóveis: ele já
-    // comprou este, as demais deixam de fazer sentido
-    const outrasDoLead = negociacoes.filter(
-      (n) => n.id !== negociacao.id && n.leadId === leadId && n.status === 'ativa',
-    )
-    outrasDoLead.forEach((n) => {
-      atualizarNegociacao.mutate({ id: n.id, patch: { status: 'revertida', dataFim: agora } })
-      const outroImovel = imoveis.find((i) => i.id === n.imovelId)
-      const outroClienteAindaNegociandoEsseImovel = negociacoes.some(
-        (o) => o.id !== n.id && o.imovelId === n.imovelId && o.status === 'ativa',
-      )
-      if (outroImovel && outroImovel.etapa === 'e' && !outroClienteAindaNegociandoEsseImovel) {
-        atualizarImovel.mutate({ id: outroImovel.id, patch: { etapa: 'd', emNegociacaoFlag: false } })
-        if (outroImovel.corretorResponsavelId !== CORRETOR_LOGADO_ID) {
-          const lead = leads.find((l) => l.id === leadId)
-          criarNotificacao.mutate({
-            destinatarioCorretorId: outroImovel.corretorResponsavelId,
-            tipoEvento: 'E17',
-            titulo: 'Imóvel movido automaticamente',
-            corpo: `${lead?.codigo ?? 'O cliente'} fechou negócio com outro imóvel — seu imóvel "${outroImovel.enderecoRua}, ${outroImovel.enderecoNumero}" voltou para "Publicado".`,
-          })
-        }
-      }
-    })
-
-    atualizarNotificacao.mutate({ id: notificacaoId, patch: { resolvida: true, lida: true } })
-    setPrecos((p) => {
-      const resto = { ...p }
-      delete resto[notificacaoId]
-      return resto
-    })
-    toast({ title: 'Venda confirmada', description: 'O imóvel foi movido para "Vendido".' })
   }
 
   const tiposPresentes = useMemo(

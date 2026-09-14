@@ -76,23 +76,11 @@ export function useAtualizarNegociacao() {
   })
 }
 
-async function criarVenda(dados: Omit<Venda, 'id'>): Promise<Venda> {
-  if (!supabase) throw new Error('Sem conexão com o banco')
-  const { data, error } = await supabase.from('vendas').insert(vendaParaRow(dados)).select().single()
-  if (error) throw new Error('Falha ao criar venda')
-  return vendaParaDominio(data)
-}
-
-export function useCriarVenda() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: criarVenda,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: VENDAS_KEY })
-      queryClient.invalidateQueries({ queryKey: ['leads'] })
-    },
-  })
-}
+// Não existe mais useCriarVenda: desde a migração 12, a venda nasce sozinha
+// no banco (trigger, ao concluir a negociação) — uma versão manual aqui
+// seria código morto e enganoso (chamar de novo bateria de frente com o
+// índice único de vendas.negociacao_id). Ver
+// PLANO_TRIGGER_SINCRONIA_NEGOCIACAO.md.
 
 async function atualizarVenda(id: string, patch: Partial<Venda>): Promise<void> {
   if (!supabase) return

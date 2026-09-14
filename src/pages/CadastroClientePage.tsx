@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast'
 import type { EtapaLead, Lead, OrigemLead, TipoImovel } from '@/domain/types'
 import { passaGates } from '@/domain/matching'
+import { encontrarEquivalente } from '@/domain/normalizacao'
 import { useAtualizarLead, useCriarLead, useLeads } from '@/hooks/useLeads'
 import { useImoveis } from '@/hooks/useImoveis'
 import { CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
@@ -395,7 +396,13 @@ export function CadastroClientePage() {
                     setValue('lng', endereco.lng)
                     if (endereco.bairro) {
                       const atuais = valores.bairros ?? []
-                      if (!atuais.some((b) => b.toLowerCase() === endereco.bairro.toLowerCase())) {
+                      // achado na análise arquitetural (14/09/2026): este era o
+                      // único lugar do app comparando bairro sem passar por
+                      // normalizarLocal — "Jd. Botânico" (digitado) e "Jardim
+                      // Botânico" (vindo do CEP) não eram reconhecidos como o
+                      // mesmo bairro aqui, ao contrário de todo o resto do
+                      // sistema (matching, autocomplete, etc.)
+                      if (!encontrarEquivalente(endereco.bairro, atuais)) {
                         setValue('bairros', [...atuais, endereco.bairro], { shouldValidate: true })
                       }
                     }

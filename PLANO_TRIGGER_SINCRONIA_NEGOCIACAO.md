@@ -245,7 +245,37 @@ passo esquecido), só que agora com o desenho de fluxo já certo.
 
 ---
 
-Ordem sugerida: resolver §A.5 com o PO → implementar os 2 triggers →
-migrar os 8 pontos um de cada vez, com `teste-fluxos-cross-corretor.ts`
-cobrindo cada um antes de seguir pro próximo (mesma disciplina das duas
-frentes já fechadas em `PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md`).
+## A.8 CONCLUÍDO em 14/09/2026
+
+Implementado por completo, na ordem prevista: §A.5 resolvida com o PO →
+2 triggers escritos e testados isoladamente contra o banco real (achando e
+corrigindo 2 bugs reais no processo — cascata de reversão devolvendo o lead
+pra etapa 3 quando deveria ficar em 5, e reabertura sem notificar quem não
+pediu) → os 8 pontos mapeados no §A.1 simplificados um a um, com
+`teste-fluxos-cross-corretor.ts`/`teste-fluxos.ts` cobrindo antes e depois
+de cada mudança.
+
+- **Migrações**: `20260914000012_trigger_sincronia_negociacao.sql` (os 2
+  triggers + RLS de INSERT participante-only, achado extra da análise
+  arquitetural), `20260914000013_corrige_cascata_revertida.sql`,
+  `20260914000014_notifica_reabertura_negociacao.sql`.
+- **Redução real de código**: `MeusClientesPage.tsx` (-164/+72 linhas),
+  `MeusImoveisPage.tsx` (-80/+15), `NotificacoesPage.tsx` (-76/+16) — as
+  três telas deixaram de reimplementar sincronia/notificação; agora só
+  mudam o `status` de uma `negociacao` e o banco garante o resto,
+  não importa qual tela (ou script, ou tela futura) fizer isso.
+- **`useCriarVenda` removido** de `useNegociacoes.ts` — ficou órfão (a
+  venda nasce sozinha na conclusão) e era código morto perigoso: chamá-lo
+  de novo bateria de frente com o índice único de `vendas.negociacao_id`.
+- **Achado extra corrigido**: `CadastroClientePage.tsx:398` comparava
+  bairro sem passar por `normalizarLocal` — único lugar do sistema com
+  esse bypass. Corrigido pra usar `encontrarEquivalente`, igual ao resto
+  do app.
+- **Testes novos**: 9 casos em `teste-fluxos-cross-corretor.ts` testando o
+  trigger direto na tabela (sem passar por nenhuma tela) — INSERT nos dois
+  sentidos, UPDATE de status nos três sentidos, cascata multi-negociação,
+  reabertura com notificação, e a restrição de INSERT participante-only.
+- **Verificado**: tsc, vitest (95/95), eslint (0 erros), build,
+  `teste-fluxos.ts` (22/22) e `teste-fluxos-cross-corretor.ts` (30/30)
+  contra o banco real, antes E depois da simplificação do React (provando
+  que o comportamento final é idêntico, só a origem da garantia mudou).

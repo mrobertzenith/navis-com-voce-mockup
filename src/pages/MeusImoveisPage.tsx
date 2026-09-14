@@ -14,13 +14,12 @@ import { avaliarTransicaoImovel } from '@/domain/gatesImovel'
 import { calcularMatch } from '@/domain/matching'
 import type { EtapaImovel, Imovel } from '@/domain/types'
 import { useAtualizarImovel, useImoveis } from '@/hooks/useImoveis'
-import { useAtualizarLead, useLeads } from '@/hooks/useLeads'
+import { useLeads } from '@/hooks/useLeads'
 import { useMatches } from '@/hooks/useMatches'
-import { useAtualizarNegociacao, useAtualizarVenda, useNegociacoes, useVendas } from '@/hooks/useNegociacoes'
+import { useAtualizarNegociacao, useNegociacoes } from '@/hooks/useNegociacoes'
 import { CORRETORES, CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 import { formatDiasDesde, formatPreco } from '@/lib/format'
 import { useDismissStore } from '@/stores/dismissStore'
-import { useCriarNotificacao } from '@/hooks/useNotificacoes'
 import { useScoreStore } from '@/stores/scoreStore'
 import { useUIStore } from '@/stores/uiStore'
 
@@ -40,12 +39,8 @@ export function MeusImoveisPage() {
   const { data: imoveis = [], isLoading } = useImoveis()
   const { data: leads = [] } = useLeads()
   const { data: negociacoes = [] } = useNegociacoes()
-  const { data: vendas = [] } = useVendas()
   const atualizarImovel = useAtualizarImovel()
-  const atualizarLead = useAtualizarLead()
   const atualizarNegociacao = useAtualizarNegociacao()
-  const atualizarVenda = useAtualizarVenda()
-  const criarNotificacao = useCriarNotificacao()
   const { contadorPorImovel } = useMatches()
   const pesos = useScoreStore((s) => s.pesos)
   const descartados = useDismissStore((s) => s.descartados)
@@ -150,12 +145,13 @@ export function MeusImoveisPage() {
     }
 
     // Reversão pra "Publicado" (vindo de "Em negociação" OU direto de "Vendido"):
-    // reverte a negociação (ativa ou concluída) de TODO cliente que ainda
-    // referencia este imóvel. Sem isso, pular "Vendido" → "Publicado" direto
-    // (sem passar por "Em negociação") deixava o cliente com dado órfão: card
-    // preso em "Em negociação"/"Negócio Fechado" apontando pra um imóvel que já
-    // tinha voltado a ser um imóvel qualquer, disponível pra qualquer um — foi
-    // exatamente o que aconteceu de verdade com um cliente de teste.
+    // o trigger de banco (migração 12) cuida do resto sozinho a partir daqui
+    // — reverte a venda ligada (se houver) e devolve cada cliente vinculado
+    // pra "Em contato" quando não sobrar mais nenhuma negociação ativa dele,
+    // notificando quem precisa saber. Sem isso, pular "Vendido" → "Publicado"
+    // direto (sem passar por "Em negociação") deixava o cliente com dado
+    // órfão: card preso apontando pra um imóvel que já tinha voltado a ser um
+    // imóvel qualquer — foi exatamente o que aconteceu de verdade uma vez.
     if ((origem === 'e' || origem === 'f') && destino === 'd') {
       const negociacoesDoImovel = negociacoes.filter(
         (n) => n.imovelId === imovel.id && (n.status === 'ativa' || n.status === 'concluida'),
@@ -170,40 +166,6 @@ export function MeusImoveisPage() {
                 id: neg.id,
                 patch: { status: 'revertida', dataFim: new Date().toISOString() },
               })
-              if (neg.status === 'concluida') {
-                const venda = vendas.find((v) => v.negociacaoId === neg.id)
-                if (venda) {
-                  atualizarVenda.mutate({
-                    id: venda.id,
-                    patch: { revertida: true, justificativaReversao: 'Imóvel voltou a Publicado' },
-                  })
-                }
-              }
-              const lead = neg.leadId ? leads.find((l) => l.id === neg.leadId) : undefined
-              if (!lead) return
-              const pendenteRestante = (lead.pendenteAprovacaoImoveis ?? []).filter((id) => id !== imovel.id)
-              const aindaTemOutraNegociacaoAtiva = negociacoes.some(
-                (n) => n.id !== neg.id && n.leadId === lead.id && n.status === 'ativa',
-              )
-              const voltaPraEmContato =
-                !aindaTemOutraNegociacaoAtiva && (lead.etapa === 4 || lead.etapa === 5 || lead.etapa === 6)
-              atualizarLead.mutate({
-                id: lead.id,
-                patch: {
-                  // usar [] em vez de undefined: o patch é serializado com JSON.stringify, que descarta chaves undefined
-                  pendenteAprovacaoImoveis: pendenteRestante,
-                  ...(voltaPraEmContato ? { etapa: 3 } : {}),
-                },
-              })
-              // card de outro corretor foi movido de forma passiva — ele precisa saber
-              if (voltaPraEmContato && lead.corretorResponsavelId !== CORRETOR_LOGADO_ID) {
-                criarNotificacao.mutate({
-                  destinatarioCorretorId: lead.corretorResponsavelId,
-                  tipoEvento: 'E17',
-                  titulo: 'Cliente movido automaticamente',
-                  corpo: `${nomeCorretor(CORRETOR_LOGADO_ID)} tirou o imóvel "${imovel.enderecoRua}, ${imovel.enderecoNumero}" de negociação — seu cliente "${lead.codigo}" voltou para "Em contato".`,
-                })
-              }
             })
             toast({
               title: 'Imóvel movido',
@@ -223,8 +185,9 @@ export function MeusImoveisPage() {
     // preço acontece em NotificacoesPage.tsx (confirmarVenda).
 
     // Reversão de Vendido pra Em Negociação: a venda caiu, mas o cliente ainda
-    // está negociando — devolve o(s) cliente(s) que tinham fechado com este
-    // imóvel de volta pra "Em negociação", sem perder o vínculo.
+    // está negociando. O trigger de banco (migração 12/14) reabre a
+    // negociação sozinho — devolve o lead pra etapa 4, reverte a venda e
+    // notifica o corretor do cliente se for de outra pessoa.
     if (origem === 'f' && destino === 'e') {
       const negociacoesConcluidas = negociacoes.filter((n) => n.imovelId === imovel.id && n.status === 'concluida')
 
@@ -234,25 +197,6 @@ export function MeusImoveisPage() {
           onSuccess: () => {
             negociacoesConcluidas.forEach((neg) => {
               atualizarNegociacao.mutate({ id: neg.id, patch: { status: 'ativa', dataFim: undefined } })
-              const venda = vendas.find((v) => v.negociacaoId === neg.id)
-              if (venda) {
-                atualizarVenda.mutate({
-                  id: venda.id,
-                  patch: { revertida: true, justificativaReversao: 'Imóvel voltou a Em negociação' },
-                })
-              }
-              const leadRevertido = neg.leadId ? leads.find((l) => l.id === neg.leadId) : undefined
-              if (leadRevertido) {
-                atualizarLead.mutate({ id: leadRevertido.id, patch: { etapa: 4 } })
-                if (leadRevertido.corretorResponsavelId !== CORRETOR_LOGADO_ID) {
-                  criarNotificacao.mutate({
-                    destinatarioCorretorId: leadRevertido.corretorResponsavelId,
-                    tipoEvento: 'E17',
-                    titulo: 'Cliente movido automaticamente',
-                    corpo: `${nomeCorretor(CORRETOR_LOGADO_ID)} reverteu a venda do imóvel "${imovel.enderecoRua}, ${imovel.enderecoNumero}" — seu cliente "${leadRevertido.codigo}" voltou para "Em negociação".`,
-                  })
-                }
-              }
             })
             toast({
               title: 'Imóvel movido',

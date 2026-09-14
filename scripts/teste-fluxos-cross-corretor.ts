@@ -333,6 +333,274 @@ async function main() {
     exigir(data!.status === 'ativa', 'B conseguiu alterar uma negociação da qual não participa')
   })
 
+  // ---------- TRIGGER DE SINCRONIA (migração 12) ----------
+  // Testa o trigger direto na tabela negociacoes — sem passar por nenhuma
+  // tela — pra provar que a sincronia (etapa de lead/imóvel, criação de
+  // venda, notificação) é do BANCO, não de código React que alguém
+  // esqueceria de chamar. Ver PLANO_TRIGGER_SINCRONIA_NEGOCIACAO.md.
+  console.log('\nTRIGGER DE SINCRONIA (INSERT/UPDATE em negociacoes propaga sozinho — migração 12)')
+
+  async function criarImovelTeste(client: SupabaseClient, corretorResponsavelId: string, numero: string) {
+    const imovel: Omit<Imovel, 'id' | 'criadoEm' | 'atualizadoEm'> = {
+      corretorResponsavelId,
+      etapa: 'd',
+      enderecoRua: MARCADOR,
+      enderecoNumero: numero,
+      bairro: 'Centro',
+      cidade: 'Ribeirão Preto',
+      estado: 'SP',
+      cep: '',
+      lat: 0,
+      lng: 0,
+      tipo: 'apartamento',
+      quartos: 2,
+      suites: 0,
+      vagas: 1,
+      banheiros: 1,
+      emNegociacaoFlag: false,
+    }
+    const { data, error } = await client.from('imoveis').insert(imovelParaRow(imovel)).select().single()
+    exigir(!error, error?.message ?? '')
+    return data!.id as string
+  }
+
+  async function criarLeadTeste(client: SupabaseClient, corretorResponsavelId: string, sufixo: string) {
+    const { data, error } = await client
+      .from('leads')
+      .insert({
+        ...leadParaRow({ corretorResponsavelId, etapa: 3, nome: `${MARCADOR}-${sufixo}` }),
+        codigo: `${MARCADOR}-GATILHO-${sufixo}-${Date.now()}`,
+      })
+      .select()
+      .single()
+    exigir(!error, error?.message ?? '')
+    return data!.id as string
+  }
+
+  const negociacoesGatilho: string[] = []
+  const imoveisGatilho: string[] = []
+  const leadsGatilho: string[] = []
+
+  let imovelG1 = '', leadG1 = '', negG1 = ''
+  await checar('INSERT (mesmo corretor dos dois lados): imóvel e lead avançam sozinhos, sem UPDATE manual', async () => {
+    imovelG1 = await criarImovelTeste(a.client, a.corretorId, '10')
+    leadG1 = await criarLeadTeste(a.client, a.corretorId, '1')
+    imoveisGatilho.push(imovelG1)
+    leadsGatilho.push(leadG1)
+
+    const { data, error } = await a.client
+      .from('negociacoes')
+      .insert({
+        imovel_id: imovelG1,
+        lead_id: leadG1,
+        corretor_imovel_id: a.corretorId,
+        corretor_cliente_id: a.corretorId,
+        data_inicio: new Date().toISOString(),
+        status: 'ativa',
+      })
+      .select()
+      .single()
+    exigir(!error, error?.message ?? '')
+    negG1 = data!.id
+    negociacoesGatilho.push(negG1)
+
+    const { data: imovel } = await a.client.from('imoveis').select('etapa, em_negociacao_flag').eq('id', imovelG1).single()
+    exigir(imovel!.etapa === 'e', `imóvel deveria estar 'e' sozinho, veio '${imovel!.etapa}'`)
+    exigir(imovel!.em_negociacao_flag === true, 'em_negociacao_flag deveria ser true')
+    const { data: lead } = await a.client.from('leads').select('etapa').eq('id', leadG1).single()
+    exigir(lead!.etapa === 4, `lead deveria estar na etapa 4 sozinho, veio ${lead!.etapa}`)
+  })
+
+  let imovelG2 = '', leadG2 = ''
+  await checar('INSERT cross-corretor (cliente de B negocia imóvel de A): lead avança, imóvel de A NÃO avança, fica pendente + notificado', async () => {
+    imovelG2 = await criarImovelTeste(a.client, a.corretorId, '11')
+    leadG2 = await criarLeadTeste(b.client, b.corretorId, '2')
+    imoveisGatilho.push(imovelG2)
+    leadsGatilho.push(leadG2)
+
+    const { data, error } = await b.client
+      .from('negociacoes')
+      .insert({
+        imovel_id: imovelG2,
+        lead_id: leadG2,
+        corretor_imovel_id: a.corretorId,
+        corretor_cliente_id: b.corretorId,
+        data_inicio: new Date().toISOString(),
+        status: 'ativa',
+      })
+      .select()
+      .single()
+    exigir(!error, error?.message ?? '')
+    negociacoesGatilho.push(data!.id)
+
+    const { data: lead } = await b.client.from('leads').select('etapa, pendente_aprovacao_imoveis').eq('id', leadG2).single()
+    exigir(lead!.etapa === 4, `lead de B deveria avançar pra 4 sozinho, veio ${lead!.etapa}`)
+    exigir(
+      (lead!.pendente_aprovacao_imoveis ?? []).includes(imovelG2),
+      'imóvel de A deveria estar pendente de aprovação no lead de B',
+    )
+    const { data: imovel } = await a.client.from('imoveis').select('etapa').eq('id', imovelG2).single()
+    exigir(imovel!.etapa === 'd', `imóvel de A não deveria avançar sozinho, veio '${imovel!.etapa}'`)
+
+    const { data: notifs } = await a.client
+      .from('notificacoes')
+      .select('id, tipo_evento, acao_pendente')
+      .eq('tipo_evento', 'E16')
+      .order('criada_em', { ascending: false })
+      .limit(1)
+    exigir((notifs?.length ?? 0) === 1, 'A deveria ter recebido uma notificação E16 de aprovação pendente')
+    exigir(
+      notifs![0].acao_pendente?.imovelId === imovelG2 && notifs![0].acao_pendente?.leadId === leadG2,
+      'notificação E16 não aponta pro lead/imóvel certos',
+    )
+  })
+
+  await checar('UPDATE status → revertida (sem outra ativa): lead e imóvel voltam sozinhos', async () => {
+    const { error } = await a.client.from('negociacoes').update({ status: 'revertida' }).eq('id', negG1)
+    exigir(!error, error?.message ?? '')
+
+    const { data: lead } = await a.client.from('leads').select('etapa').eq('id', leadG1).single()
+    exigir(lead!.etapa === 3, `lead deveria voltar pra 3 sozinho, veio ${lead!.etapa}`)
+    const { data: imovel } = await a.client.from('imoveis').select('etapa, em_negociacao_flag').eq('id', imovelG1).single()
+    exigir(imovel!.etapa === 'd', `imóvel deveria voltar pra 'd' sozinho, veio '${imovel!.etapa}'`)
+    exigir(imovel!.em_negociacao_flag === false, 'em_negociacao_flag deveria voltar a false')
+  })
+
+  let imovelG3 = '', leadG3 = '', negG3 = ''
+  await checar('UPDATE status → concluida: lead vai pra 5, imóvel vai pra "f", venda nasce sozinha (sem chamar criarVenda)', async () => {
+    imovelG3 = await criarImovelTeste(a.client, a.corretorId, '12')
+    leadG3 = await criarLeadTeste(b.client, b.corretorId, '3')
+    imoveisGatilho.push(imovelG3)
+    leadsGatilho.push(leadG3)
+
+    // aprova primeiro (imóvel de A, cliente de B) — mesma mecânica do teste anterior
+    const { data: neg, error: erroNeg } = await b.client
+      .from('negociacoes')
+      .insert({
+        imovel_id: imovelG3,
+        lead_id: leadG3,
+        corretor_imovel_id: a.corretorId,
+        corretor_cliente_id: b.corretorId,
+        data_inicio: new Date().toISOString(),
+        status: 'ativa',
+      })
+      .select()
+      .single()
+    exigir(!erroNeg, erroNeg?.message ?? '')
+    negG3 = neg!.id
+    negociacoesGatilho.push(negG3)
+    await a.client.from('imoveis').update({ etapa: 'e', em_negociacao_flag: true }).eq('id', imovelG3) // aprovação manual (fora do escopo deste trigger)
+
+    // A (dono do imóvel) confirma a venda — só muda o status, sem tocar em mais nada
+    const { error } = await a.client
+      .from('negociacoes')
+      .update({ status: 'concluida', data_fim: new Date().toISOString(), valor_negociado: 555000 })
+      .eq('id', negG3)
+    exigir(!error, error?.message ?? '')
+
+    const { data: lead } = await a.client.from('leads').select('etapa').eq('id', leadG3).single()
+    exigir(lead!.etapa === 5, `lead deveria ir pra 5 sozinho, veio ${lead!.etapa}`)
+    const { data: imovel } = await a.client.from('imoveis').select('etapa, data_venda').eq('id', imovelG3).single()
+    exigir(imovel!.etapa === 'f', `imóvel deveria ir pra 'f' sozinho, veio '${imovel!.etapa}'`)
+    exigir(imovel!.data_venda != null, 'data_venda deveria ter sido preenchida sozinha')
+
+    const { data: venda } = await a.client.from('vendas').select('valor_venda, revertida').eq('negociacao_id', negG3).single()
+    exigir(venda != null, 'a venda deveria ter nascido sozinha, sem chamar criarVenda')
+    exigir(Number(venda!.valor_venda) === 555000, `valor_venda deveria ser 555000, veio ${venda?.valor_venda}`)
+    exigir(venda!.revertida === false, 'venda recém-criada não deveria estar revertida')
+
+    const { data: notifs } = await b.client
+      .from('notificacoes')
+      .select('id')
+      .eq('tipo_evento', 'E17')
+      .eq('destinatario_corretor_id', b.corretorId)
+      .order('criada_em', { ascending: false })
+      .limit(1)
+    exigir((notifs?.length ?? 0) === 1, 'B (corretor do cliente) deveria ter sido notificado da venda confirmada por A')
+  })
+
+  await checar('concluir uma negociação reverte AUTOMATICAMENTE as outras negociações ativas do mesmo lead', async () => {
+    const imovelP = await criarImovelTeste(a.client, a.corretorId, '13')
+    const imovelQ = await criarImovelTeste(a.client, a.corretorId, '14')
+    const leadZ = await criarLeadTeste(a.client, a.corretorId, '4')
+    imoveisGatilho.push(imovelP, imovelQ)
+    leadsGatilho.push(leadZ)
+
+    const { data: negP } = await a.client
+      .from('negociacoes')
+      .insert({
+        imovel_id: imovelP, lead_id: leadZ, corretor_imovel_id: a.corretorId, corretor_cliente_id: a.corretorId,
+        data_inicio: new Date().toISOString(), status: 'ativa',
+      })
+      .select()
+      .single()
+    const { data: negQ } = await a.client
+      .from('negociacoes')
+      .insert({
+        imovel_id: imovelQ, lead_id: leadZ, corretor_imovel_id: a.corretorId, corretor_cliente_id: a.corretorId,
+        data_inicio: new Date().toISOString(), status: 'ativa',
+      })
+      .select()
+      .single()
+    negociacoesGatilho.push(negP!.id, negQ!.id)
+
+    // fecha com P — Q não tem mais razão de continuar ativa, o cliente já comprou
+    await a.client
+      .from('negociacoes')
+      .update({ status: 'concluida', data_fim: new Date().toISOString(), valor_negociado: 300000 })
+      .eq('id', negP!.id)
+
+    const { data: negQDepois } = await a.client.from('negociacoes').select('status').eq('id', negQ!.id).single()
+    exigir(negQDepois!.status === 'revertida', `negociação Q deveria ter sido revertida sozinha, veio '${negQDepois!.status}'`)
+    const { data: imovelQDepois } = await a.client.from('imoveis').select('etapa').eq('id', imovelQ).single()
+    exigir(imovelQDepois!.etapa === 'd', `imóvel Q deveria ter voltado pra 'd' sozinho, veio '${imovelQDepois!.etapa}'`)
+    const { data: leadZDepois } = await a.client.from('leads').select('etapa').eq('id', leadZ).single()
+    exigir(leadZDepois!.etapa === 5, `lead deveria estar na etapa 5 (fechou com P), veio ${leadZDepois!.etapa}`)
+  })
+
+  await checar('reabrir negociação concluída notifica quem NÃO pediu a reabertura', async () => {
+    // negG3 está 'concluida' (teste anterior) — A (dono do imóvel) reabre
+    const { error } = await a.client.from('negociacoes').update({ status: 'ativa' }).eq('id', negG3)
+    exigir(!error, error?.message ?? '')
+
+    const { data: lead } = await a.client.from('leads').select('etapa').eq('id', leadG3).single()
+    exigir(lead!.etapa === 4, `lead deveria voltar pra 4 sozinho, veio ${lead!.etapa}`)
+    const { data: imovel } = await a.client.from('imoveis').select('etapa').eq('id', imovelG3).single()
+    exigir(imovel!.etapa === 'e', `imóvel deveria voltar pra 'e' sozinho, veio '${imovel!.etapa}'`)
+
+    const { data: notifs } = await b.client
+      .from('notificacoes')
+      .select('id')
+      .eq('tipo_evento', 'E17')
+      .eq('destinatario_corretor_id', b.corretorId)
+      .order('criada_em', { ascending: false })
+      .limit(1)
+    exigir((notifs?.length ?? 0) === 1, 'B (corretor do cliente) deveria ter sido notificado da reabertura feita por A')
+  })
+
+  await checar('B NÃO consegue criar uma negociação entre dois corretores dos quais não participa', async () => {
+    const { error } = await b.client
+      .from('negociacoes')
+      .insert({
+        imovel_id: imovelG1,
+        lead_id: leadG1,
+        corretor_imovel_id: a.corretorId,
+        corretor_cliente_id: a.corretorId,
+        data_inicio: new Date().toISOString(),
+        status: 'ativa',
+      })
+    exigir(error != null, 'B conseguiu inserir uma negociação entre dois corretores dos quais não participa')
+  })
+
+  await checar('limpar dados do trigger de sincronia', async () => {
+    // vendas primeiro: o trigger de conclusão criou pelo menos uma, e ela
+    // referencia negociacao_id sem cascade — apagar a negociação antes falha
+    for (const id of imoveisGatilho) await a.client.from('vendas').delete().eq('imovel_id', id)
+    for (const id of negociacoesGatilho) await a.client.from('negociacoes').delete().eq('id', id)
+    for (const id of leadsGatilho) await a.client.from('leads').delete().eq('id', id)
+    for (const id of imoveisGatilho) await a.client.from('imoveis').delete().eq('id', id)
+  })
+
   // ---------- SEGURANÇA — permissões negativas com sessão realmente não-admin ----------
   console.log('\nSEGURANÇA (testado com uma sessão de verdade sem privilégio de admin)')
 
