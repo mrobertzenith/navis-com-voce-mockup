@@ -1,41 +1,73 @@
 /**
  * Carga dos dados de demonstração no Supabase.
- * Uso: npx vite-node scripts/seed.ts
- * Requer .env.local com VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.
+ * Uso: npx vite-node scripts/seed.ts --confirmar
  *
- * Idempotente: usa UUIDs determinísticos (v5 dos ids do mock) + upsert,
- * então rodar duas vezes não duplica nada.
+ * Requer .env.local com VITE_SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (SEM
+ * prefixo VITE_ de propósito — essa chave bypassa RLS inteiramente e NUNCA
+ * pode ir pro bundle do frontend; o Vite só expõe variáveis VITE_*).
+ *
+ * Por que service role, e não a anon key de antes: desde a Fase 3 (RLS
+ * restrita à equipe autenticada) e reforçado pela migração 15 (INSERT de
+ * leads/imoveis/perfis_busca só pelo próprio dono), um client anônimo sem
+ * nenhuma sessão não tem NENHUM acesso de escrita — o seed já falhava na
+ * própria tabela `corretores` antes de chegar em imóveis/leads de vários
+ * corretores diferentes. Como este script propositalmente cria dados EM
+ * NOME de vários corretores de uma vez (não é uma sessão de um corretor só),
+ * precisa mesmo do privilégio administrativo — só pode rodar fora do
+ * navegador, nunca do frontend. Achado real, reportado por auditoria externa
+ * (14/09/2026): ver CORRECOES_IMEDIATAS_CLAUDE.md.
+ *
+ * `--confirmar` é obrigatório de propósito: esta chave ignora toda regra de
+ * permissão do banco — não é pra rodar sem querer contra o projeto errado.
+ *
+ * Idempotente SÓ enquanto o banco continuar igual ao que este script gerou —
+ * é um bootstrap de ambiente novo (Fase 2), não uma sincronização contínua.
+ * Confirmado na prática (14/09/2026): corretores/imóveis re-rodam de boa
+ * (upsert por id determinístico, sem duplicar), mas `leads`/`perfis_busca`
+ * já NÃO rodam mais contra o banco de produção atual — os leads originais
+ * da seed foram substituídos, ao longo dos testes reais, por clientes de
+ * verdade que reaproveitaram por coincidência os MESMOS códigos
+ * ("Cliente #2401", #2402...) com IDs diferentes (gerados pelo banco, não
+ * determinísticos). Isso faz o upsert de leads esbarrar na constraint
+ * única de `codigo` — não é bug de RLS, é o script de bootstrap batendo de
+ * frente com dado real que já existe. Não force isso (não troque pra
+ * `ON CONFLICT (codigo) DO NOTHING` ou similar): arriscaria mascarar ou
+ * sobrescrever cliente real sem ninguém perceber. Se precisar recriar o
+ * dataset de demonstração, use um projeto Supabase novo/vazio.
  */
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 import { CORRETORES, CORRETOR_LOGADO_ID } from '../src/mocks/data/corretores'
 import { IMOVEIS_SEED } from '../src/mocks/data/imoveis'
 import { LEADS_SEED } from '../src/mocks/data/clientes'
 import { imovelParaRow, leadParaRow, perfilParaRow } from '../src/lib/supabaseMap'
+import { env } from './lib/env'
 
-// ---------- env ----------
-function lerEnvLocal(): Record<string, string> {
-  const out: Record<string, string> = {}
-  try {
-    for (const linha of readFileSync('.env.local', 'utf8').split('\n')) {
-      const m = linha.match(/^\s*([A-Z_]+)\s*=\s*(.+?)\s*$/)
-      if (m) out[m[1]] = m[2]
-    }
-  } catch {
-    /* arquivo ausente — validado abaixo */
-  }
-  return out
-}
-
-const env = lerEnvLocal()
-const url = env.VITE_SUPABASE_URL
-const anonKey = env.VITE_SUPABASE_ANON_KEY
-if (!url || !anonKey) {
-  console.error('❌ Crie .env.local com VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY')
+const CONFIRMAR = process.argv.includes('--confirmar')
+if (!CONFIRMAR) {
+  console.error(
+    '⚠️  Este script usa SUPABASE_SERVICE_ROLE_KEY (bypassa toda RLS) pra popular dados de\n' +
+      '   demonstração em nome de vários corretores de uma vez. Rode de novo com --confirmar\n' +
+      '   quando tiver certeza de qual banco está apontando (npx vite-node scripts/seed.ts --confirmar).',
+  )
   process.exit(1)
 }
-const supabase = createClient(url, anonKey)
+
+const e = env()
+const url = e.VITE_SUPABASE_URL
+const serviceRoleKey = e.SUPABASE_SERVICE_ROLE_KEY
+if (!url || !serviceRoleKey) {
+  console.error(
+    '❌ Faltam VITE_SUPABASE_URL e/ou SUPABASE_SERVICE_ROLE_KEY no .env.local.\n' +
+      '   A service role key fica em Supabase → Project Settings → API → service_role\n' +
+      '   (secret) — NUNCA prefixar com VITE_, senão o Vite embute ela no bundle do frontend.',
+  )
+  process.exit(1)
+}
+// sem sessão de usuário pra gerenciar — é uma chamada administrativa direta
+const supabase = createClient(url, serviceRoleKey, {
+  auth: { autoRefreshToken: false, persistSession: false },
+})
 
 // ---------- uuid determinístico (v5, mesmo algoritmo usado nos ids de corretor) ----------
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

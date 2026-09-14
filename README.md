@@ -126,7 +126,7 @@ VITE_SENTRY_DSN=<dsn>            # opcional
 | `npm run build` | typecheck + build de produção |
 | `npm test` | testes (vitest) |
 | `npm run lint` | eslint |
-| `npx vite-node scripts/seed.ts` | carga dos dados de demonstração no banco (idempotente) |
+| `npx vite-node scripts/seed.ts --confirmar` | carga dos dados de demonstração num banco novo (usa `SUPABASE_SERVICE_ROLE_KEY`, nunca a anon key — RLS exige dono/admin pra escrever) |
 | `npx supabase db push` | aplica migrações pendentes no banco remoto |
 | `npx supabase functions deploy equipe` | publica a Edge Function de gestão de equipe |
 | `npx supabase migration list` | confere paridade migrações local × remoto |
