@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react'
-import { ArrowLeftRight, Bell, BellOff, Check, Handshake, Link2Off, Users } from 'lucide-react'
+import { ArrowLeftRight, Bell, BellOff, Check, DollarSign, Handshake, Link2Off, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useToast } from '@/components/ui/use-toast'
 import { EmptyState } from '@/components/shared/EmptyState'
 import type { TipoEvento } from '@/domain/types'
-import { useAtualizarImovel } from '@/hooks/useImoveis'
+import { useAtualizarImovel, useImoveis } from '@/hooks/useImoveis'
 import { useAtualizarLead, useLeads } from '@/hooks/useLeads'
-import { useAtualizarNotificacao, useNotificacoes } from '@/hooks/useNotificacoes'
+import { useAtualizarNegociacao, useCriarVenda, useNegociacoes } from '@/hooks/useNegociacoes'
+import { useAtualizarNotificacao, useCriarNotificacao, useNotificacoes } from '@/hooks/useNotificacoes'
+import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
 import { formatData } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
@@ -17,6 +20,7 @@ const ICONE_POR_TIPO: Partial<Record<TipoEvento, typeof Bell>> = {
   E12: Handshake,
   E16: Link2Off,
   E17: ArrowLeftRight,
+  E18: DollarSign,
 }
 
 type Filtro = 'todas' | 'nao_lidas' | TipoEvento
@@ -25,10 +29,16 @@ export function NotificacoesPage() {
   const { data: notificacoes = [], isLoading } = useNotificacoes()
   const atualizarNotificacao = useAtualizarNotificacao()
   const { data: leads = [] } = useLeads()
+  const { data: imoveis = [] } = useImoveis()
+  const { data: negociacoes = [] } = useNegociacoes()
   const atualizarImovel = useAtualizarImovel()
   const atualizarLead = useAtualizarLead()
+  const atualizarNegociacao = useAtualizarNegociacao()
+  const criarVenda = useCriarVenda()
+  const criarNotificacao = useCriarNotificacao()
   const { toast } = useToast()
   const [filtro, setFiltro] = useState<Filtro>('todas')
+  const [precos, setPrecos] = useState<Record<string, string>>({})
 
   function aprovar(notificacaoId: string, leadId: string, imovelId: string) {
     const lead = leads.find((l) => l.id === leadId)
@@ -43,6 +53,89 @@ export function NotificacoesPage() {
     }
     atualizarNotificacao.mutate({ id: notificacaoId, patch: { resolvida: true, lida: true } })
     toast({ title: 'Negociação aprovada', description: 'O imóvel foi movido para "Em negociação".' })
+  }
+
+  /**
+   * Confirma a venda com o preço — ação exclusiva do corretor do imóvel,
+   * depois que o corretor do cliente já fechou o negócio (decisão do PO,
+   * 14/09/2026: "cabe ao corretor do cliente mover o card... corretor do
+   * imóvel colocar o preço da venda depois da conclusão"). Conclui a
+   * negociação, cria a venda, move o imóvel pra "Vendido" e desfaz as
+   * outras negociações ativas do MESMO cliente (ele já comprou, não faz
+   * sentido continuar "em negociação" com outros imóveis) — mesmo bug real
+   * do TESTES 05 item 1, agora tratado no único lugar onde a venda de
+   * verdade se conclui.
+   */
+  function confirmarVenda(notificacaoId: string, leadId: string, imovelId: string) {
+    const valor = Number(precos[notificacaoId])
+    if (!valor || valor <= 0) {
+      toast({ title: 'Informe um valor válido', variant: 'destructive' })
+      return
+    }
+    const negociacao = negociacoes.find((n) => n.leadId === leadId && n.imovelId === imovelId && n.status === 'ativa')
+    if (!negociacao) {
+      toast({
+        title: 'Não foi possível confirmar',
+        description: 'Não há mais uma negociação ativa entre esse cliente e esse imóvel — pode já ter sido revertida.',
+        variant: 'destructive',
+      })
+      return
+    }
+    const agora = new Date().toISOString()
+
+    atualizarNegociacao.mutate(
+      { id: negociacao.id, patch: { status: 'concluida', dataFim: agora, valorNegociado: valor } },
+      {
+        onSuccess: () => {
+          criarVenda.mutate({
+            negociacaoId: negociacao.id,
+            imovelId,
+            leadId,
+            corretorImovelId: negociacao.corretorImovelId,
+            corretorClienteId: negociacao.corretorClienteId,
+            valorVenda: valor,
+            dataVenda: agora,
+            revertida: false,
+            pagamentosConcluidos: false,
+            chavesEntregues: false,
+          })
+        },
+      },
+    )
+    atualizarImovel.mutate({ id: imovelId, patch: { etapa: 'f', dataVenda: agora } })
+
+    // outras negociações ativas do MESMO cliente com OUTROS imóveis: ele já
+    // comprou este, as demais deixam de fazer sentido
+    const outrasDoLead = negociacoes.filter(
+      (n) => n.id !== negociacao.id && n.leadId === leadId && n.status === 'ativa',
+    )
+    outrasDoLead.forEach((n) => {
+      atualizarNegociacao.mutate({ id: n.id, patch: { status: 'revertida', dataFim: agora } })
+      const outroImovel = imoveis.find((i) => i.id === n.imovelId)
+      const outroClienteAindaNegociandoEsseImovel = negociacoes.some(
+        (o) => o.id !== n.id && o.imovelId === n.imovelId && o.status === 'ativa',
+      )
+      if (outroImovel && outroImovel.etapa === 'e' && !outroClienteAindaNegociandoEsseImovel) {
+        atualizarImovel.mutate({ id: outroImovel.id, patch: { etapa: 'd', emNegociacaoFlag: false } })
+        if (outroImovel.corretorResponsavelId !== CORRETOR_LOGADO_ID) {
+          const lead = leads.find((l) => l.id === leadId)
+          criarNotificacao.mutate({
+            destinatarioCorretorId: outroImovel.corretorResponsavelId,
+            tipoEvento: 'E17',
+            titulo: 'Imóvel movido automaticamente',
+            corpo: `${lead?.codigo ?? 'O cliente'} fechou negócio com outro imóvel — seu imóvel "${outroImovel.enderecoRua}, ${outroImovel.enderecoNumero}" voltou para "Publicado".`,
+          })
+        }
+      }
+    })
+
+    atualizarNotificacao.mutate({ id: notificacaoId, patch: { resolvida: true, lida: true } })
+    setPrecos((p) => {
+      const resto = { ...p }
+      delete resto[notificacaoId]
+      return resto
+    })
+    toast({ title: 'Venda confirmada', description: 'O imóvel foi movido para "Vendido".' })
   }
 
   const tiposPresentes = useMemo(
@@ -108,7 +201,27 @@ export function NotificacoesPage() {
                     <span className="shrink-0 font-mono text-xs text-text-soft">{formatData(n.criadaEm)}</span>
                   </div>
                   <p className="text-sm text-text-mut">{n.corpo}</p>
-                  {n.acaoPendente && !n.resolvida && (
+                  {n.tipoEvento === 'E18' && n.acaoPendente && !n.resolvida && (
+                    <div className="mt-2 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder="Valor da venda"
+                        className="h-7 w-32 text-xs"
+                        value={precos[n.id] ?? ''}
+                        onChange={(e) => setPrecos((p) => ({ ...p, [n.id]: e.target.value }))}
+                      />
+                      <Button
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => confirmarVenda(n.id, n.acaoPendente!.leadId, n.acaoPendente!.imovelId)}
+                      >
+                        <Check className="h-3 w-3" strokeWidth={1.5} />
+                        Confirmar venda
+                      </Button>
+                    </div>
+                  )}
+                  {n.tipoEvento !== 'E18' && n.acaoPendente && !n.resolvida && (
                     <Button
                       size="sm"
                       className="mt-2 h-7 px-2 text-xs"
@@ -122,7 +235,9 @@ export function NotificacoesPage() {
                     </Button>
                   )}
                   {n.acaoPendente && n.resolvida && (
-                    <p className="mt-1 text-xs text-success">Aprovado</p>
+                    <p className="mt-1 text-xs text-success">
+                      {n.tipoEvento === 'E18' ? 'Venda confirmada' : 'Aprovado'}
+                    </p>
                   )}
                   {n.lida && (
                     <Button

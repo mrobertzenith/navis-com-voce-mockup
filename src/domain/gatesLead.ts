@@ -5,6 +5,7 @@ export type CampoGateLead =
   | 'observacoes'
   | 'visitasAgendadas'
   | 'imovelNegociacaoId'
+  | 'imovelFechadoId'
   | 'motivoStandby'
   | 'motivoPerdido'
   | 'pagamentosConcluidos'
@@ -16,6 +17,7 @@ export const CAMPO_GATE_LEAD_CONFIG: Record<CampoGateLead, { label: string; tipo
   observacoes: { label: 'Observações', tipo: 'textarea' },
   visitasAgendadas: { label: 'Visitas agendadas', tipo: 'visitas' },
   imovelNegociacaoId: { label: 'Imóveis da negociação', tipo: 'imovel-multi' },
+  imovelFechadoId: { label: 'Imóvel do negócio', tipo: 'imovel' },
   motivoStandby: { label: 'Motivo do standby (até 500 caracteres)', tipo: 'textarea' },
   motivoPerdido: { label: 'Motivo da perda (até 500 caracteres)', tipo: 'textarea' },
   pagamentosConcluidos: { label: 'Pagamentos concluídos', tipo: 'checkbox' },
@@ -60,16 +62,6 @@ export function avaliarTransicaoLead(
     return { tipo: 'invalida', camposFaltantes: [], requerConfirmacao: false }
   }
 
-  // "Negócio Fechado" deixou de ser uma transição manual do lado do cliente:
-  // quem decide que vendeu e preenche o valor é o corretor do imóvel
-  // (decisão do PO — valor é dado do imóvel, não do cliente). O card do
-  // cliente avança sozinho, como reação, quando o imóvel é marcado
-  // "Vendido" do lado certo — ver MeusImoveisPage.tsx e
-  // PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md §B.6.
-  if (destino === 5) {
-    return { tipo: 'invalida', camposFaltantes: [], requerConfirmacao: false }
-  }
-
   const efetivo = { ...lead, ...patch }
   const faltantes: CampoGateLead[] = []
 
@@ -78,12 +70,18 @@ export function avaliarTransicaoLead(
     faltantes.push('visitasAgendadas')
   }
   if (destino === 4 && !efetivo.imovelNegociacaoId) faltantes.push('imovelNegociacaoId')
+  // Decisão do PO (14/09/2026): fechar negócio é ação do corretor do
+  // CLIENTE — ele escolhe qual das negociações ativas fechou. O valor NÃO
+  // é pedido aqui: quem preenche é o corretor do imóvel, depois, ao
+  // confirmar a venda (ver NotificacoesPage.confirmarVenda). Ver
+  // PLANO_TRIGGER_SINCRONIA_NEGOCIACAO.md §A.5.
+  if (destino === 5 && !efetivo.imovelFechadoId) faltantes.push('imovelFechadoId')
   if (destino === 6) {
     if (!efetivo.pagamentosConcluidos) faltantes.push('pagamentosConcluidos')
     if (!efetivo.chavesEntregues) faltantes.push('chavesEntregues')
   }
 
-  const requerConfirmacao = destino === 4 || destino === 6
+  const requerConfirmacao = destino === 4 || destino === 5 || destino === 6
 
   return { tipo: 'avanco', camposFaltantes: faltantes, requerConfirmacao }
 }

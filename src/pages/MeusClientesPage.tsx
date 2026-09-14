@@ -320,11 +320,38 @@ export function MeusClientesPage() {
       return
     }
 
-    // "Fechar negócio" deixou de ser uma ação manual daqui (decisão do PO —
-    // quem decide "Vendido" e preenche o valor é o corretor do imóvel, não
-    // o do cliente). avaliarTransicaoLead já bloqueia esse drag; o card do
-    // cliente chega em "Negócio Fechado" sozinho, como reação, quando o
-    // imóvel é marcado "Vendido" do lado certo — ver MeusImoveisPage.tsx.
+    // Fechar negócio: decisão do PO (14/09/2026) — cabe ao corretor do
+    // CLIENTE mover o card; o corretor do IMÓVEL só entra depois, informando
+    // o valor da venda pra confirmar (ver NotificacoesPage.confirmarVenda).
+    // O card do cliente já avança aqui; o do imóvel só muda quando a venda
+    // for confirmada — até lá, fica "pendente de confirmação".
+    if (destino === 5 && patch.imovelFechadoId) {
+      const imovelId = patch.imovelFechadoId
+      const imovel = imoveis.find((i) => i.id === imovelId)
+
+      atualizarLead.mutate(
+        { id: lead.id, patch: patchFinal },
+        {
+          onSuccess: () => {
+            if (imovel) {
+              criarNotificacao.mutate({
+                destinatarioCorretorId: imovel.corretorResponsavelId,
+                tipoEvento: 'E18',
+                titulo: 'Confirmar venda',
+                corpo: `"${lead.codigo}" (de ${nomeCorretor(lead.corretorResponsavelId)}) fechou negócio com seu imóvel "${imovel.enderecoRua}, ${imovel.enderecoNumero}". Informe o valor da venda para confirmar.`,
+                acaoPendente: { leadId: lead.id, imovelId },
+              })
+            }
+            toast({
+              title: 'Cliente movido',
+              description: 'Agora em "Negócio Fechado" — aguardando o corretor do imóvel confirmar a venda com o valor.',
+            })
+          },
+        },
+      )
+      setPending(null)
+      return
+    }
 
     // Reversão de Negócio Fechado pra Em Negociação: a negociação concluída
     // volta a 'ativa', a venda vinculada vira 'revertida' (histórico, não

@@ -196,20 +196,31 @@ cliente (bloco #2). O bloco #8 vira, na prática, morto — ou vira só a
 TELA de aprovação (o "aceitar via comando" já existe como bloco #2's
 notificação E16 + `NotificacoesPage.aprovar()`).
 
-**Consequência que precisa de mais uma confirmação antes de tocar em
-código** (achado ao aplicar essa regra na prática, não estava previsto):
-a mesma frase — "cabe ao corretor do cliente mover o card" — jogada até o
-fim sugere que fechar negócio ("Negócio Fechado") TAMBÉM deveria ser um
-movimento do lado do cliente, com o corretor do imóvel só entrando com o
-preço DEPOIS ("colocar o preço da venda depois da conclusão"). Isso
-contradiz a implementação que acabei de fazer na rodada anterior
-(TESTES 4), que bloqueou COMPLETAMENTE o avanço manual pra "Negócio
-Fechado" do lado do cliente, presumindo que fechar era 100% iniciado pelo
-lado do imóvel. O relato de TESTES 05 item 2 (corretor não consegue mover
-o card pra "Negócio Fechado" de jeito nenhum) é a prova de que essa
-suposição estava errada — virou uma trava real, não só uma simplificação.
-Ver pergunta formal feita ao PO fora deste documento antes de reverter/
-redesenhar esse trecho.
+**Resolvido em 14/09/2026, via pergunta direta:** fechar negócio ("Negócio
+Fechado") também é movimento do CLIENTE — o corretor do imóvel só entra
+depois, informando o valor. Implementado:
+
+- Bloco #6 (`MeusImoveisPage.tsx`, "imóvel vai pra Vendido") **removido**:
+  `avaliarTransicaoImovel` bloqueia 'e'→'f' por drag, igual já bloqueava
+  'd'→'e'. O card do imóvel é passivo em toda a parte de negociação — só
+  reage.
+- Bloco #2 ganhou uma continuação: destino 5 volta a ser uma transição
+  válida do lado do cliente (`gatesLead.ts`), pedindo só qual negociação
+  ativa está fechando (`imovelFechadoId`) — sem pedir valor.
+- Nova peça: `NotificacoesPage.confirmarVenda` — notificação `E18`
+  "Confirmar venda" com campo de preço inline; só ao confirmar é que a
+  negociação conclui, a venda é criada, o imóvel vai pra 'f', e as outras
+  negociações ativas do MESMO cliente são revertidas (fix do TESTES 05
+  item 1, que só fazia sentido nesse ponto — antes da confirmação a venda
+  não é real).
+- Bloco #8 (iniciar negociação pelo imóvel) também removido, como já
+  estava decidido acima.
+
+O trigger de banco deste documento (§A.2-A.4) continua valendo como
+direção de longo prazo — a versão acima é a mesma lógica ainda em React,
+só corrigida pra bater com o fluxo real. Migrar pra trigger continua sendo
+a correção estrutural completa (elimina de vez a possibilidade de outro
+passo esquecido), só que agora com o desenho de fluxo já certo.
 
 ## A.6 Testes
 

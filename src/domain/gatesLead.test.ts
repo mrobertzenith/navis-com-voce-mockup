@@ -114,25 +114,22 @@ describe('avaliarTransicaoLead', () => {
     })
   })
 
-  describe('etapa 5 — Fechado: não é mais uma transição manual do lado do cliente', () => {
-    // Decisão do PO (09/09/2026): quem decide "Vendido" e preenche o valor é
-    // o corretor do imóvel, não o do cliente — o card do cliente chega em
-    // "Negócio Fechado" sozinho, como reação (ver MeusImoveisPage.tsx e
-    // PLANO_ARQUITETURA_NEGOCIACOES_E_RLS.md §B.6). Arrastar manualmente
-    // aqui sempre bloqueia, mesmo com imóvel e valor no patch.
-    it('bloqueia mesmo com imóvel e valor no patch', () => {
-      const r = avaliarTransicaoLead(
-        leadBase({ etapa: 4 }),
-        5,
-        { imovelFechadoId: 'im-1', valorNegociado: 450000 } as Partial<Lead>,
-      )
-      expect(r.tipo).toBe('invalida')
-      expect(r.camposFaltantes).toEqual([])
+  describe('etapa 5 — Fechado: quem fecha é o corretor do cliente, sem pedir valor', () => {
+    // Decisão do PO (14/09/2026, revendo a de 09/09): "cabe ao corretor do
+    // cliente mover o card" — inclusive pra fechar negócio. O valor NÃO é
+    // pedido aqui: quem preenche é o corretor do imóvel, depois, ao
+    // confirmar a venda (NotificacoesPage.confirmarVenda). Ver
+    // PLANO_TRIGGER_SINCRONIA_NEGOCIACAO.md §A.5.
+    it('bloqueia sem imovelFechadoId', () => {
+      const r = avaliarTransicaoLead(leadBase({ etapa: 4 }), 5)
+      expect(r.tipo).toBe('avanco')
+      expect(r.camposFaltantes).toEqual(['imovelFechadoId'])
+      expect(r.requerConfirmacao).toBe(true)
     })
 
-    it('bloqueia sem nada no patch', () => {
-      const r = avaliarTransicaoLead(leadBase({ etapa: 4 }), 5)
-      expect(r.tipo).toBe('invalida')
+    it('libera só com imovelFechadoId — não pede valor', () => {
+      const r = avaliarTransicaoLead(leadBase({ etapa: 4, imovelFechadoId: 'im-1' }), 5)
+      expect(r.camposFaltantes).toEqual([])
     })
   })
 

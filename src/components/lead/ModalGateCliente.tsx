@@ -119,6 +119,7 @@ export function ModalGateCliente({
       )
     }
     if (imoveisNegociacao.length > 0) patch.imovelNegociacaoId = imoveisNegociacao.join(',')
+    if (valores.imovelFechadoId) patch.imovelFechadoId = valores.imovelFechadoId
     if (valores.motivoStandby) patch.motivoStandby = valores.motivoStandby.slice(0, 500)
     if (valores.motivoPerdido) patch.motivoPerdido = valores.motivoPerdido.slice(0, 500)
     if (checks.pagamentosConcluidos) patch.pagamentosConcluidos = true

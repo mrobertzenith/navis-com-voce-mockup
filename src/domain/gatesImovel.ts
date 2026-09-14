@@ -1,20 +1,13 @@
 import { ETAPA_IMOVEL_ORDEM } from '@/domain/constants'
 import type { EtapaImovel, Imovel } from '@/domain/types'
 
-export type CampoGateImovel = 'cnm' | 'valorAnuncio' | 'linkAnuncioUrl' | 'metragem' | 'valorVenda' | 'leadNegociacaoId'
+export type CampoGateImovel = 'cnm' | 'valorAnuncio' | 'linkAnuncioUrl' | 'metragem'
 
 export const CAMPO_GATE_LABEL: Record<CampoGateImovel, string> = {
   cnm: 'CNM (Cadastro Nacional de Matrícula)',
   valorAnuncio: 'Valor de anúncio',
   linkAnuncioUrl: 'Link do anúncio',
   metragem: 'Metragem (área)',
-  valorVenda: 'Valor de venda',
-  leadNegociacaoId: 'Cliente da negociação',
-}
-
-/** patch usado apenas para avaliar o gate — não é persistido no Imovel */
-interface PatchGateImovel extends Partial<Imovel> {
-  leadNegociacaoId?: string
 }
 
 interface ResultadoTransicao {
@@ -32,7 +25,7 @@ function temMetragem(imovel: Imovel): boolean {
 export function avaliarTransicaoImovel(
   imovel: Imovel,
   destino: EtapaImovel,
-  patch: PatchGateImovel = {},
+  patch: Partial<Imovel> = {},
 ): ResultadoTransicao {
   const origem = imovel.etapa
   const idxOrigem = ETAPA_IMOVEL_ORDEM.indexOf(origem)
@@ -55,12 +48,14 @@ export function avaliarTransicaoImovel(
     return { tipo: 'invalida', camposFaltantes: [], requerConfirmacao: false }
   }
 
-  // Decisão do PO (14/09/2026): negociação nunca começa pelo lado do imóvel.
-  // O corretor do imóvel só visualiza matches e contata o corretor do
-  // cliente por fora — quem move o card pra "Em negociação" é sempre o
-  // corretor do cliente (o imóvel entra em 'e' via aprovação, não via este
-  // drag). Ver PLANO_TRIGGER_SINCRONIA_NEGOCIACAO.md §A.5.
-  if (destino === 'e') {
+  // Decisão do PO (14/09/2026): o card do imóvel é passivo em toda a parte
+  // de negociação — não entra em "Em negociação" nem sai vendido por um
+  // drag direto. Quem move é sempre o corretor do cliente; o corretor do
+  // imóvel só age de duas formas: aprovando a entrada em negociação
+  // (NotificacoesPage) e informando o valor pra confirmar a venda, depois
+  // que o cliente já fechou (idem). Ver
+  // PLANO_TRIGGER_SINCRONIA_NEGOCIACAO.md §A.5.
+  if (destino === 'e' || destino === 'f') {
     return { tipo: 'invalida', camposFaltantes: [], requerConfirmacao: false }
   }
 
@@ -73,15 +68,7 @@ export function avaliarTransicaoImovel(
     if (!efetivo.linkAnuncioUrl) faltantes.push('linkAnuncioUrl')
     if (!temMetragem(efetivo)) faltantes.push('metragem')
   }
-  // destino === 'e' não chega mais aqui — vira 'invalida' acima
-  if (destino === 'f') {
-    if (efetivo.valorVenda == null) faltantes.push('valorVenda')
-    // a venda precisa estar amarrada a um cliente — sem isso o card do
-    // cliente nunca sabia que o imóvel dele tinha sido vendido
-    if (!efetivo.leadNegociacaoId) faltantes.push('leadNegociacaoId')
-  }
+  // destino === 'e'/'f' não chegam mais aqui — viram 'invalida' acima
 
-  const requerConfirmacao = destino === 'f'
-
-  return { tipo: 'avanco', camposFaltantes: faltantes, requerConfirmacao }
+  return { tipo: 'avanco', camposFaltantes: faltantes, requerConfirmacao: false }
 }

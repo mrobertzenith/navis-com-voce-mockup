@@ -110,8 +110,8 @@ describe('avaliarTransicaoImovel', () => {
     // cliente — o imóvel só entra em 'e' via aprovação (NotificacoesPage),
     // nunca por um drag direto no Kanban do imóvel. Ver
     // PLANO_TRIGGER_SINCRONIA_NEGOCIACAO.md §A.5.
-    it('bloqueia mesmo com leadNegociacaoId no patch', () => {
-      const r = avaliarTransicaoImovel(imovelBase({ etapa: 'd' }), 'e', { leadNegociacaoId: 'lead-1' })
+    it('bloqueia mesmo com patch (não existe mais campo pra preencher aqui)', () => {
+      const r = avaliarTransicaoImovel(imovelBase({ etapa: 'd' }), 'e', { valorVenda: 1 })
       expect(r.tipo).toBe('invalida')
     })
 
@@ -121,27 +121,19 @@ describe('avaliarTransicaoImovel', () => {
     })
   })
 
-  describe('etapa f — Vendido: exige valor de venda E o cliente da venda', () => {
-    it('lista os dois campos quando ambos faltam', () => {
-      const r = avaliarTransicaoImovel(imovelBase({ etapa: 'e' }), 'f')
-      expect(r.camposFaltantes).toEqual(['valorVenda', 'leadNegociacaoId'])
-      expect(r.requerConfirmacao).toBe(true)
-    })
-
-    // regressão da rodada 03: vender sem escolher o cliente não gerava
-    // nenhuma manifestação no card do cliente — a venda ficava "solta"
-    it('bloqueia sem leadNegociacaoId mesmo com valorVenda preenchido', () => {
+  describe('etapa f — Vendido: nunca é confirmada manualmente pelo lado do imóvel', () => {
+    // Decisão do PO (14/09/2026): quem fecha é o corretor do cliente (card
+    // "Negócio Fechado"); o corretor do imóvel só informa o valor depois,
+    // via NotificacoesPage.confirmarVenda — nunca por um drag no Kanban do
+    // imóvel. Ver PLANO_TRIGGER_SINCRONIA_NEGOCIACAO.md §A.5.
+    it('bloqueia mesmo com valor preenchido no patch', () => {
       const r = avaliarTransicaoImovel(imovelBase({ etapa: 'e', valorVenda: 480000 }), 'f')
-      expect(r.camposFaltantes).toEqual(['leadNegociacaoId'])
+      expect(r.tipo).toBe('invalida')
     })
 
-    it('libera com os dois campos preenchidos', () => {
-      const r = avaliarTransicaoImovel(
-        imovelBase({ etapa: 'e', valorVenda: 480000 }),
-        'f',
-        { leadNegociacaoId: 'lead-1' },
-      )
-      expect(r.camposFaltantes).toEqual([])
+    it('bloqueia sem nada no patch', () => {
+      const r = avaliarTransicaoImovel(imovelBase({ etapa: 'e' }), 'f')
+      expect(r.tipo).toBe('invalida')
     })
   })
 
