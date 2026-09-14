@@ -55,6 +55,15 @@ export function avaliarTransicaoImovel(
     return { tipo: 'invalida', camposFaltantes: [], requerConfirmacao: false }
   }
 
+  // Decisão do PO (14/09/2026): negociação nunca começa pelo lado do imóvel.
+  // O corretor do imóvel só visualiza matches e contata o corretor do
+  // cliente por fora — quem move o card pra "Em negociação" é sempre o
+  // corretor do cliente (o imóvel entra em 'e' via aprovação, não via este
+  // drag). Ver PLANO_TRIGGER_SINCRONIA_NEGOCIACAO.md §A.5.
+  if (destino === 'e') {
+    return { tipo: 'invalida', camposFaltantes: [], requerConfirmacao: false }
+  }
+
   const efetivo = { ...imovel, ...patch }
   const faltantes: CampoGateImovel[] = []
 
@@ -64,7 +73,7 @@ export function avaliarTransicaoImovel(
     if (!efetivo.linkAnuncioUrl) faltantes.push('linkAnuncioUrl')
     if (!temMetragem(efetivo)) faltantes.push('metragem')
   }
-  if (destino === 'e' && !efetivo.leadNegociacaoId) faltantes.push('leadNegociacaoId')
+  // destino === 'e' não chega mais aqui — vira 'invalida' acima
   if (destino === 'f') {
     if (efetivo.valorVenda == null) faltantes.push('valorVenda')
     // a venda precisa estar amarrada a um cliente — sem isso o card do
@@ -72,7 +81,7 @@ export function avaliarTransicaoImovel(
     if (!efetivo.leadNegociacaoId) faltantes.push('leadNegociacaoId')
   }
 
-  const requerConfirmacao = destino === 'e' || destino === 'f'
+  const requerConfirmacao = destino === 'f'
 
   return { tipo: 'avanco', camposFaltantes: faltantes, requerConfirmacao }
 }

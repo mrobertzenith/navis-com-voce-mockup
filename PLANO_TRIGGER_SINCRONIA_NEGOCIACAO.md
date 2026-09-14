@@ -175,16 +175,41 @@ implementação, não neste plano.)
   deixaria, ele falha alto (erro), não silencioso — mais uma rede de
   segurança, não menos.
 
-## A.5 Decisão necessária antes de implementar
+## A.5 Decisão do PO (14/09/2026) — resolvida
 
-A inconsistência do §A.1 (aprovação bloqueia num sentido, não bloqueia no
-outro) vai ficar Óbvia e LADO A LADO no mesmo trigger assim que eu for
-escrevê-lo — não dá pra centralizar sem decidir os dois casos igual.
-Pergunta pro PO: negociação cross-corretor iniciada pelo lado do IMÓVEL
-deveria também esperar aprovação do dono do LEAD antes do card dele
-avançar (hoje não espera), ou o comportamento atual (avança na hora,
-notificação é só um aviso) é o certo e o lado do CLIENTE que deveria vira
-igual a esse (aprovação deixa de bloquear o imóvel também)?
+> "A negociação nunca começa pelo imóvel. Sempre pelo cliente. O corretor
+> do imóvel visualiza a possibilidade mas precisa contatar o corretor do
+> cliente, e o corretor do cliente que faz o movimento de marcar visita e
+> mover o card, vinculando ao imóvel. O card do imóvel fica passivo em
+> todas as etapas, exceto no momento de colocar o preço da venda depois da
+> conclusão (pós Em Negociação). Cabe ao corretor do cliente mover o card
+> do cliente e o corretor do imóvel ser notificado sobre o movimento e
+> aceitá-lo via comando para que 'autorize' o imóvel ficar travado em uma
+> negociação."
+
+Isso resolve a inconsistência do §A.1 de vez, e muda o escopo do bloco #8
+(`MeusImoveisPage.tsx:340-399`, hoje: imóvel entra em "Em negociação" pelo
+próprio corretor selecionando um lead): **essa ação não deveria existir
+como iniciação**. O corretor do imóvel só visualiza matches e contata o
+corretor do cliente por fora — quem move o card, sempre, é o corretor do
+cliente (bloco #2). O bloco #8 vira, na prática, morto — ou vira só a
+TELA de aprovação (o "aceitar via comando" já existe como bloco #2's
+notificação E16 + `NotificacoesPage.aprovar()`).
+
+**Consequência que precisa de mais uma confirmação antes de tocar em
+código** (achado ao aplicar essa regra na prática, não estava previsto):
+a mesma frase — "cabe ao corretor do cliente mover o card" — jogada até o
+fim sugere que fechar negócio ("Negócio Fechado") TAMBÉM deveria ser um
+movimento do lado do cliente, com o corretor do imóvel só entrando com o
+preço DEPOIS ("colocar o preço da venda depois da conclusão"). Isso
+contradiz a implementação que acabei de fazer na rodada anterior
+(TESTES 4), que bloqueou COMPLETAMENTE o avanço manual pra "Negócio
+Fechado" do lado do cliente, presumindo que fechar era 100% iniciado pelo
+lado do imóvel. O relato de TESTES 05 item 2 (corretor não consegue mover
+o card pra "Negócio Fechado" de jeito nenhum) é a prova de que essa
+suposição estava errada — virou uma trava real, não só uma simplificação.
+Ver pergunta formal feita ao PO fora deste documento antes de reverter/
+redesenhar esse trecho.
 
 ## A.6 Testes
 

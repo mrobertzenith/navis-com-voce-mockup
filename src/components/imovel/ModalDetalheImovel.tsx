@@ -169,12 +169,12 @@ export function ModalDetalheImovel({ imovel, meusLeads, leadContextoId, onClose 
           {meusLeads.length > 0 && (
             <div className="flex flex-col gap-1.5 border-t border-border pt-3">
               <p className="text-sm font-medium text-ink">
-                {leadContextoId ? 'Vincular oficialmente a este cliente' : 'Adicionar a um cliente'}
+                {leadContextoId ? 'Vincular oficialmente a este cliente' : 'Vincular ao cliente'}
               </p>
               <p className="text-xs text-text-soft">
                 {leadContextoId
                   ? 'Este imóvel apareceu como sugestão de match — vincular registra oficialmente o interesse no perfil do cliente.'
-                  : 'Registra este imóvel no perfil de busca do cliente selecionado.'}
+                  : 'Match manual: use quando você souber que este imóvel serve para um cliente seu, mesmo que o match automático não tenha identificado isso sozinho.'}
               </p>
               <div className="flex items-end gap-2">
                 <div className="flex-1">
@@ -185,14 +185,14 @@ export function ModalDetalheImovel({ imovel, meusLeads, leadContextoId, onClose 
                     <SelectContent>
                       {meusLeads.map((lead) => (
                         <SelectItem key={lead.id} value={lead.id}>
-                          {lead.codigo}
+                          {lead.nome}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <Button onClick={adicionarACliente} disabled={!leadSelecionado || criarVinculo.isPending}>
-                  {leadContextoId ? 'Vincular' : 'Adicionar'}
+                  Vincular
                 </Button>
               </div>
             </div>

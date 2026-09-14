@@ -105,16 +105,19 @@ describe('avaliarTransicaoImovel', () => {
     })
   })
 
-  describe('etapa e — Em negociação: exige o cliente da negociação e confirmação', () => {
-    it('bloqueia sem leadNegociacaoId', () => {
-      const r = avaliarTransicaoImovel(imovelBase({ etapa: 'd' }), 'e')
-      expect(r.camposFaltantes).toEqual(['leadNegociacaoId'])
-      expect(r.requerConfirmacao).toBe(true)
+  describe('etapa e — Em negociação: nunca é iniciada manualmente pelo lado do imóvel', () => {
+    // Decisão do PO (14/09/2026): a negociação sempre começa pelo lado do
+    // cliente — o imóvel só entra em 'e' via aprovação (NotificacoesPage),
+    // nunca por um drag direto no Kanban do imóvel. Ver
+    // PLANO_TRIGGER_SINCRONIA_NEGOCIACAO.md §A.5.
+    it('bloqueia mesmo com leadNegociacaoId no patch', () => {
+      const r = avaliarTransicaoImovel(imovelBase({ etapa: 'd' }), 'e', { leadNegociacaoId: 'lead-1' })
+      expect(r.tipo).toBe('invalida')
     })
 
-    it('libera com leadNegociacaoId vindo do patch (é campo transiente, não persistido no Imovel)', () => {
-      const r = avaliarTransicaoImovel(imovelBase({ etapa: 'd' }), 'e', { leadNegociacaoId: 'lead-1' })
-      expect(r.camposFaltantes).toEqual([])
+    it('bloqueia sem nada no patch', () => {
+      const r = avaliarTransicaoImovel(imovelBase({ etapa: 'd' }), 'e')
+      expect(r.tipo).toBe('invalida')
     })
   })
 
