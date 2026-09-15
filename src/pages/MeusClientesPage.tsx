@@ -25,7 +25,7 @@ import {
 } from '@/hooks/useNegociacoes'
 import { CORRETORES, CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 import { formatPreco } from '@/lib/format'
-import { useDismissStore } from '@/stores/dismissStore'
+import { useDismisses } from '@/hooks/useDismisses'
 import { useCriarNotificacao } from '@/hooks/useNotificacoes'
 import { useScoreStore } from '@/stores/scoreStore'
 import { useUIStore } from '@/stores/uiStore'
@@ -54,8 +54,7 @@ export function MeusClientesPage() {
   const criarNotificacao = useCriarNotificacao()
   const { contadorPorLead } = useMatches()
   const pesos = useScoreStore((s) => s.pesos)
-  const descartados = useDismissStore((s) => s.descartados)
-  const descartar = useDismissStore((s) => s.descartar)
+  const { descartados, descartar } = useDismisses()
   const { toast } = useToast()
   const abrirModalImovel = useUIStore((s) => s.abrirModalImovel)
   const abrirModalLead = useUIStore((s) => s.abrirModalLead)

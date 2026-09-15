@@ -19,7 +19,7 @@ import { useMatches } from '@/hooks/useMatches'
 import { useAtualizarNegociacao, useNegociacoes } from '@/hooks/useNegociacoes'
 import { CORRETORES, CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 import { formatDiasDesde, formatPreco } from '@/lib/format'
-import { useDismissStore } from '@/stores/dismissStore'
+import { useDismisses } from '@/hooks/useDismisses'
 import { useScoreStore } from '@/stores/scoreStore'
 import { useUIStore } from '@/stores/uiStore'
 
@@ -43,8 +43,7 @@ export function MeusImoveisPage() {
   const atualizarNegociacao = useAtualizarNegociacao()
   const { contadorPorImovel } = useMatches()
   const pesos = useScoreStore((s) => s.pesos)
-  const descartados = useDismissStore((s) => s.descartados)
-  const descartar = useDismissStore((s) => s.descartar)
+  const { descartados, descartar } = useDismisses()
   const abrirModalLead = useUIStore((s) => s.abrirModalLead)
   const abrirModalImovel = useUIStore((s) => s.abrirModalImovel)
   const { toast } = useToast()

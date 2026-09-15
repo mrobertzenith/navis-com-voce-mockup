@@ -115,7 +115,12 @@ export function KanbanBoard<T>({
 
     if (!colunaDestinoId || !colunaOrigemId || colunaDestinoId === colunaOrigemId) return
 
+    // Mesmo quando a coluna já aparece marcada como inválida durante o drag
+    // (feedback visual), o drop ainda precisa chegar em onSolicitarMovimentacao:
+    // é ela quem decide se mostra o aviso explicativo (ex.: "negociação começa
+    // pelo lado do cliente") em vez de falhar em silêncio.
     if (isColunaValidaParaDrag && !isColunaValidaParaDrag(itemId, colunaOrigemId, colunaDestinoId)) {
+      onSolicitarMovimentacao(itemId, colunaOrigemId, colunaDestinoId)
       return
     }
 

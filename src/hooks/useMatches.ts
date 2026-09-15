@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
 import { calcularMatch } from '@/domain/matching'
+import { useDismisses } from '@/hooks/useDismisses'
 import { useImoveis } from '@/hooks/useImoveis'
 import { useLeads } from '@/hooks/useLeads'
 import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
-import { useDismissStore } from '@/stores/dismissStore'
 import { useScoreStore } from '@/stores/scoreStore'
 
 /**
@@ -17,7 +17,7 @@ export function useMatches() {
   const { data: imoveis = [] } = useImoveis()
   const { data: leads = [] } = useLeads()
   const pesos = useScoreStore((s) => s.pesos)
-  const descartados = useDismissStore((s) => s.descartados)
+  const { descartados } = useDismisses()
 
   return useMemo(() => {
     const imoveisElegiveis = imoveis.filter((i) => i.etapa !== 'f')
