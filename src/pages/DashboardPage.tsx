@@ -7,12 +7,13 @@ import { KpiHero } from '@/components/dashboard/KpiHero'
 import { PipelineBar, type PipelineDatum } from '@/components/dashboard/PipelineBar'
 import { VendasChart, type VendaMensal } from '@/components/dashboard/VendasChart'
 import { AnimatedNumber } from '@/components/shared/AnimatedNumber'
+import { EmptyState } from '@/components/shared/EmptyState'
 import { Button } from '@/components/ui/button'
 import { ETAPA_IMOVEL_LABEL, ETAPA_LEAD_LABEL } from '@/domain/constants'
+import { useAtividades } from '@/hooks/useAtividades'
 import { useImoveis } from '@/hooks/useImoveis'
 import { useLeads } from '@/hooks/useLeads'
 import { CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
-import { ATIVIDADES_SEED } from '@/mocks/data/atividades'
 import { formatData, formatDiasDesde, formatPreco } from '@/lib/format'
 
 const NOMES_MES = [
@@ -37,6 +38,7 @@ function ultimosNMeses(n: number): { chave: string; label: string }[] {
 export function DashboardPage() {
   const { data: imoveis = [] } = useImoveis()
   const { data: leads = [] } = useLeads()
+  const { data: atividadesBanco = [] } = useAtividades()
 
   const meusImoveis = useMemo(
     () => imoveis.filter((i) => i.corretorResponsavelId === CORRETOR_LOGADO_ID),
@@ -49,10 +51,10 @@ export function DashboardPage() {
 
   const atividades = useMemo(
     () =>
-      [...ATIVIDADES_SEED].sort(
+      [...atividadesBanco].sort(
         (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
       ),
-    [],
+    [atividadesBanco],
   )
 
   const publicados = meusImoveis.filter((i) => i.etapa === 'd')
@@ -234,14 +236,21 @@ export function DashboardPage() {
             Imprimir
           </Button>
         </div>
-        <ul className="flex max-h-80 flex-col gap-2 overflow-y-auto">
-          {atividades.map((a) => (
-            <li key={a.id} className="flex items-baseline justify-between gap-4 border-b border-border pb-2 last:border-none">
-              <span className="text-sm text-text">{a.descricao}</span>
-              <span className="shrink-0 font-mono text-xs text-text-soft">{formatData(a.timestamp)}</span>
-            </li>
-          ))}
-        </ul>
+        {atividades.length === 0 ? (
+          <EmptyState
+            title="Nenhuma atividade ainda"
+            description="Cadastros, publicações e vendas que você fizer vão aparecer aqui."
+          />
+        ) : (
+          <ul className="flex max-h-80 flex-col gap-2 overflow-y-auto">
+            {atividades.map((a) => (
+              <li key={a.id} className="flex items-baseline justify-between gap-4 border-b border-border pb-2 last:border-none">
+                <span className="text-sm text-text">{a.descricao}</span>
+                <span className="shrink-0 font-mono text-xs text-text-soft">{formatData(a.timestamp)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   )

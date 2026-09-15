@@ -6,11 +6,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast'
 import { EmptyState } from '@/components/shared/EmptyState'
 import type { TipoEvento } from '@/domain/types'
-import { useAtualizarImovel } from '@/hooks/useImoveis'
+import { registrarAtividade } from '@/hooks/useAtividades'
+import { useAtualizarImovel, useImoveis } from '@/hooks/useImoveis'
 import { useAtualizarLead, useLeads } from '@/hooks/useLeads'
 import { useAtualizarNegociacao, useNegociacoes } from '@/hooks/useNegociacoes'
 import { useAtualizarNotificacao, useNotificacoes } from '@/hooks/useNotificacoes'
-import { formatData } from '@/lib/format'
+import { formatData, formatPreco } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
 const ICONE_POR_TIPO: Partial<Record<TipoEvento, typeof Bell>> = {
@@ -28,6 +29,7 @@ export function NotificacoesPage() {
   const { data: notificacoes = [], isLoading } = useNotificacoes()
   const atualizarNotificacao = useAtualizarNotificacao()
   const { data: leads = [] } = useLeads()
+  const { data: imoveis = [] } = useImoveis()
   const { data: negociacoes = [] } = useNegociacoes()
   const atualizarImovel = useAtualizarImovel()
   const atualizarLead = useAtualizarLead()
@@ -88,6 +90,10 @@ export function NotificacoesPage() {
             delete resto[notificacaoId]
             return resto
           })
+          const imovel = imoveis.find((i) => i.id === imovelId)
+          registrarAtividade(
+            `Imóvel "${imovel ? `${imovel.enderecoRua}, ${imovel.enderecoNumero}` : imovelId}" vendido por ${formatPreco(valor)}.`,
+          )
           toast({ title: 'Venda confirmada', description: 'O imóvel foi movido para "Vendido".' })
         },
       },

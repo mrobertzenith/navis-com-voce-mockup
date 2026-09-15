@@ -16,6 +16,7 @@ import { useToast } from '@/components/ui/use-toast'
 import type { EtapaLead, Lead, OrigemLead, TipoImovel } from '@/domain/types'
 import { passaGates } from '@/domain/matching'
 import { encontrarEquivalente } from '@/domain/normalizacao'
+import { registrarAtividade } from '@/hooks/useAtividades'
 import { useAtualizarLead, useCriarLead, useLeads } from '@/hooks/useLeads'
 import { useImoveis } from '@/hooks/useImoveis'
 import { CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
@@ -291,6 +292,7 @@ export function CadastroClientePage() {
 
     criarLead.mutate(payload, {
       onSuccess: (lead) => {
+        registrarAtividade(`Novo cliente cadastrado: ${lead.codigo} (${lead.nome}).`)
         toast({ title: 'Cliente cadastrado', description: `${lead.codigo} criado com sucesso.` })
         navigate('/meus-clientes')
       },

@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import type { Imovel, TipoImovel } from '@/domain/types'
+import { registrarAtividade } from '@/hooks/useAtividades'
 import { useAtualizarImovel, useCriarImovel, useImoveis } from '@/hooks/useImoveis'
 import { CORRETOR_LOGADO_ID, nomeCorretor, CORRETORES } from '@/mocks/data/corretores'
 import { useCriarNotificacao } from '@/hooks/useNotificacoes'
@@ -319,6 +320,7 @@ function CadastroImovelForm({
 
     criarImovel.mutate(payload, {
       onSuccess: () => {
+        registrarAtividade(`Imóvel "${payload.enderecoRua}, ${payload.enderecoNumero}" cadastrado.`)
         toast({ title: 'Imóvel cadastrado', description: 'Já está disponível em Meus Imóveis, etapa Novo.' })
         navigate('/meus-imoveis')
       },
