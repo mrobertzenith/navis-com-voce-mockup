@@ -4,7 +4,7 @@ import { RequireAdmin, RequireAuth } from '@/app/RequireAuth'
 import { LoginPage } from '@/pages/LoginPage'
 import { DefinirSenhaPage } from '@/pages/DefinirSenhaPage'
 import { EquipePage } from '@/pages/EquipePage'
-import { PlaceholderPage } from '@/pages/PlaceholderPage'
+import { TodosCorretoresPage } from '@/pages/TodosCorretoresPage'
 import { MeusImoveisPage } from '@/pages/MeusImoveisPage'
 import { MeusClientesPage } from '@/pages/MeusClientesPage'
 import { CadastroImovelPage } from '@/pages/CadastroImovelPage'
@@ -46,8 +46,7 @@ export const router = createBrowserRouter(
             </RequireAdmin>
           ),
         },
-        { path: 'todos-corretores', element: <PlaceholderPage titulo="Todos os Corretores" /> },
-        { path: 'imoveis-perdidos', element: <PlaceholderPage titulo="Imóveis Perdidos" /> },
+        { path: 'todos-corretores', element: <TodosCorretoresPage /> },
         { path: 'notificacoes', element: <NotificacoesPage /> },
         { path: 'configuracoes/score', element: <ConfiguracoesScorePage /> },
       ],
