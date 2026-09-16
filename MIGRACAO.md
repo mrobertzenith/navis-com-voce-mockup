@@ -105,9 +105,14 @@ Legenda: **[VOCÊ]** = ação do Mário (contas, painéis, testes) · **[EU]** =
   precisa conferir manualmente no painel (Authentication → Policies/Settings) se a produção
   real já está assim: signup público desativado (já confirmado acima), senha mínima e
   requisito de complexidade, e `secure_password_change` ligado.
-- **Matching no servidor (14/09/2026)**: a nota da linha 98 acima ("normalização fica para a
-  Fase 4") virou realidade parcial — os *contadores* de match (o cruzamento O(imóveis × leads)
-  que rodava inteiro no navegador a cada render, achado de auditoria) agora são calculados pela
+- **Matching no servidor (14–15/09/2026)**: a nota da linha 98 acima ("normalização fica para a
+  Fase 4") virou realidade — os contadores de match (o cruzamento O(imóveis × leads) que rodava
+  inteiro no navegador a cada render, achado de auditoria) e, numa segunda rodada, os
+  drill-downs individuais (lista completa de matches de um imóvel/lead) também passaram pra
   Edge Function `matching`, reusando `domain/matching.ts` sem duplicar a lógica (Deno importa o
-  mesmo arquivo por caminho relativo). Os drill-downs individuais (um imóvel/lead de cada vez)
-  continuam client-side — são baratos e sob demanda, não o gargalo original.
+  mesmo arquivo por caminho relativo). Nenhum cruzamento de matching roda mais no cliente.
+- **Ranking no servidor (15/09/2026)**: mesma lógica aplicada ao Ranking de Corretores (tela
+  admin-only desde a mesma rodada) — o cálculo (VGV, conversão, colaboração, score composto)
+  saiu do componente e virou `domain/ranking.ts`, reusado pela Edge Function
+  `ranking-corretores`, que também confere papel admin no servidor (não só na rota do
+  frontend). Frontend guarda só filtro de estado/cidade, o toggle Só VGV/composto e a tabela.

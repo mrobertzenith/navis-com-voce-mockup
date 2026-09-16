@@ -4,27 +4,11 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { useImoveis } from '@/hooks/useImoveis'
-import { useNegociacoes } from '@/hooks/useNegociacoes'
+import { PESO_COLABORACAO, PESO_CONVERSAO, PESO_VGV } from '@/domain/ranking'
+import { useRankingCorretores } from '@/hooks/useRankingCorretores'
 import { CORRETORES, CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
 import { formatPreco } from '@/lib/format'
 import { cn } from '@/lib/cn'
-
-interface LinhaRanking {
-  corretorId: string
-  nome: string
-  cidade: string
-  estado: string
-  vendas: number
-  vgv: number
-  conversao: number | null
-  colaboracao: number | null
-  score: number
-}
-
-const PESO_VGV = 0.5
-const PESO_CONVERSAO = 0.3
-const PESO_COLABORACAO = 0.2
 
 type ModoRanking = 'vgv' | 'composto'
 
@@ -39,11 +23,14 @@ type ModoRanking = 'vgv' | 'composto'
  * "Score composto" pondera as três; o modo "Só VGV" ordena só pelo valor
  * vendido, como sempre foi — as colunas extras ficam visíveis pra contexto,
  * mas não entram no critério de ordenação nesse modo.
+ *
+ * O cálculo em si (domain/ranking.ts) roda na Edge Function
+ * "ranking-corretores" quando há Supabase (achado de revisão, 15/09/2026:
+ * regra gerencial não devia ficar duplicada no cliente) — aqui só sobra
+ * filtro de estado/cidade, ordenação por modo e a tabela.
  */
 export function RankingCorretoresPage() {
-  const { data: imoveis = [], isLoading: carregandoImoveis } = useImoveis()
-  const { data: negociacoes = [], isLoading: carregandoNegociacoes } = useNegociacoes()
-  const isLoading = carregandoImoveis || carregandoNegociacoes
+  const { ranking: rankingCompleto, isLoading } = useRankingCorretores()
   const [modo, setModo] = useState<ModoRanking>('vgv')
   const [estado, setEstado] = useState<string>('')
   const [cidade, setCidade] = useState<string>('')
@@ -60,47 +47,15 @@ export function RankingCorretoresPage() {
     [estado],
   )
 
-  const ranking: LinhaRanking[] = useMemo(() => {
-    const vendidos = imoveis.filter((i) => i.etapa === 'f')
-    const porCorretor = new Map<string, { vendas: number; vgv: number }>()
-    for (const imovel of vendidos) {
-      const atual = porCorretor.get(imovel.corretorResponsavelId) ?? { vendas: 0, vgv: 0 }
-      atual.vendas += 1
-      atual.vgv += imovel.valorVenda ?? 0
-      porCorretor.set(imovel.corretorResponsavelId, atual)
-    }
-
-    const decididas = new Map<string, { concluidas: number; revertidas: number; colaborativas: number }>()
-    for (const n of negociacoes) {
-      if (n.status !== 'concluida' && n.status !== 'revertida') continue
-      const atual = decididas.get(n.corretorImovelId) ?? { concluidas: 0, revertidas: 0, colaborativas: 0 }
-      if (n.status === 'concluida') {
-        atual.concluidas += 1
-        if (n.corretorClienteId && n.corretorClienteId !== n.corretorImovelId) atual.colaborativas += 1
-      } else {
-        atual.revertidas += 1
-      }
-      decididas.set(n.corretorImovelId, atual)
-    }
-
-    const maiorVgv = Math.max(0, ...Array.from(porCorretor.values()).map((v) => v.vgv))
-
-    return CORRETORES.filter((c) => (!estado || c.estado === estado) && (!cidade || c.cidade === cidade))
-      .map((c) => {
-        const vendas = porCorretor.get(c.id)?.vendas ?? 0
-        const vgv = porCorretor.get(c.id)?.vgv ?? 0
-        const d = decididas.get(c.id)
-        const totalDecididas = (d?.concluidas ?? 0) + (d?.revertidas ?? 0)
-        const conversao = totalDecididas > 0 ? (d!.concluidas / totalDecididas) * 100 : null
-        const colaboracao = d && d.concluidas > 0 ? (d.colaborativas / d.concluidas) * 100 : null
-        const vgvNorm = maiorVgv > 0 ? (vgv / maiorVgv) * 100 : 0
-        const score = PESO_VGV * vgvNorm + PESO_CONVERSAO * (conversao ?? 0) + PESO_COLABORACAO * (colaboracao ?? 0)
-        return { corretorId: c.id, nome: c.nome, cidade: c.cidade, estado: c.estado, vendas, vgv, conversao, colaboracao, score }
-      })
-      .sort((a, b) =>
-        modo === 'vgv' ? b.vgv - a.vgv || b.vendas - a.vendas : b.score - a.score || b.vgv - a.vgv,
-      )
-  }, [imoveis, negociacoes, estado, cidade, modo])
+  const ranking = useMemo(
+    () =>
+      rankingCompleto
+        .filter((l) => (!estado || l.estado === estado) && (!cidade || l.cidade === cidade))
+        .sort((a, b) =>
+          modo === 'vgv' ? b.vgv - a.vgv || b.vendas - a.vendas : b.score - a.score || b.vgv - a.vgv,
+        ),
+    [rankingCompleto, estado, cidade, modo],
+  )
 
   if (isLoading) {
     return <div className="p-6 text-sm text-text-mut">Carregando ranking…</div>
