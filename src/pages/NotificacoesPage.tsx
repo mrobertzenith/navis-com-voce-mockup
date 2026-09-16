@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast'
 import { EmptyState } from '@/components/shared/EmptyState'
 import type { TipoEvento } from '@/domain/types'
-import { registrarAtividade } from '@/hooks/useAtividades'
+import { useRegistrarAtividade } from '@/hooks/useAtividades'
 import { useAtualizarImovel, useImoveis } from '@/hooks/useImoveis'
 import { useAtualizarLead, useLeads } from '@/hooks/useLeads'
 import { useAtualizarNegociacao, useNegociacoes } from '@/hooks/useNegociacoes'
@@ -34,6 +34,7 @@ export function NotificacoesPage() {
   const atualizarImovel = useAtualizarImovel()
   const atualizarLead = useAtualizarLead()
   const atualizarNegociacao = useAtualizarNegociacao()
+  const registrarAtividade = useRegistrarAtividade()
   const { toast } = useToast()
   const [filtro, setFiltro] = useState<Filtro>('todas')
   const [precos, setPrecos] = useState<Record<string, string>>({})
@@ -91,7 +92,7 @@ export function NotificacoesPage() {
             return resto
           })
           const imovel = imoveis.find((i) => i.id === imovelId)
-          registrarAtividade(
+          registrarAtividade.mutate(
             `Imóvel "${imovel ? `${imovel.enderecoRua}, ${imovel.enderecoNumero}` : imovelId}" vendido por ${formatPreco(valor)}.`,
           )
           toast({ title: 'Venda confirmada', description: 'O imóvel foi movido para "Vendido".' })

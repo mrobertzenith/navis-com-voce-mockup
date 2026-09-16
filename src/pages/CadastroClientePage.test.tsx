@@ -25,6 +25,12 @@ vi.mock('@/hooks/useImoveis', () => ({
   useImoveis: () => ({ data: [] }),
 }))
 
+// useRegistrarAtividade() chama useQueryClient() — sem QueryClientProvider na
+// árvore de teste, precisa mockar.
+vi.mock('@/hooks/useAtividades', () => ({
+  useRegistrarAtividade: () => ({ mutate: vi.fn() }),
+}))
+
 function renderPagina() {
   return render(
     <MemoryRouter initialEntries={['/clientes/novo']}>

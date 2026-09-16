@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Atividade } from '@/domain/types'
 import { supabase } from '@/lib/supabase'
 import { ATIVIDADES_SEED } from '@/mocks/data/atividades'
@@ -34,8 +34,38 @@ export function useAtividades() {
  * (achado de auditoria, 14/09/2026). Sem Supabase (modo mock offline) não
  * há onde persistir — a Dashboard segue mostrando os exemplos seedados
  * nesse modo, que é só demonstração local mesmo.
+ *
+ * Era fire-and-forget (não atualizava o cache do React Query) — a atividade
+ * só aparecia depois de recarregar a página (achado de revisão, 15/09/2026).
+ * Agora é uma mutation: ao terminar o insert, insere o item novo direto no
+ * cache de `useAtividades()` (mais rápido que invalidar e esperar um novo
+ * fetch). Erro de gravação não deve quebrar o fluxo principal (o cadastro/
+ * venda já foi concluído antes de chamar isto) — só loga, sem toast.
  */
-export function registrarAtividade(descricao: string): void {
-  if (!supabase) return
-  void supabase.from('atividades').insert({ corretor_id: CORRETOR_LOGADO_ID, descricao })
+export function useRegistrarAtividade() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (descricao: string): Promise<Atividade | null> => {
+      if (!supabase) return null
+      const { data, error } = await supabase
+        .from('atividades')
+        .insert({ corretor_id: CORRETOR_LOGADO_ID, descricao })
+        .select('id, corretor_id, descricao, criado_em')
+        .single()
+      if (error) throw new Error(error.message)
+      return {
+        id: String(data.id),
+        corretorId: String(data.corretor_id),
+        descricao: String(data.descricao),
+        timestamp: String(data.criado_em),
+      }
+    },
+    onSuccess: (nova) => {
+      if (!nova) return
+      queryClient.setQueryData<Atividade[]>(ATIVIDADES_KEY, (atual) => [nova, ...(atual ?? [])].slice(0, 30))
+    },
+    onError: (erro) => {
+      console.error('Falha ao registrar atividade:', erro)
+    },
+  })
 }

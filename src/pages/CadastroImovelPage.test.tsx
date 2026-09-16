@@ -29,6 +29,13 @@ vi.mock('@/hooks/useNotificacoes', () => ({
   useCriarNotificacao: () => ({ mutate: criarNotificacaoMock, isPending: false }),
 }))
 
+// useRegistrarAtividade() chama useQueryClient() — sem QueryClientProvider na
+// árvore de teste (mesmo motivo do comentário acima sobre useLeads), precisa
+// mockar também.
+vi.mock('@/hooks/useAtividades', () => ({
+  useRegistrarAtividade: () => ({ mutate: vi.fn() }),
+}))
+
 function renderPagina() {
   return render(
     <MemoryRouter initialEntries={['/imoveis/novo']}>
