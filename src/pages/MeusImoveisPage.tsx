@@ -11,16 +11,13 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { ETAPA_IMOVEL_LABEL, ETAPA_IMOVEL_ORDEM, TIPO_IMOVEL_LABEL } from '@/domain/constants'
 import { avaliarTransicaoImovel } from '@/domain/gatesImovel'
-import { calcularMatch } from '@/domain/matching'
 import type { EtapaImovel, Imovel } from '@/domain/types'
 import { useAtualizarImovel, useImoveis } from '@/hooks/useImoveis'
-import { useLeads } from '@/hooks/useLeads'
-import { useMatches } from '@/hooks/useMatches'
+import { useMatches, useMatchesDoImovel } from '@/hooks/useMatches'
 import { useAtualizarNegociacao, useNegociacoes } from '@/hooks/useNegociacoes'
 import { CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 import { formatDiasDesde, formatPreco } from '@/lib/format'
 import { useDismisses } from '@/hooks/useDismisses'
-import { useScoreStore } from '@/stores/scoreStore'
 import { useUIStore } from '@/stores/uiStore'
 
 const COLUNAS: ColunaDef[] = ETAPA_IMOVEL_ORDEM.map((etapa) => ({
@@ -37,13 +34,11 @@ interface PendingMove {
 
 export function MeusImoveisPage() {
   const { data: imoveis = [], isLoading } = useImoveis()
-  const { data: leads = [] } = useLeads()
   const { data: negociacoes = [] } = useNegociacoes()
   const atualizarImovel = useAtualizarImovel()
   const atualizarNegociacao = useAtualizarNegociacao()
   const { contadorPorImovel } = useMatches()
-  const pesos = useScoreStore((s) => s.pesos)
-  const { descartados, descartar } = useDismisses()
+  const { descartar } = useDismisses()
   const abrirModalLead = useUIStore((s) => s.abrirModalLead)
   const abrirModalImovel = useUIStore((s) => s.abrirModalImovel)
   const { toast } = useToast()
@@ -97,27 +92,18 @@ export function MeusImoveisPage() {
     })
   }
 
-  const matchesDrillDown: MatchItem[] = useMemo(() => {
-    if (!drillDownImovelId) return []
-    const imovel = imoveis.find((i) => i.id === drillDownImovelId)
-    if (!imovel) return []
-
-    return leads
-      .map((lead): MatchItem | null => {
-        if (descartados[`${CORRETOR_LOGADO_ID}::${lead.id}::${imovel.id}`]) return null
-        const match = calcularMatch(imovel, lead, pesos)
-        if (!match) return null
-        return {
-          id: lead.id,
-          score: match.score,
-          isAviso: match.isAviso,
-          resumo: `${lead.perfilBusca.tipos.map((t) => TIPO_IMOVEL_LABEL[t]).join('/')} · ${lead.perfilBusca.bairros.join(', ')} · até ${formatPreco(lead.perfilBusca.valorAte)}`,
-          corretorNome: nomeCorretor(lead.corretorResponsavelId),
-        }
-      })
-      .filter((m): m is MatchItem => m != null)
-      .sort((a, b) => b.score - a.score)
-  }, [drillDownImovelId, imoveis, leads, pesos, descartados])
+  const { data: matchesBrutos = [] } = useMatchesDoImovel(drillDownImovelId)
+  const matchesDrillDown: MatchItem[] = useMemo(
+    () =>
+      matchesBrutos.map((m) => ({
+        id: m.leadId,
+        score: m.score,
+        isAviso: m.isAviso,
+        resumo: `${m.tipos.map((t) => TIPO_IMOVEL_LABEL[t]).join('/')} · ${m.bairros.join(', ')} · até ${formatPreco(m.valorAte)}`,
+        corretorNome: nomeCorretor(m.corretorResponsavelId),
+      })),
+    [matchesBrutos],
+  )
 
   function isColunaValidaParaDrag(itemId: string, origemId: string, destinoId: string): boolean {
     const imovel = meusImoveis.find((i) => i.id === itemId)
