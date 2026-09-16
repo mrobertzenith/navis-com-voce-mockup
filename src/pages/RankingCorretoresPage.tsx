@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { useImoveis } from '@/hooks/useImoveis'
+import { useNegociacoes } from '@/hooks/useNegociacoes'
 import { CORRETORES, CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
 import { formatPreco } from '@/lib/format'
 import { cn } from '@/lib/cn'
@@ -15,10 +16,30 @@ interface LinhaRanking {
   estado: string
   vendas: number
   vgv: number
+  conversao: number | null
+  colaboracao: number | null
+  score: number
 }
 
+const PESO_VGV = 0.5
+const PESO_CONVERSAO = 0.3
+const PESO_COLABORACAO = 0.2
+
+/**
+ * Ranking só por VGV bruto premia ticket alto, não qualidade nem trabalho em
+ * equipe (achado de auditoria, 14/09/2026). O composto abaixo usa só dado que
+ * já existe (sem migração nova): VGV normalizado pelo maior da lista, taxa de
+ * conversão (negociações concluídas / concluídas+revertidas — "ativa" ainda
+ * está em aberto, não conta nem a favor nem contra) e colaboração (das vendas
+ * concluídas, quantas fecharam com cliente de OUTRO corretor — o diferencial
+ * do produto é a carteira coletiva, então isso deveria contar pra ranking).
+ * Pesos e as 3 colunas ficam visíveis na tabela de propósito: um score
+ * "caixa-preta" só trocaria um viés (ticket alto) por outro (fórmula oculta).
+ */
 export function RankingCorretoresPage() {
-  const { data: imoveis = [], isLoading } = useImoveis()
+  const { data: imoveis = [], isLoading: carregandoImoveis } = useImoveis()
+  const { data: negociacoes = [], isLoading: carregandoNegociacoes } = useNegociacoes()
+  const isLoading = carregandoImoveis || carregandoNegociacoes
   const [estado, setEstado] = useState<string>('')
   const [cidade, setCidade] = useState<string>('')
 
@@ -44,17 +65,35 @@ export function RankingCorretoresPage() {
       porCorretor.set(imovel.corretorResponsavelId, atual)
     }
 
+    const decididas = new Map<string, { concluidas: number; revertidas: number; colaborativas: number }>()
+    for (const n of negociacoes) {
+      if (n.status !== 'concluida' && n.status !== 'revertida') continue
+      const atual = decididas.get(n.corretorImovelId) ?? { concluidas: 0, revertidas: 0, colaborativas: 0 }
+      if (n.status === 'concluida') {
+        atual.concluidas += 1
+        if (n.corretorClienteId && n.corretorClienteId !== n.corretorImovelId) atual.colaborativas += 1
+      } else {
+        atual.revertidas += 1
+      }
+      decididas.set(n.corretorImovelId, atual)
+    }
+
+    const maiorVgv = Math.max(0, ...Array.from(porCorretor.values()).map((v) => v.vgv))
+
     return CORRETORES.filter((c) => (!estado || c.estado === estado) && (!cidade || c.cidade === cidade))
-      .map((c) => ({
-        corretorId: c.id,
-        nome: c.nome,
-        cidade: c.cidade,
-        estado: c.estado,
-        vendas: porCorretor.get(c.id)?.vendas ?? 0,
-        vgv: porCorretor.get(c.id)?.vgv ?? 0,
-      }))
-      .sort((a, b) => b.vgv - a.vgv || b.vendas - a.vendas)
-  }, [imoveis, estado, cidade])
+      .map((c) => {
+        const vendas = porCorretor.get(c.id)?.vendas ?? 0
+        const vgv = porCorretor.get(c.id)?.vgv ?? 0
+        const d = decididas.get(c.id)
+        const totalDecididas = (d?.concluidas ?? 0) + (d?.revertidas ?? 0)
+        const conversao = totalDecididas > 0 ? (d!.concluidas / totalDecididas) * 100 : null
+        const colaboracao = d && d.concluidas > 0 ? (d.colaborativas / d.concluidas) * 100 : null
+        const vgvNorm = maiorVgv > 0 ? (vgv / maiorVgv) * 100 : 0
+        const score = PESO_VGV * vgvNorm + PESO_CONVERSAO * (conversao ?? 0) + PESO_COLABORACAO * (colaboracao ?? 0)
+        return { corretorId: c.id, nome: c.nome, cidade: c.cidade, estado: c.estado, vendas, vgv, conversao, colaboracao, score }
+      })
+      .sort((a, b) => b.score - a.score || b.vgv - a.vgv)
+  }, [imoveis, negociacoes, estado, cidade])
 
   if (isLoading) {
     return <div className="p-6 text-sm text-text-mut">Carregando ranking…</div>
@@ -64,8 +103,10 @@ export function RankingCorretoresPage() {
     <div className="p-6">
       <h1 className="mb-1 text-xl font-bold">Ranking de Corretores</h1>
       <p className="mb-4 text-sm text-text-mut">
-        Classificação por VGV (valor geral de vendas) — a métrica que equilibra corretores de
-        ticket alto e popular. Ajuste os filtros para ver o ranking por cidade ou estado.
+        Score composto — {PESO_VGV * 100}% VGV vendido, {PESO_CONVERSAO * 100}% taxa de conversão
+        (negociações concluídas vs. revertidas) e {PESO_COLABORACAO * 100}% colaboração (vendas
+        fechadas com cliente de outro corretor). Ticket alto sozinho não garante o topo. Ajuste os
+        filtros para ver o ranking por cidade ou estado.
       </p>
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -121,6 +162,9 @@ export function RankingCorretoresPage() {
                 <th className="px-4 py-3">Cidade</th>
                 <th className="px-4 py-3">VGV vendido</th>
                 <th className="px-4 py-3">Vendas</th>
+                <th className="px-4 py-3">Conversão</th>
+                <th className="px-4 py-3">Colaboração</th>
+                <th className="px-4 py-3">Score</th>
               </tr>
             </thead>
             <tbody>
@@ -134,7 +178,7 @@ export function RankingCorretoresPage() {
                 >
                   <td className="px-4 py-3 font-mono">
                     <span className="inline-flex items-center gap-1.5">
-                      {i < 3 && linha.vgv > 0 && (
+                      {i < 3 && linha.score > 0 && (
                         <Trophy
                           className={cn(
                             'h-3.5 w-3.5',
@@ -157,6 +201,13 @@ export function RankingCorretoresPage() {
                   <td className="px-4 py-3">{linha.cidade}/{linha.estado}</td>
                   <td className="px-4 py-3 font-mono">{formatPreco(linha.vgv)}</td>
                   <td className="px-4 py-3 font-mono">{linha.vendas}</td>
+                  <td className="px-4 py-3 font-mono text-text-mut">
+                    {linha.conversao == null ? '—' : `${linha.conversao.toFixed(0)}%`}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-text-mut">
+                    {linha.colaboracao == null ? '—' : `${linha.colaboracao.toFixed(0)}%`}
+                  </td>
+                  <td className="px-4 py-3 font-mono font-semibold text-ink">{linha.score.toFixed(0)}</td>
                 </tr>
               ))}
             </tbody>
