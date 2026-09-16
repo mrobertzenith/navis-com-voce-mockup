@@ -23,7 +23,7 @@ import {
   useNegociacoes,
   useVendas,
 } from '@/hooks/useNegociacoes'
-import { CORRETORES, CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
+import { CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 import { formatPreco } from '@/lib/format'
 import { useDismisses } from '@/hooks/useDismisses'
 import { useCriarNotificacao } from '@/hooks/useNotificacoes'
@@ -106,15 +106,12 @@ export function MeusClientesPage() {
         if (descartados[`${CORRETOR_LOGADO_ID}::${lead.id}::${imovel.id}`]) return null
         const match = calcularMatch(imovel, lead, pesos)
         if (!match) return null
-        const ehProprio = imovel.corretorResponsavelId === CORRETOR_LOGADO_ID
         return {
           id: imovel.id,
           score: match.score,
           isAviso: match.isAviso,
           resumo: `${TIPO_IMOVEL_LABEL[imovel.tipo]} · ${imovel.bairro} · ${formatPreco(imovel.valorAnuncio ?? imovel.valorEstimado)}`,
           corretorNome: nomeCorretor(imovel.corretorResponsavelId),
-          corretorWhatsapp: CORRETORES.find((c) => c.id === imovel.corretorResponsavelId)?.telefoneWhatsapp,
-          ehProprio,
         }
       })
       .filter((m): m is MatchItem => m != null)

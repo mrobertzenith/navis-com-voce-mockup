@@ -1,11 +1,9 @@
 import { useMemo } from 'react'
-import { MessageCircle, ShieldCheck } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { ShieldCheck } from 'lucide-react'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { useImoveis } from '@/hooks/useImoveis'
 import { useLeads } from '@/hooks/useLeads'
 import { CORRETORES, CORRETOR_LOGADO_ID } from '@/mocks/data/corretores'
-import { formatTelefone } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
 const STATUS_LABEL: Record<string, { texto: string; classe: string }> = {
@@ -15,10 +13,12 @@ const STATUS_LABEL: Record<string, { texto: string; classe: string }> = {
 }
 
 /**
- * Diretório de toda a equipe (não só admin) — quem é quem, cidade e contato
- * direto. Complementa "Todos os Imóveis/Clientes" (o que a equipe tem) com
- * quem procurar pra falar sobre isso. Rota existia como placeholder mas não
- * aparecia no menu (achado de auditoria, 14/09/2026).
+ * Diretório de toda a equipe (não só admin) — quem é quem, cidade e quanto
+ * cada um tem em carteira. Complementa "Todos os Imóveis/Clientes" (o que a
+ * equipe tem). Rota existia como placeholder mas não aparecia no menu
+ * (achado de auditoria, 14/09/2026). Sem contato direto (WhatsApp) — decisão
+ * do PO, 15/09/2026: contato de corretor fica visível só pra ele mesmo e
+ * pra admin (tela Equipe), não pros colegas.
  */
 export function TodosCorretoresPage() {
   const { data: imoveis = [] } = useImoveis()
@@ -45,8 +45,7 @@ export function TodosCorretoresPage() {
     <div className="p-6">
       <h1 className="mb-1 text-xl font-bold">Todos os Corretores</h1>
       <p className="mb-4 text-sm text-text-mut">
-        Quem faz parte da equipe, onde atua e como falar direto — pra combinar uma visita ou
-        tirar dúvida sobre um match sem precisar procurar o contato em outro lugar.
+        Quem faz parte da equipe, onde atua e o que cada um tem em carteira hoje.
       </p>
 
       {corretoresAtivos.length === 0 ? (
@@ -81,15 +80,6 @@ export function TodosCorretoresPage() {
                   <span>·</span>
                   <span>{stats?.clientes ?? 0} clientes</span>
                 </div>
-
-                {!souEu && c.telefoneWhatsapp && (
-                  <Button variant="outline" size="sm" className="mt-1 self-start" asChild>
-                    <a href={`https://wa.me/55${c.telefoneWhatsapp}`} target="_blank" rel="noreferrer">
-                      <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.5} />
-                      {formatTelefone(c.telefoneWhatsapp)}
-                    </a>
-                  </Button>
-                )}
               </div>
             )
           })}

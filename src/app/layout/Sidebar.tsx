@@ -10,19 +10,23 @@ export const NAV_ITEMS = [
   { to: '/todos-imoveis', label: 'Todos os Imóveis', icon: ListChecks },
   { to: '/todos-clientes', label: 'Todos os Clientes', icon: UsersRound },
   { to: '/todos-corretores', label: 'Todos os Corretores', icon: Contact },
-  { to: '/ranking-corretores', label: 'Ranking de Corretores', icon: Trophy },
   { to: '/notificacoes', label: 'Notificações', icon: Bell },
   { to: '/configuracoes/score', label: 'Configurações', icon: Settings },
 ]
 
-const ITEM_EQUIPE = { to: '/equipe', label: 'Equipe', icon: ShieldCheck }
+/** Itens exclusivos de admin — gestão da equipe e ranking (decisão do PO,
+ * 15/09/2026: ranking não fica visível pra corretor comum). */
+const ITENS_ADMIN = [
+  { to: '/ranking-corretores', label: 'Ranking de Corretores', icon: Trophy },
+  { to: '/equipe', label: 'Equipe', icon: ShieldCheck },
+]
 
-/** Itens de navegação do corretor logado — admins ganham a tela Equipe */
+/** Itens de navegação do corretor logado — admins ganham Ranking e Equipe */
 export function useNavItems() {
   const corretor = useAuthStore((s) => s.corretor)
   if (corretor?.papel !== 'admin') return NAV_ITEMS
   const itens = [...NAV_ITEMS]
-  itens.splice(7, 0, ITEM_EQUIPE) // depois do Ranking, antes de Notificações
+  itens.splice(6, 0, ...ITENS_ADMIN) // depois de Todos os Corretores, antes de Notificações
   return itens
 }
 

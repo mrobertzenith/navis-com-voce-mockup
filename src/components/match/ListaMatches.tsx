@@ -1,4 +1,4 @@
-import { MessageCircle, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { ScoreBadge } from '@/components/match/ScoreBadge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -9,8 +9,6 @@ export interface MatchItem {
   isAviso: boolean
   resumo: string
   corretorNome: string
-  corretorWhatsapp?: string
-  ehProprio: boolean
 }
 
 interface ListaMatchesProps {
@@ -41,14 +39,6 @@ export function ListaMatches({ matches, onAbrir, onDismiss }: ListaMatchesProps)
               <X className="h-3.5 w-3.5" strokeWidth={1.5} />
               Não interessou
             </Button>
-            {!m.ehProprio && m.corretorWhatsapp && (
-              <Button variant="outline" size="sm" asChild>
-                <a href={`https://wa.me/55${m.corretorWhatsapp}`} target="_blank" rel="noreferrer">
-                  <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  Falar com o corretor
-                </a>
-              </Button>
-            )}
             {/* imóvel de outro corretor também pode ser aberto — é possível agendar visita nele */}
             <Button variant="outline" size="sm" onClick={() => onAbrir(m.id)}>
               Abrir

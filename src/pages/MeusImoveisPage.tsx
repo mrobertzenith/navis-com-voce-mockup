@@ -17,7 +17,7 @@ import { useAtualizarImovel, useImoveis } from '@/hooks/useImoveis'
 import { useLeads } from '@/hooks/useLeads'
 import { useMatches } from '@/hooks/useMatches'
 import { useAtualizarNegociacao, useNegociacoes } from '@/hooks/useNegociacoes'
-import { CORRETORES, CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
+import { CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 import { formatDiasDesde, formatPreco } from '@/lib/format'
 import { useDismisses } from '@/hooks/useDismisses'
 import { useScoreStore } from '@/stores/scoreStore'
@@ -107,15 +107,12 @@ export function MeusImoveisPage() {
         if (descartados[`${CORRETOR_LOGADO_ID}::${lead.id}::${imovel.id}`]) return null
         const match = calcularMatch(imovel, lead, pesos)
         if (!match) return null
-        const ehProprio = lead.corretorResponsavelId === CORRETOR_LOGADO_ID
         return {
           id: lead.id,
           score: match.score,
           isAviso: match.isAviso,
           resumo: `${lead.perfilBusca.tipos.map((t) => TIPO_IMOVEL_LABEL[t]).join('/')} · ${lead.perfilBusca.bairros.join(', ')} · até ${formatPreco(lead.perfilBusca.valorAte)}`,
           corretorNome: nomeCorretor(lead.corretorResponsavelId),
-          corretorWhatsapp: CORRETORES.find((c) => c.id === lead.corretorResponsavelId)?.telefoneWhatsapp,
-          ehProprio,
         }
       })
       .filter((m): m is MatchItem => m != null)
