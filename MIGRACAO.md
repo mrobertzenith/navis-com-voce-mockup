@@ -105,3 +105,9 @@ Legenda: **[VOCÊ]** = ação do Mário (contas, painéis, testes) · **[EU]** =
   precisa conferir manualmente no painel (Authentication → Policies/Settings) se a produção
   real já está assim: signup público desativado (já confirmado acima), senha mínima e
   requisito de complexidade, e `secure_password_change` ligado.
+- **Matching no servidor (14/09/2026)**: a nota da linha 98 acima ("normalização fica para a
+  Fase 4") virou realidade parcial — os *contadores* de match (o cruzamento O(imóveis × leads)
+  que rodava inteiro no navegador a cada render, achado de auditoria) agora são calculados pela
+  Edge Function `matching`, reusando `domain/matching.ts` sem duplicar a lógica (Deno importa o
+  mesmo arquivo por caminho relativo). Os drill-downs individuais (um imóvel/lead de cada vez)
+  continuam client-side — são baratos e sob demanda, não o gargalo original.

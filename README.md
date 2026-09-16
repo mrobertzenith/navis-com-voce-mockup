@@ -24,7 +24,7 @@ flowchart LR
     subgraph supabase["Supabase (São Paulo)"]
         AUTH["Auth<br/>login por corretor"]
         API["PostgREST<br/>API automática com RLS"]
-        FN["Edge Function 'equipe'<br/>convites · papéis · desativação"]
+        FN["Edge Functions<br/>'equipe' (convites/papéis) · 'matching' (score no servidor)"]
         DB[("Postgres<br/>14 tabelas · 5 migrações")]
     end
 
@@ -129,6 +129,7 @@ VITE_SENTRY_DSN=<dsn>            # opcional
 | `npx vite-node scripts/seed.ts --confirmar` | carga dos dados de demonstração num banco novo (usa `SUPABASE_SERVICE_ROLE_KEY`, nunca a anon key — RLS exige dono/admin pra escrever) |
 | `npx supabase db push` | aplica migrações pendentes no banco remoto |
 | `npx supabase functions deploy equipe` | publica a Edge Function de gestão de equipe |
+| `npx supabase functions deploy matching` | publica a Edge Function que calcula os contadores de match |
 | `npx supabase migration list` | confere paridade migrações local × remoto |
 
 ## Deploy
@@ -151,7 +152,8 @@ src/
   stores/         zustand (auth, notificações, score, ui)
 supabase/
   migrations/     schema versionado (fonte da verdade do banco)
-  functions/      Edge Function 'equipe' (service role; só ela cria/gerencia contas)
+  functions/      Edge Functions 'equipe' (service role; cria/gerencia contas) e
+                  'matching' (JWT de quem chama; calcula contadores de match)
 scripts/seed.ts   dados de demonstração
 ```
 
