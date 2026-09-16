@@ -1,9 +1,26 @@
-import { PESO_ETAPA_LEAD } from '@/domain/constants'
-import type { Imovel, Lead, MatchResult, PerfilBusca, PesosScore } from '@/domain/types'
-import { encontrarBairro } from '@/mocks/data/bairros'
-import { normalizarLocal } from '@/domain/normalizacao'
+import type { EtapaLead, Imovel, Lead, MatchResult, PerfilBusca, PesosScore } from './types.ts'
+import { encontrarBairro } from '../mocks/data/bairros.ts'
+import { normalizarLocal } from './normalizacao.ts'
 
+// Extensões `.ts` explícitas nos imports acima (e em supabaseMap.ts, também
+// usado abaixo): este arquivo é importado tanto pelo frontend (Vite) quanto
+// pela Edge Function "matching" (Deno, supabase/functions/matching/index.ts)
+// via caminho relativo — Deno exige extensão em imports locais. Mantém tudo
+// num lugar só (sem duplicar a lógica de score) em vez de ter uma cópia no
+// servidor que pode ficar dessincronizada da cópia do cliente.
 const TOLERANCIA_PRECO = 0.05
+
+/** Peso de cada etapa do funil de cliente no score de match (0 = não entra). */
+export const PESO_ETAPA_LEAD: Record<EtapaLead, number> = {
+  1: 0.8,
+  2: 1.0,
+  3: 0.6,
+  4: 0.4,
+  5: 0,
+  6: 0,
+  7: 0.2,
+  8: 0,
+}
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371

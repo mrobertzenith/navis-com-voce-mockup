@@ -1,4 +1,4 @@
-import type { Imovel, Lead, Negociacao, PerfilBusca, Venda } from '@/domain/types'
+import type { Imovel, Lead, Negociacao, PerfilBusca, Venda } from '../domain/types.ts'
 
 /**
  * Conversão entre o modelo do app (camelCase) e as tabelas Postgres (snake_case).

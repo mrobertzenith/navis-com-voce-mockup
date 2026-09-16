@@ -49,17 +49,6 @@ export const ETAPA_LEAD_LABEL: Record<EtapaLead, string> = {
 
 export const ETAPA_LEAD_ORDEM: EtapaLead[] = [1, 2, 3, 4, 5, 6, 7, 8]
 
-export const PESO_ETAPA_LEAD: Record<EtapaLead, number> = {
-  1: 0.8,
-  2: 1.0,
-  3: 0.6,
-  4: 0.4,
-  5: 0,
-  6: 0,
-  7: 0.2,
-  8: 0,
-}
-
 export const ATRIBUTO_SCORE_LABEL: Record<AtributoScore, string> = {
   quartos: 'Quartos',
   suites: 'Suítes',
