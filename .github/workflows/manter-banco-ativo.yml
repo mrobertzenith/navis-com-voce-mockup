@@ -1,0 +1,32 @@
+name: Manter banco ativo
+
+# O Supabase gratuito pausa o projeto depois de ~7 dias sem atividade (o sistema
+# inteiro fica fora do ar até alguém restaurar no painel). Este workflow faz uma
+# consulta leve e somente-leitura a cada 3 dias pra isso não acontecer.
+#
+# Usa só a anon key (a mesma do frontend, já pública): a RLS devolve lista vazia
+# pra quem não está logado, mas a requisição chega no Postgres — que é o que
+# conta como atividade. Não escreve nada.
+on:
+  schedule:
+    - cron: '0 12 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: Ping no banco
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consulta somente-leitura
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          status=$(curl -sS -o /dev/null -w '%{http_code}' \
+            "$SUPABASE_URL/rest/v1/corretores?select=id&limit=1" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+          echo "HTTP $status"
+          # falha o job (e avisa por e-mail do GitHub) se o banco não responder 2xx:
+          # é o sinal de que ele já pausou e precisa de restauração manual
+          case "$status" in 2*) ;; *) echo "::error::Banco não respondeu 2xx — pode estar pausado"; exit 1;; esac
