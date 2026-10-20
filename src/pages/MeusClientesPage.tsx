@@ -101,8 +101,9 @@ export function MeusClientesPage() {
         isAviso: m.isAviso,
         resumo: `${TIPO_IMOVEL_LABEL[m.tipo]} · ${m.bairro} · ${formatPreco(m.valorAnuncio ?? m.valorEstimado)}`,
         corretorNome: nomeCorretor(m.corretorResponsavelId),
+        linkUrl: imoveis.find((i) => i.id === m.imovelId)?.linkAnuncioUrl,
       })),
-    [matchesBrutos],
+    [matchesBrutos, imoveis],
   )
 
   function iniciarMovimentacao(itemId: string, _origemId: string, destinoId: string) {
@@ -444,6 +445,7 @@ export function MeusClientesPage() {
       <DrillDownMatch
         aberto={drillDownLeadId != null}
         titulo="Possíveis negócios disponíveis"
+        selecionaveis
         matches={matchesDrillDown}
         onFechar={() => setDrillDownLeadId(null)}
         onAbrir={(imovelId) => {

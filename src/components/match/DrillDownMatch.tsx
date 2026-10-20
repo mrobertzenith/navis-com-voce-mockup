@@ -8,9 +8,10 @@ interface DrillDownMatchProps {
   onFechar: () => void
   onAbrir: (id: string) => void
   onDismiss: (id: string) => void
+  selecionaveis?: boolean
 }
 
-export function DrillDownMatch({ aberto, titulo, matches, onFechar, onAbrir, onDismiss }: DrillDownMatchProps) {
+export function DrillDownMatch({ aberto, titulo, matches, onFechar, onAbrir, onDismiss, selecionaveis }: DrillDownMatchProps) {
   return (
     <Sheet open={aberto} onOpenChange={(open) => !open && onFechar()}>
       <SheetContent data-testid="drawer-matches" side="right" className="w-full overflow-y-auto sm:max-w-lg">
@@ -18,7 +19,7 @@ export function DrillDownMatch({ aberto, titulo, matches, onFechar, onAbrir, onD
           <SheetTitle>{titulo}</SheetTitle>
         </SheetHeader>
         <div className="mt-4">
-          <ListaMatches matches={matches} onAbrir={onAbrir} onDismiss={onDismiss} />
+          <ListaMatches matches={matches} onAbrir={onAbrir} onDismiss={onDismiss} selecionaveis={selecionaveis} />
         </div>
       </SheetContent>
     </Sheet>

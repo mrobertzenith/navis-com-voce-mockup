@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import { MessageCircle } from 'lucide-react'
 import { CardImovel } from '@/components/imovel/CardImovel'
+import { BarraCompartilhar } from '@/components/shared/BarraCompartilhar'
+import { reunirLinks } from '@/lib/compartilhar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,10 +10,9 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { TIPO_IMOVEL_LABEL } from '@/domain/constants'
 import type { Imovel, TipoImovel } from '@/domain/types'
 import { useImoveis } from '@/hooks/useImoveis'
-import { CORRETORES, nomeCorretor } from '@/mocks/data/corretores'
+import { nomeCorretor } from '@/mocks/data/corretores'
 import { formatData, formatPreco } from '@/lib/format'
 import { useUIStore } from '@/stores/uiStore'
-import { cn } from '@/lib/cn'
 
 const TIPOS: TipoImovel[] = [
   'apartamento',
@@ -46,6 +46,15 @@ export function TodosImoveisPage() {
   const [vagasMin, setVagasMin] = useState('')
   const [areaMin, setAreaMin] = useState('')
   const [ordenacao, setOrdenacao] = useState<Ordenacao>('cadastro_desc')
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
+  function alternar(id: string) {
+    setSelecionados((atual) => {
+      const novo = new Set(atual)
+      if (novo.has(id)) novo.delete(id)
+      else novo.add(id)
+      return novo
+    })
+  }
 
   const baseVisao = useMemo(() => {
     const agora = new Date().toISOString()
@@ -86,6 +95,9 @@ export function TodosImoveisPage() {
     }
     return [...lista].sort(comparadores[ordenacao])
   }, [baseVisao, tipo, cidade, precoMin, precoMax, quartosMin, vagasMin, areaMin, ordenacao])
+
+  // só o que ainda está visível entra (filtros mudam a lista sem limpar a seleção)
+  const marcados = filtrados.filter((i) => selecionados.has(i.id))
 
   if (isLoading) {
     return <div className="p-6 text-sm text-text-mut">Carregando imóveis…</div>
@@ -198,6 +210,17 @@ export function TodosImoveisPage() {
             <table className="w-full text-left text-sm">
               <thead className="bg-bg text-xs uppercase tracking-wide text-text-mut">
                 <tr>
+                  <th className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      aria-label="Selecionar todos os imóveis da lista"
+                      checked={filtrados.length > 0 && marcados.length === filtrados.length}
+                      onChange={(e) =>
+                        setSelecionados(e.target.checked ? new Set(filtrados.map((i) => i.id)) : new Set())
+                      }
+                      className="h-4 w-4 rounded border-border"
+                    />
+                  </th>
                   <th className="px-4 py-3">Tipo</th>
                   <th className="px-4 py-3">Bairro</th>
                   <th className="px-4 py-3">Cidade</th>
@@ -214,7 +237,6 @@ export function TodosImoveisPage() {
               </thead>
               <tbody>
                 {filtrados.map((imovel) => {
-                  const corretor = CORRETORES.find((c) => c.id === imovel.corretorResponsavelId)
                   return (
                     <tr
                       key={imovel.id}
@@ -228,6 +250,15 @@ export function TodosImoveisPage() {
                       }}
                       className="cursor-pointer border-t border-border hover:bg-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          aria-label="Selecionar para compartilhar"
+                          checked={selecionados.has(imovel.id)}
+                          onChange={() => alternar(imovel.id)}
+                          className="h-4 w-4 rounded border-border"
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-1.5">
                           {imovel.etapa === 'e' && (
@@ -255,20 +286,7 @@ export function TodosImoveisPage() {
                         </>
                       )}
                       <td className="px-4 py-3">
-                        {corretor ? (
-                          <a
-                            href={`https://wa.me/55${corretor.telefoneWhatsapp}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className={cn('inline-flex items-center gap-1 text-primary hover:underline')}
-                          >
-                            <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.5} />
-                            {nomeCorretor(imovel.corretorResponsavelId)}
-                          </a>
-                        ) : (
-                          nomeCorretor(imovel.corretorResponsavelId)
-                        )}
+                        {nomeCorretor(imovel.corretorResponsavelId)}
                       </td>
                     </tr>
                   )
@@ -280,9 +298,25 @@ export function TodosImoveisPage() {
           {/* Mobile: cards */}
           <div className="flex flex-col gap-3 sm:hidden">
             {filtrados.map((imovel) => (
-              <CardImovel key={imovel.id} imovel={imovel} onClick={() => abrirModalImovel(imovel.id)} />
+              <div key={imovel.id} className="relative">
+                <CardImovel imovel={imovel} onClick={() => abrirModalImovel(imovel.id)} />
+                <input
+                  type="checkbox"
+                  aria-label="Selecionar para compartilhar"
+                  checked={selecionados.has(imovel.id)}
+                  onChange={() => alternar(imovel.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute left-2 top-2 z-10 h-5 w-5 rounded border-border"
+                />
+              </div>
             ))}
           </div>
+
+          <BarraCompartilhar
+            selecionados={marcados.length}
+            resultado={reunirLinks(marcados)}
+            onLimpar={() => setSelecionados(new Set())}
+          />
         </>
       )}
     </div>

@@ -24,7 +24,7 @@ flowchart LR
     subgraph supabase["Supabase (São Paulo)"]
         AUTH["Auth<br/>login por corretor"]
         API["PostgREST<br/>API automática com RLS"]
-        FN["Edge Functions<br/>'equipe' (convites/papéis) · 'matching' (score) · 'ranking-corretores' (admin)"]
+        FN["Edge Functions<br/>'equipe' (convites/papéis) · 'matching' (score) · 'ranking-corretores' (admin) · 'link-preview' (capa do anúncio)"]
         DB[("Postgres<br/>14 tabelas · 5 migrações")]
     end
 
@@ -131,6 +131,7 @@ VITE_SENTRY_DSN=<dsn>            # opcional
 | `npx supabase functions deploy equipe` | publica a Edge Function de gestão de equipe |
 | `npx supabase functions deploy matching` | publica a Edge Function que calcula os contadores/drill-down de match |
 | `npx supabase functions deploy ranking-corretores` | publica a Edge Function do ranking (admin-only) |
+| `npx supabase functions deploy link-preview` | publica a Edge Function que busca a imagem de capa (og:image) de um link de anúncio |
 | `npx supabase migration list` | confere paridade migrações local × remoto |
 
 ## Deploy
@@ -155,7 +156,8 @@ supabase/
   migrations/     schema versionado (fonte da verdade do banco)
   functions/      Edge Functions 'equipe' (service role; cria/gerencia contas),
                   'matching' (JWT de quem chama; contadores e drill-down de match) e
-                  'ranking-corretores' (JWT + checagem de papel admin)
+                  'ranking-corretores' (JWT + checagem de papel admin) e
+                  'link-preview' (JWT; busca a og:image de um link, com proteção SSRF)
 scripts/seed.ts   dados de demonstração
 ```
 
