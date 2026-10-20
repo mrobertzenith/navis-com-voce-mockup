@@ -45,7 +45,26 @@ export function useDismisses(): { descartados: Record<string, string>; descartar
   const mutation = useMutation({
     mutationFn: ({ corretorId, leadId, imovelId }: { corretorId: string; leadId: string; imovelId: string }) =>
       descartarMatch(corretorId, leadId, imovelId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: DISMISSES_KEY }),
+    // No modo servidor a lista/contadores de match vêm da Edge Function e a
+    // chave deles não depende dos descartes — sem invalidar ['matches'] aqui,
+    // o "Não interessou" gravava no banco mas a tela não mudava (regressão da
+    // separação servidor/local, corrigida em 20/10/2026). O filtro otimista
+    // tira o item da lista na hora, sem esperar a Edge Function responder.
+    onMutate: ({ leadId, imovelId }) => {
+      // chaves: ['matches', 'por-imovel'|'por-lead', 'servidor'|'local', id, ...]
+      queryClient.setQueriesData<Array<{ leadId?: string; imovelId?: string }>>(
+        { predicate: (q) => q.queryKey[0] === 'matches' && q.queryKey[1] === 'por-imovel' && q.queryKey[3] === imovelId },
+        (lista) => lista?.filter((m) => m.leadId !== leadId),
+      )
+      queryClient.setQueriesData<Array<{ leadId?: string; imovelId?: string }>>(
+        { predicate: (q) => q.queryKey[0] === 'matches' && q.queryKey[1] === 'por-lead' && q.queryKey[3] === leadId },
+        (lista) => lista?.filter((m) => m.imovelId !== imovelId),
+      )
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: DISMISSES_KEY })
+      queryClient.invalidateQueries({ queryKey: ['matches'] })
+    },
   })
 
   const descartadosLocal = useDismissStore((s) => s.descartados)
