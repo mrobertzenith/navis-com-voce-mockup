@@ -20,6 +20,18 @@ import { useLeads } from '@/hooks/useLeads'
 import { CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 import { useScoreStore } from '@/stores/scoreStore'
 
+interface VisitaForaDaBase {
+  uid: string
+  endereco: string
+  data: string
+  corretorNome: string
+  corretorContato: string
+}
+
+function novaVisitaForaDaBase(): VisitaForaDaBase {
+  return { uid: crypto.randomUUID(), endereco: '', data: '', corretorNome: '', corretorContato: '' }
+}
+
 interface ModalGateClienteProps {
   lead: Lead | null
   destino: EtapaLead | null
@@ -40,11 +52,13 @@ export function ModalGateCliente({
   const [valores, setValores] = useState<Record<string, string>>({})
   const [checks, setChecks] = useState<Record<string, boolean>>({})
   const [visitasSelecionadas, setVisitasSelecionadas] = useState<Record<string, string>>({})
-  const [enderecoForaDaBase, setEnderecoForaDaBase] = useState('')
-  // corretor de fora da plataforma responsável pelo imóvel fora da base —
-  // alimenta a lista de corretores ainda não participantes a abordar
-  const [corretorExternoNome, setCorretorExternoNome] = useState('')
-  const [corretorExternoContato, setCorretorExternoContato] = useState('')
+  // Visitas em imóveis fora da base: uma lista (antes era um bloco único, e só
+  // cabia uma visita). O corretor externo alimenta a lista de corretores ainda
+  // não participantes a abordar.
+  const [foraDaBase, setForaDaBase] = useState<VisitaForaDaBase[]>([])
+  function atualizarForaDaBase(uid: string, campos: Partial<VisitaForaDaBase>) {
+    setForaDaBase((atual) => atual.map((v) => (v.uid === uid ? { ...v, ...campos } : v)))
+  }
   const [imoveisNegociacao, setImoveisNegociacao] = useState<string[]>([])
   const { data: imoveis = [] } = useImoveis()
   const { data: todosLeads = [] } = useLeads()
@@ -89,12 +103,10 @@ export function ModalGateCliente({
     if (config.tipo === 'visitas') {
       const entradas = Object.entries(visitasSelecionadas)
       return (
-        entradas.length > 0 &&
-        entradas.every(
-          ([id, data]) =>
-            data.trim() &&
-            (id !== 'fora-da-base' ||
-              (enderecoForaDaBase.trim() && corretorExternoNome.trim() && corretorExternoContato.trim())),
+        entradas.length + foraDaBase.length > 0 &&
+        entradas.every(([, data]) => data.trim()) &&
+        foraDaBase.every(
+          (v) => v.data.trim() && v.endereco.trim() && v.corretorNome.trim() && v.corretorContato.trim(),
         )
       )
     }
@@ -105,18 +117,17 @@ export function ModalGateCliente({
   function handleConfirmar() {
     const patch: Partial<Lead> = {}
     if (valores.observacoes) patch.observacoes = valores.observacoes
-    if (Object.keys(visitasSelecionadas).length > 0) {
-      patch.visitasAgendadas = Object.entries(visitasSelecionadas).map(([id, data]) =>
-        id === 'fora-da-base'
-          ? {
-              imovelId: '',
-              data,
-              enderecoLivre: enderecoForaDaBase.trim(),
-              corretorExternoNome: corretorExternoNome.trim(),
-              corretorExternoContato: corretorExternoContato.trim(),
-            }
-          : { imovelId: id, data },
-      )
+    if (Object.keys(visitasSelecionadas).length + foraDaBase.length > 0) {
+      patch.visitasAgendadas = [
+        ...Object.entries(visitasSelecionadas).map(([id, data]) => ({ imovelId: id, data })),
+        ...foraDaBase.map((v) => ({
+          imovelId: '',
+          data: v.data,
+          enderecoLivre: v.endereco.trim(),
+          corretorExternoNome: v.corretorNome.trim(),
+          corretorExternoContato: v.corretorContato.trim(),
+        })),
+      ]
     }
     if (imoveisNegociacao.length > 0) patch.imovelNegociacaoId = imoveisNegociacao.join(',')
     if (valores.imovelFechadoId) patch.imovelFechadoId = valores.imovelFechadoId
@@ -128,9 +139,7 @@ export function ModalGateCliente({
     setValores({})
     setChecks({})
     setVisitasSelecionadas({})
-    setEnderecoForaDaBase('')
-    setCorretorExternoNome('')
-    setCorretorExternoContato('')
+    setForaDaBase([])
     setImoveisNegociacao([])
   }
 
@@ -296,39 +305,30 @@ export function ModalGateCliente({
                           </div>
                         )
                       })}
-                      <label className="flex items-center gap-2 text-sm text-text-mut">
-                        <input
-                          type="checkbox"
-                          checked={'fora-da-base' in visitasSelecionadas}
-                          onChange={() =>
-                            setVisitasSelecionadas((atual) => {
-                              if ('fora-da-base' in atual) {
-                                const resto = { ...atual }
-                                delete resto['fora-da-base']
-                                return resto
-                              }
-                              return { ...atual, 'fora-da-base': '' }
-                            })
-                          }
-                          className="h-4 w-4 rounded border-border"
-                        />
-                        Imóvel fora da base
-                      </label>
-                      {'fora-da-base' in visitasSelecionadas && (
-                        <div className="flex flex-col gap-2 rounded-card border border-border p-3">
+                      {foraDaBase.map((v, idx) => (
+                        <div key={v.uid} className="flex flex-col gap-2 rounded-card border border-border p-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-text-mut">Imóvel fora da base #{idx + 1}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setForaDaBase((atual) => atual.filter((x) => x.uid !== v.uid))}
+                            >
+                              Remover
+                            </Button>
+                          </div>
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                             <Input
                               placeholder="Endereço do imóvel"
-                              value={enderecoForaDaBase}
-                              onChange={(e) => setEnderecoForaDaBase(e.target.value)}
+                              value={v.endereco}
+                              onChange={(e) => atualizarForaDaBase(v.uid, { endereco: e.target.value })}
                               className="flex-1"
                             />
                             <Input
                               type="date"
-                              value={visitasSelecionadas['fora-da-base']}
-                              onChange={(e) =>
-                                setVisitasSelecionadas((atual) => ({ ...atual, 'fora-da-base': e.target.value }))
-                              }
+                              value={v.data}
+                              onChange={(e) => atualizarForaDaBase(v.uid, { data: e.target.value })}
                               className="sm:w-44"
                             />
                           </div>
@@ -336,19 +336,28 @@ export function ModalGateCliente({
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                             <Input
                               placeholder="Nome do corretor (externo)"
-                              value={corretorExternoNome}
-                              onChange={(e) => setCorretorExternoNome(e.target.value)}
+                              value={v.corretorNome}
+                              onChange={(e) => atualizarForaDaBase(v.uid, { corretorNome: e.target.value })}
                               className="flex-1"
                             />
                             <Input
                               placeholder="WhatsApp/contato do corretor"
-                              value={corretorExternoContato}
-                              onChange={(e) => setCorretorExternoContato(e.target.value)}
+                              value={v.corretorContato}
+                              onChange={(e) => atualizarForaDaBase(v.uid, { corretorContato: e.target.value })}
                               className="flex-1"
                             />
                           </div>
                         </div>
-                      )}
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="self-start"
+                        onClick={() => setForaDaBase((atual) => [...atual, novaVisitaForaDaBase()])}
+                      >
+                        {foraDaBase.length === 0 ? '+ Imóvel fora da base' : '+ Adicionar outro imóvel fora da base'}
+                      </Button>
                     </div>
                     {imoveisVisitaCompativeis.length === 0 && (
                       <p className="text-xs text-text-soft">

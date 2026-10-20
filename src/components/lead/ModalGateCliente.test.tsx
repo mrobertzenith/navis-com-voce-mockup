@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { ModalGateCliente } from '@/components/lead/ModalGateCliente'
 import type { Imovel, Lead } from '@/domain/types'
@@ -106,6 +107,47 @@ describe('ModalGateCliente — um imóvel não pode estar em mais de uma negocia
     expect(screen.queryByText(/Rua Teste/)).not.toBeInTheDocument()
     expect(await screen.findByText(/Rua Livre/)).toBeInTheDocument()
     // a opção de imóvel fora da base continua disponível independentemente
-    expect(screen.getByText('Imóvel fora da base')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /imóvel fora da base/i })).toBeInTheDocument()
+  })
+
+  it('permite agendar mais de uma visita em imóveis fora da base e envia todas', async () => {
+    const user = userEvent.setup()
+    const onConfirmar = vi.fn()
+    render(
+      <ModalGateCliente
+        lead={leadBase()}
+        destino={3}
+        camposFaltantes={['visitasAgendadas']}
+        requerConfirmacao={false}
+        onCancelar={() => {}}
+        onConfirmar={onConfirmar}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: /\+ imóvel fora da base/i }))
+    await user.click(screen.getByRole('button', { name: /adicionar outro imóvel fora da base/i }))
+
+    const enderecos = screen.getAllByPlaceholderText('Endereço do imóvel')
+    const nomes = screen.getAllByPlaceholderText('Nome do corretor (externo)')
+    const contatos = screen.getAllByPlaceholderText('WhatsApp/contato do corretor')
+    expect(enderecos).toHaveLength(2)
+
+    for (let i = 0; i < 2; i++) {
+      await user.type(enderecos[i], `Rua Externa ${i + 1}`)
+      await user.type(nomes[i], `Corretor ${i + 1}`)
+      await user.type(contatos[i], `1699999000${i}`)
+    }
+    const datas = document.querySelectorAll('input[type="date"]')
+    for (const d of Array.from(datas)) {
+      await user.type(d as HTMLInputElement, '2026-11-20')
+    }
+
+    await user.click(screen.getByRole('button', { name: /confirmar/i }))
+    const patch = onConfirmar.mock.calls[0][0]
+    expect(patch.visitasAgendadas).toHaveLength(2)
+    expect(patch.visitasAgendadas.map((v: { enderecoLivre: string }) => v.enderecoLivre)).toEqual([
+      'Rua Externa 1',
+      'Rua Externa 2',
+    ])
   })
 })
