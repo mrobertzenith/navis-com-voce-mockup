@@ -16,7 +16,7 @@ import { useToast } from '@/components/ui/use-toast'
 import type { Imovel, TipoImovel } from '@/domain/types'
 import { useRegistrarAtividade } from '@/hooks/useAtividades'
 import { useAtualizarImovel, useCriarImovel, useImoveis } from '@/hooks/useImoveis'
-import { CORRETOR_LOGADO_ID, nomeCorretor, CORRETORES } from '@/mocks/data/corretores'
+import { CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 import { useCriarNotificacao } from '@/hooks/useNotificacoes'
 import { encontrarBairro } from '@/mocks/data/bairros'
 import { cn } from '@/lib/cn'
@@ -529,12 +529,7 @@ function CadastroImovelForm({
               </p>
               {erroCnm && (
                 <div className="mt-1 rounded-card border border-danger/30 bg-danger/5 p-3 text-sm text-danger">
-                  Este CNM já está cadastrado por {nomeCorretor(erroCnm)}
-                  {(() => {
-                    const c = CORRETORES.find((c) => c.id === erroCnm)
-                    return c ? ` · WhatsApp: ${c.telefoneWhatsapp}` : ''
-                  })()}
-                  .
+                  Este CNM já está cadastrado por {nomeCorretor(erroCnm)}.
                 </div>
               )}
             </div>

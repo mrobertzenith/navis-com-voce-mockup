@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { MessageCircle } from 'lucide-react'
 import { CardCliente, type LeadCardData } from '@/components/lead/CardCliente'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
@@ -149,17 +148,7 @@ export function TodosClientesPage() {
                       <td className="px-4 py-3 font-mono">{formatData(lead.dataCadastro)}</td>
                       <td className="px-4 py-3">{ETAPA_LEAD_LABEL[lead.etapa]}</td>
                       <td className="px-4 py-3">
-                        {corretor && (
-                          <a
-                            href={`https://wa.me/55${corretor.telefoneWhatsapp}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-primary hover:underline"
-                          >
-                            <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.5} />
-                            {nomeCorretor(lead.corretorResponsavelId)}
-                          </a>
-                        )}
+                        {corretor && nomeCorretor(lead.corretorResponsavelId)}
                       </td>
                     </tr>
                   )

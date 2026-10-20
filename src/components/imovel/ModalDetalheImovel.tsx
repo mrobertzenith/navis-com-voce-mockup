@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Copy, MessageCircle, Pencil } from 'lucide-react'
+import { Copy, Pencil } from 'lucide-react'
+import { CapaDoLink } from '@/components/imovel/CapaDoLink'
 import { Link } from 'react-router-dom'
 import { ChipTipoImovel } from '@/components/imovel/ChipTipoImovel'
 import {
@@ -15,7 +16,7 @@ import { useToast } from '@/components/ui/use-toast'
 import type { Imovel, Lead } from '@/domain/types'
 import { useCriarVinculo } from '@/hooks/useVinculos'
 import { formatM2, formatPreco } from '@/lib/format'
-import { CORRETORES, CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
+import { CORRETOR_LOGADO_ID, nomeCorretor } from '@/mocks/data/corretores'
 
 interface ModalDetalheImovelProps {
   imovel: Imovel | null
@@ -41,7 +42,6 @@ export function ModalDetalheImovel({ imovel, meusLeads, leadContextoId, onClose 
 
   if (!imovel) return null
 
-  const corretor = CORRETORES.find((c) => c.id === imovel.corretorResponsavelId)
   const diferenciais = [
     imovel.elevador && 'Elevador',
     imovel.mobiliado && 'Mobiliado',
@@ -135,6 +135,8 @@ export function ModalDetalheImovel({ imovel, meusLeads, leadContextoId, onClose 
             <p className="text-sm text-text-mut">Condomínio: {imovel.nomeCondominio}</p>
           )}
 
+          <CapaDoLink url={imovel.linkAnuncioUrl} className="h-44 w-full rounded-card" />
+
           {imovel.linkAnuncioUrl && (
             <div className="flex items-center gap-2 rounded-card border border-border bg-bg p-2">
               <a
@@ -156,14 +158,6 @@ export function ModalDetalheImovel({ imovel, meusLeads, leadContextoId, onClose 
               <p className="text-sm font-medium text-ink">{nomeCorretor(imovel.corretorResponsavelId)}</p>
               <p className="text-xs text-text-soft">Corretor responsável</p>
             </div>
-            {corretor && imovel.corretorResponsavelId !== CORRETOR_LOGADO_ID && (
-              <Button variant="outline" size="sm" asChild>
-                <a href={`https://wa.me/55${corretor.telefoneWhatsapp}`} target="_blank" rel="noreferrer">
-                  <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  WhatsApp
-                </a>
-              </Button>
-            )}
           </div>
 
           {meusLeads.length > 0 && (
