@@ -1,6 +1,5 @@
 import { BedDouble, Car, ShowerHead, Users } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { CapaDoLink } from '@/components/imovel/CapaDoLink'
 import { ChipTipoImovel } from '@/components/imovel/ChipTipoImovel'
 import { Tarja } from '@/components/shared/Tarja'
 import { Button } from '@/components/ui/button'
@@ -64,8 +63,6 @@ export function CardImovel({
     >
       {mostrarTarjaNegociacao && <Tarja variant="em_negociacao" />}
       {mostrarTarjaVendido && <Tarja variant="vendido_aguardando_aceite" />}
-
-      <CapaDoLink url={imovel.linkAnuncioUrl} className="h-28 w-full" />
 
       <div className="p-3">
         <div className="mb-2 flex items-start justify-between gap-2">
