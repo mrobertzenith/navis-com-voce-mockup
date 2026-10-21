@@ -111,6 +111,15 @@ Legenda: **[VOCÊ]** = ação do Mário (contas, painéis, testes) · **[EU]** =
   drill-downs individuais (lista completa de matches de um imóvel/lead) também passaram pra
   Edge Function `matching`, reusando `domain/matching.ts` sem duplicar a lógica (Deno importa o
   mesmo arquivo por caminho relativo). Nenhum cruzamento de matching roda mais no cliente.
+- **Ranking público de VGV por período (20/10/2026)**: o Ranking deixou de ser só de admin — toda a
+  equipe vê VGV executado e nº de vendas por corretor, com controle de período (mês, trimestre,
+  semestre, ano, todo o período; limites em horário de Brasília). Conversão, colaboração e score
+  composto continuam só pra admin, e o corte é no servidor (a Edge Function devolve a visão
+  pública sem esses campos). "VGV executado" = soma de `vendas` não revertidas, na data da venda,
+  atribuída ao corretor dono do imóvel. Isso expôs um bug: nenhum trigger preenchia
+  `imoveis.valor_venda` (só `vendas.valor_venda`), então tudo que lia o valor pelo imóvel
+  (Dashboard, aba "Imóveis Vendidos") mostraria vazio/zero em venda real — a migração 16 faz um
+  trigger em `vendas` espelhar o valor no imóvel, e o teste cross-corretor exige isso.
 - **Ranking no servidor (15/09/2026)**: mesma lógica aplicada ao Ranking de Corretores (tela
   admin-only desde a mesma rodada) — o cálculo (VGV, conversão, colaboração, score composto)
   saiu do componente e virou `domain/ranking.ts`, reusado pela Edge Function

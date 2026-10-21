@@ -37,14 +37,7 @@ export const router = createBrowserRouter(
         { path: 'clientes/:id/editar', element: <CadastroClientePage /> },
         { path: 'todos-imoveis', element: <TodosImoveisPage /> },
         { path: 'todos-clientes', element: <TodosClientesPage /> },
-        {
-          path: 'ranking-corretores',
-          element: (
-            <RequireAdmin>
-              <RankingCorretoresPage />
-            </RequireAdmin>
-          ),
-        },
+        { path: 'ranking-corretores', element: <RankingCorretoresPage /> },
         {
           path: 'equipe',
           element: (

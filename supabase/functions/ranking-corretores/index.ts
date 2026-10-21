@@ -1,25 +1,32 @@
-// Edge Function "ranking-corretores" — calcula o ranking (VGV, conversão,
-// colaboração, score composto) no servidor, restrito a admin.
+// Edge Function "ranking-corretores" — ranking de VGV executado por período,
+// calculado no servidor.
 //
-// Antes o cálculo rodava inteiro no navegador com dado já carregado no
-// frontend (achado de revisão, 15/09/2026) — é tela gerencial, a regra de
-// score devia estar centralizada num lugar só, e a checagem de admin era só
-// de UI (RequireAdmin no roteador) — não impedia ler a API/RLS diretamente
-// com outra conta. Aqui a checagem de papel é explícita, igual à função
-// "equipe".
+// Duas visões, decididas aqui (não no cliente):
+//   - qualquer corretor da equipe: vendas e VGV por corretor (ranking público);
+//   - admin: além disso conversão, colaboração e score composto (gerencial).
+// A visão pública não devolve os campos gerenciais nem pra quem chamar a API
+// direto — o corte é no servidor, não só na tela.
 //
-// domain/ranking.ts não foi duplicado — importado por caminho relativo
-// (Deno exige extensão .ts explícita nos imports locais), mesmo padrão da
-// função "matching".
+// Corpo: { periodo: { tipo: 'mes'|'trimestre'|'semestre'|'ano'|'tudo', ano, indice } }
+// Resposta: { ranking: LinhaRanking[], visao: 'publica' | 'admin' }
+//
+// domain/ranking.ts não foi duplicado — importado por caminho relativo (Deno
+// exige extensão .ts explícita nos imports locais), mesmo padrão de "matching".
 //
 // Autenticação: JWT de quem chama, não service role — só lê
-// imoveis/negociacoes/corretores via RLS (`equipe_le`, já dava pra qualquer
-// corretor da equipe antes disso), mas só devolve resposta pra quem tem
-// papel admin na tabela `corretores`.
+// corretores/vendas/negociacoes via RLS (`equipe_le`, já dava pra qualquer
+// corretor da equipe antes disso).
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { calcularRanking, type CorretorParaRanking } from '../../../src/domain/ranking.ts'
-import { imovelParaDominio, negociacaoParaDominio } from '../../../src/lib/supabaseMap.ts'
+import {
+  calcularRanking,
+  limitesDoPeriodo,
+  paraVisaoPublica,
+  periodoValido,
+  type CorretorParaRanking,
+  type VendaParaRanking,
+} from '../../../src/domain/ranking.ts'
+import { negociacaoParaDominio } from '../../../src/lib/supabaseMap.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -52,36 +59,51 @@ Deno.serve(async (req) => {
 
   const { data: eu } = await db
     .from('corretores')
-    .select('papel')
+    .select('papel, status')
     .eq('email', user.email.toLowerCase())
     .maybeSingle()
-  if (eu?.papel !== 'admin') return resposta(403, { erro: 'Apenas administradores' })
+  if (!eu || eu.status === 'suspenso') return resposta(403, { erro: 'Sem acesso' })
+  const admin = eu.papel === 'admin'
+
+  const corpo = await req.json().catch(() => ({}))
+  if (!periodoValido(corpo.periodo)) return resposta(400, { erro: 'Período inválido' })
+  const limites = limitesDoPeriodo(corpo.periodo)
 
   try {
-    const [corretoresRes, imoveisRes, negociacoesRes] = await Promise.all([
-      db.from('corretores').select('id, nome, cidade, estado'),
-      db.from('imoveis').select('*'),
-      db.from('negociacoes').select('*'),
+    const [corretoresRes, vendasRes, negociacoesRes] = await Promise.all([
+      db.from('corretores').select('id, nome, cidade, estado, status'),
+      db.from('vendas').select('corretor_imovel_id, valor_venda, data_venda, revertida'),
+      admin ? db.from('negociacoes').select('*') : Promise.resolve({ data: [], error: null }),
     ])
     if (corretoresRes.error) {
       return resposta(500, { erro: `Falha ao carregar corretores: ${corretoresRes.error.message}` })
     }
-    if (imoveisRes.error) return resposta(500, { erro: `Falha ao carregar imóveis: ${imoveisRes.error.message}` })
+    if (vendasRes.error) return resposta(500, { erro: `Falha ao carregar vendas: ${vendasRes.error.message}` })
     if (negociacoesRes.error) {
       return resposta(500, { erro: `Falha ao carregar negociações: ${negociacoesRes.error.message}` })
     }
 
-    const corretores: CorretorParaRanking[] = corretoresRes.data.map((row) => ({
-      id: String(row.id),
-      nome: String(row.nome),
-      cidade: String(row.cidade ?? ''),
-      estado: String(row.estado ?? ''),
+    const corretores: CorretorParaRanking[] = corretoresRes.data
+      .filter((row) => row.status !== 'suspenso')
+      .map((row) => ({
+        id: String(row.id),
+        nome: String(row.nome),
+        cidade: String(row.cidade ?? ''),
+        estado: String(row.estado ?? ''),
+      }))
+    const vendas: VendaParaRanking[] = vendasRes.data.map((row) => ({
+      corretorImovelId: String(row.corretor_imovel_id),
+      valorVenda: Number(row.valor_venda),
+      dataVenda: String(row.data_venda),
+      revertida: Boolean(row.revertida),
     }))
-    const imoveis = imoveisRes.data.map(imovelParaDominio)
     const negociacoes = negociacoesRes.data.map(negociacaoParaDominio)
 
-    const ranking = calcularRanking(corretores, imoveis, negociacoes)
-    return resposta(200, { ranking })
+    const completo = calcularRanking(corretores, vendas, negociacoes, limites)
+    return resposta(200, {
+      ranking: admin ? completo : paraVisaoPublica(completo),
+      visao: admin ? 'admin' : 'publica',
+    })
   } catch (e) {
     return resposta(500, { erro: e instanceof Error ? e.message : 'Erro interno' })
   }

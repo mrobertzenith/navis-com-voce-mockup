@@ -500,7 +500,8 @@ async function main() {
 
     const { data: lead } = await a.client.from('leads').select('etapa').eq('id', leadG3).single()
     exigir(lead!.etapa === 5, `lead deveria ir pra 5 sozinho, veio ${lead!.etapa}`)
-    const { data: imovel } = await a.client.from('imoveis').select('etapa, data_venda').eq('id', imovelG3).single()
+    const { data: imovel } = await a.client.from('imoveis').select('etapa, data_venda, valor_venda').eq('id', imovelG3).single()
+    exigir(Number(imovel!.valor_venda) === 555000, `imóvel deveria espelhar valor_venda 555000 da venda (migração 16), veio ${imovel!.valor_venda}`)
     exigir(imovel!.etapa === 'f', `imóvel deveria ir pra 'f' sozinho, veio '${imovel!.etapa}'`)
     exigir(imovel!.data_venda != null, 'data_venda deveria ter sido preenchida sozinha')
 
