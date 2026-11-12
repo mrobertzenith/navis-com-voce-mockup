@@ -8,12 +8,13 @@ import { useToast } from '@/components/ui/use-toast'
 // Espelha CadastroClientePage.test.tsx: mesma trava, mesmo risco, mesma classe de
 // regressão (ESTRATEGIA_QA.md §1.4 e §2, camada 3).
 
+const imoveisMock = vi.hoisted(() => ({ lista: [] as Array<Record<string, unknown>> }))
 const criarImovelMock = vi.fn()
 const atualizarImovelMock = vi.fn()
 const criarNotificacaoMock = vi.fn()
 
 vi.mock('@/hooks/useImoveis', () => ({
-  useImoveis: () => ({ data: [], isLoading: false }),
+  useImoveis: () => ({ data: imoveisMock.lista, isLoading: false }),
   useCriarImovel: () => ({ mutate: criarImovelMock, isPending: false }),
   useAtualizarImovel: () => ({ mutate: atualizarImovelMock, isPending: false }),
 }))
@@ -35,6 +36,17 @@ vi.mock('@/hooks/useNotificacoes', () => ({
 vi.mock('@/hooks/useAtividades', () => ({
   useRegistrarAtividade: () => ({ mutate: vi.fn() }),
 }))
+
+function renderEdicao(id: string) {
+  return render(
+    <MemoryRouter initialEntries={[`/imoveis/${id}/editar`]}>
+      <Routes>
+        <Route path="/imoveis/:id/editar" element={<CadastroImovelPage />} />
+        <Route path="/meus-imoveis" element={<div>Meus Imóveis</div>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
 
 function renderPagina() {
   return render(
@@ -119,5 +131,78 @@ describe('CadastroImovelPage — wizard de cadastro de imóvel', () => {
     expect(
       toastState.current.toasts.some((t) => String(t.title).includes('Cadastro incompleto')),
     ).toBe(true)
+  })
+
+  describe('CNM e link do anúncio', () => {
+    async function ateOPasso4(user: ReturnType<typeof userEvent.setup>) {
+      await preencherPasso1(user)
+      await preencherPasso2(user)
+      await avancar(user)
+      await screen.findByText('Passo 3 de 4')
+      await avancar(user)
+      await screen.findByText('Passo 4 de 4')
+    }
+
+    it('CNM é opcional: cadastra sem CNM e o texto não diz que é obrigatório', async () => {
+      const user = userEvent.setup()
+      renderPagina()
+      await ateOPasso4(user)
+      expect(screen.queryByText(/obrigatório para avançar/i)).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: 'Concluir cadastro' }))
+      await waitFor(() => expect(criarImovelMock).toHaveBeenCalledTimes(1))
+      expect(criarImovelMock.mock.calls[0][0].cnm).toBeUndefined()
+    })
+
+    it('permite informar o link já no cadastro', async () => {
+      const user = userEvent.setup()
+      renderPagina()
+      await ateOPasso4(user)
+      await user.type(screen.getByLabelText(/link do anúncio/i), 'https://site.com/imovel/1')
+      await user.click(screen.getByRole('button', { name: 'Concluir cadastro' }))
+      await waitFor(() => expect(criarImovelMock).toHaveBeenCalledTimes(1))
+      expect(criarImovelMock.mock.calls[0][0].linkAnuncioUrl).toBe('https://site.com/imovel/1')
+    })
+
+    it('recusa link que não é uma URL completa e explica o erro', async () => {
+      const user = userEvent.setup()
+      renderPagina()
+      await ateOPasso4(user)
+      await user.type(screen.getByLabelText(/link do anúncio/i), 'site.com/imovel')
+      await user.click(screen.getByRole('button', { name: 'Concluir cadastro' }))
+      expect(await screen.findByText(/começando com http/i)).toBeInTheDocument()
+      expect(criarImovelMock).not.toHaveBeenCalled()
+    })
+
+    it('REGRESSÃO: link cadastrado por engano pode ser corrigido depois (e deixa de contar como quebrado)', async () => {
+      imoveisMock.lista = [
+        {
+          id: 'im-edit', corretorResponsavelId: 'cor-1', etapa: 'd',
+          enderecoRua: 'Rua Teste', enderecoNumero: '100', bairro: 'Centro', cidade: 'Ribeirão Preto', estado: 'SP',
+          cep: '14000-000', lat: 0, lng: 0, tipo: 'apartamento',
+          quartos: 2, suites: 0, vagas: 1, banheiros: 1, areaPrivativaM2: 70, valorAnuncio: 400000,
+          linkAnuncioUrl: 'https://errado.com/1', linkQuebrado: true, emNegociacaoFlag: false,
+          criadoEm: '2026-01-01T00:00:00.000Z', atualizadoEm: '2026-01-01T00:00:00.000Z',
+        },
+      ]
+      const user = userEvent.setup()
+      renderEdicao('im-edit')
+      await screen.findByText('Passo 1 de 4')
+      await avancar(user)
+      await avancar(user)
+      await avancar(user)
+      await screen.findByText('Passo 4 de 4')
+
+      const campo = screen.getByLabelText(/link do anúncio/i) as HTMLInputElement
+      expect(campo.value).toBe('https://errado.com/1') // vem preenchido: dá pra ver o que está errado
+      await user.clear(campo)
+      await user.type(campo, 'https://certo.com/9')
+      await user.click(screen.getByRole('button', { name: /salvar|concluir/i }))
+
+      await waitFor(() => expect(atualizarImovelMock).toHaveBeenCalledTimes(1))
+      const { patch } = atualizarImovelMock.mock.calls[0][0]
+      expect(patch.linkAnuncioUrl).toBe('https://certo.com/9')
+      expect(patch.linkQuebrado).toBe(false)
+      imoveisMock.lista = []
+    })
   })
 })

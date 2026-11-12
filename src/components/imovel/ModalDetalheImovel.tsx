@@ -147,9 +147,16 @@ export function ModalDetalheImovel({ imovel, meusLeads, leadContextoId, onClose 
               >
                 {imovel.linkAnuncioUrl}
               </a>
-              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={copiarLink}>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={copiarLink} aria-label="Copiar link">
                 <Copy className="h-3.5 w-3.5" strokeWidth={1.5} />
               </Button>
+              {imovel.corretorResponsavelId === CORRETOR_LOGADO_ID && (
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" asChild>
+                  <Link to={`/imoveis/${imovel.id}/editar`} onClick={onClose} aria-label="Editar link" title="Editar link">
+                    <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  </Link>
+                </Button>
+              )}
             </div>
           )}
 

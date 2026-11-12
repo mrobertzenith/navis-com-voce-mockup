@@ -42,20 +42,15 @@ describe('avaliarTransicaoImovel', () => {
     expect(r.tipo).toBe('invalida')
   })
 
-  describe('etapa b — Análise e Estudo: exige CNM', () => {
-    it('bloqueia sem cnm', () => {
+  describe('etapa b — Análise e Estudo: CNM é opcional', () => {
+    it('avança sem CNM (decisão do PO, 12/11/2026: antes bloqueava)', () => {
       const r = avaliarTransicaoImovel(imovelBase({ etapa: 'a' }), 'b')
       expect(r.tipo).toBe('avanco')
-      expect(r.camposFaltantes).toEqual(['cnm'])
-    })
-
-    it('libera com cnm preenchido', () => {
-      const r = avaliarTransicaoImovel(imovelBase({ etapa: 'a', cnm: '12345' }), 'b')
       expect(r.camposFaltantes).toEqual([])
     })
 
-    it('libera com cnm vindo só do patch', () => {
-      const r = avaliarTransicaoImovel(imovelBase({ etapa: 'a' }), 'b', { cnm: '12345' })
+    it('avança do mesmo jeito com CNM preenchido', () => {
+      const r = avaliarTransicaoImovel(imovelBase({ etapa: 'a', cnm: '12345' }), 'b')
       expect(r.camposFaltantes).toEqual([])
     })
   })

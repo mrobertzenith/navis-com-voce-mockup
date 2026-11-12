@@ -143,15 +143,6 @@ export function DashboardPage() {
       })
     }
 
-    const semCnm = meusImoveis.filter((i) => i.etapa === 'a' && !i.cnm)
-    if (semCnm.length > 0) {
-      acoes.push({
-        id: 'sem-cnm',
-        descricao: `${semCnm.length} ${semCnm.length === 1 ? 'imóvel novo está' : 'imóveis novos estão'} sem CNM preenchido`,
-        to: '/meus-imoveis',
-      })
-    }
-
     if (linksQuebrados > 0) {
       acoes.push({
         id: 'links-quebrados',
@@ -169,7 +160,7 @@ export function DashboardPage() {
     }
 
     return acoes
-  }, [meusLeads, meusImoveis, linksQuebrados, parados])
+  }, [meusLeads, linksQuebrados, parados])
 
   return (
     <div className="p-6">

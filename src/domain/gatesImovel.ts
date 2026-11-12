@@ -1,10 +1,9 @@
 import { ETAPA_IMOVEL_ORDEM } from '@/domain/constants'
 import type { EtapaImovel, Imovel } from '@/domain/types'
 
-export type CampoGateImovel = 'cnm' | 'valorAnuncio' | 'linkAnuncioUrl' | 'metragem'
+export type CampoGateImovel = 'valorAnuncio' | 'linkAnuncioUrl' | 'metragem'
 
 export const CAMPO_GATE_LABEL: Record<CampoGateImovel, string> = {
-  cnm: 'CNM (Cadastro Nacional de Matrícula)',
   valorAnuncio: 'Valor de anúncio',
   linkAnuncioUrl: 'Link do anúncio',
   metragem: 'Metragem (área)',
@@ -62,7 +61,8 @@ export function avaliarTransicaoImovel(
   const efetivo = { ...imovel, ...patch }
   const faltantes: CampoGateImovel[] = []
 
-  if (destino === 'b' && !efetivo.cnm) faltantes.push('cnm')
+  // CNM é opcional em todas as etapas (decisão do PO, 12/11/2026) — antes
+  // bloqueava Novo → Análise e Estudo
   if (destino === 'c' && efetivo.valorAnuncio == null) faltantes.push('valorAnuncio')
   if (destino === 'd') {
     if (!efetivo.linkAnuncioUrl) faltantes.push('linkAnuncioUrl')

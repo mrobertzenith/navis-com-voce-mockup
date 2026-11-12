@@ -37,6 +37,16 @@ const TIPOS_COM_TERRENO_SEPARADO: TipoImovel[] = ['casa_rua', 'casa_condominio',
 const TIPOS_APENAS_TERRENO: TipoImovel[] = ['terreno_rua', 'terreno_condominio', 'terreno_comercial']
 const TIPOS_COM_ARMARIOS: TipoImovel[] = ['apartamento', 'casa_rua', 'casa_condominio', 'casa_comercial']
 
+/** link de anúncio: precisa ser uma URL http(s) completa (senão a capa e o compartilhamento não funcionam) */
+function urlHttpValida(v: string): boolean {
+  try {
+    const u = new URL(v)
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 /** número opcional: vazio vale como "não informado"; se informado, precisa ser > 0 */
 const numeroOpcionalPositivo = z.preprocess(
   (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? undefined : Number(v)),
@@ -76,6 +86,12 @@ const schema = z
 
     valorEstimado: numeroOpcionalPositivo,
     cnm: z.string().optional(),
+    linkAnuncioUrl: z
+      .string()
+      .optional()
+      .refine((v) => !v?.trim() || urlHttpValida(v.trim()), {
+        message: 'Informe um link completo, começando com http:// ou https://',
+      }),
 
     // coordenadas vindas do CEP (invisíveis pro usuário; alimentam o matching por raio)
     lat: z.number().optional(),
@@ -88,12 +104,12 @@ const schema = z
 
 type FormData = z.infer<typeof schema>
 
-const PASSOS = ['Localização', 'Características', 'Diferenciais', 'Valor e CNM']
+const PASSOS = ['Localização', 'Características', 'Diferenciais', 'Valor, CNM e link']
 const CAMPOS_POR_PASSO: (keyof FormData)[][] = [
   ['estado', 'cidade', 'bairro', 'enderecoRua', 'enderecoNumero', 'cep'],
   ['tipo', 'quartos', 'suites', 'vagas', 'banheiros', 'area', 'areaTerreno'],
   [],
-  [],
+  ['linkAnuncioUrl'],
 ]
 
 export function CadastroImovelPage() {
@@ -159,6 +175,7 @@ function CadastroImovelForm({
           diferenciaisExtras: imovelExistente.diferenciaisExtras ?? [],
           valorEstimado: imovelExistente.valorEstimado,
           cnm: imovelExistente.cnm,
+          linkAnuncioUrl: imovelExistente.linkAnuncioUrl,
         }
       : {
           estado: '',
@@ -280,6 +297,11 @@ function CadastroImovelForm({
       lng: dados.lng ?? coordsBairro?.lng ?? 0,
       tipo: dados.tipo,
       cnm: dados.cnm || undefined,
+      linkAnuncioUrl: dados.linkAnuncioUrl?.trim() || undefined,
+      // link corrigido deixa de estar "quebrado" até a próxima verificação
+      ...(imovelExistente && dados.linkAnuncioUrl?.trim() !== (imovelExistente.linkAnuncioUrl ?? '')
+        ? { linkQuebrado: false }
+        : {}),
       valorEstimado: dados.valorEstimado,
       quartos: dados.quartos,
       suites: dados.suites,
@@ -511,7 +533,7 @@ function CadastroImovelForm({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="cnm">
-                CNM (Cadastro Nacional de Matrícula) — opcional agora, obrigatório para avançar de etapa
+                CNM (Cadastro Nacional de Matrícula) — opcional
               </Label>
               <Input
                 id="cnm"
@@ -524,13 +546,29 @@ function CadastroImovelForm({
               />
               <p className="text-xs text-text-soft">
                 O CNM (Cadastro Nacional de Matrícula) identifica o imóvel de forma única e
-                nacional na base. Você pode informar depois, mas será exigido para avançar da
-                etapa "Novo" para "Análise e Estudo".
+                nacional na base. Preencha se tiver; não é exigido para avançar de etapa.
               </p>
               {erroCnm && (
                 <div className="mt-1 rounded-card border border-danger/30 bg-danger/5 p-3 text-sm text-danger">
                   Este CNM já está cadastrado por {nomeCorretor(erroCnm)}.
                 </div>
+              )}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="linkAnuncioUrl">Link do anúncio (opcional)</Label>
+              <Input
+                id="linkAnuncioUrl"
+                inputMode="url"
+                autoComplete="off"
+                placeholder="https://..."
+                {...form.register('linkAnuncioUrl')}
+              />
+              <p className="text-xs text-text-soft">
+                É exigido para publicar o imóvel, mas pode ser informado ou corrigido aqui a qualquer
+                momento. A capa do anúncio e o compartilhamento usam este link.
+              </p>
+              {form.formState.errors.linkAnuncioUrl && (
+                <p className="text-xs text-danger">{form.formState.errors.linkAnuncioUrl.message}</p>
               )}
             </div>
           </>
